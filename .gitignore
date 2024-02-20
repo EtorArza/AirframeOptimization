@@ -1,0 +1,7 @@
+.vscode
+src/__pycache__
+results/data/*
+results/figures/*
+!results/data/.gitkeep
+!results/figures/.gitkeep
+
