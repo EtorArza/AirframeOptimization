@@ -10,3 +10,4 @@ other_src/WindFLO/release/libWindFLO_LINUX.so
 other_src/WindFLO/release/main.o
 other_src/WindFLO/release/userDefined.o
 other_src/WindFLO/release/WindFLO_LINUX
+terrain.dat

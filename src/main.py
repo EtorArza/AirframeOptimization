@@ -6,7 +6,7 @@ import plot_src
 
 np.random.seed(2)
 
-problem_name_list = ["airframes"]
+problem_name_list = ["airframes", "windflo"]
 class problem:
 
     def __init__(self, problem_name):
@@ -18,6 +18,13 @@ class problem:
             self.dim = 6*4
             self.constraint_check = problem_airframes.constraint_check
             self.plot_solution = problem_airframes.plot_airframe_design
+
+        if problem_name == "windflo":
+            import problem_windflo
+            self.dim = problem_windflo.SOLUTION_DIM
+            self.constraint_check = problem_windflo.constraint_check
+            self.plot_solution = problem_windflo.plot_WindFLO
+            self.f = problem_windflo.f
 
         self.n_constraints = len(self.constraint_check(np.random.random(self.dim)))
 
@@ -61,4 +68,4 @@ if __name__ == "__main__":
                 x_random = np.random.random(prob.dim)
                 res = prob.constraint_check(x_random)
                 [set_list[idx].add(i) for idx in range(prob.n_constraints) if res[idx]]
-            plot_src.plot_venn_diagram(set_list, n_montecarlo, ["constraint_1", "constraint_2"])
+            plot_src.plot_venn_diagram(set_list, n_montecarlo, ["constraint_"+str(i) for i in range(prob.n_constraints)])

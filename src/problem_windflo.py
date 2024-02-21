@@ -14,7 +14,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 from numpy import linalg
 from tqdm import tqdm as tqdm
-
+import numpy.typing
 import os
 
 sys.path.append('other_src/WindFLO/API')
@@ -23,6 +23,12 @@ from WindFLO import WindFLO
 #==================================================================================================
 # FUNCTIONS
 #==================================================================================================
+
+N_TURBINES = 25
+SOLUTION_DIM = N_TURBINES*2
+
+
+
 def get_windFLO_object():
     '''Initialize the characteristics of the terrain and turbines on which the optimization will be applied.'''
 
@@ -32,7 +38,7 @@ def get_windFLO_object():
     libDir = 'other_src/WindFLO/release/', # Path to the shared library libWindFLO.so.
     turbineFile = 'other_src/WindFLO/Examples/Example1/V90-3MW.dat',# Turbine parameters.
     terrainfile = 'other_src/WindFLO/Examples/Example1/terrain.dat', # File associated with the terrain.
-    nTurbines = 25, # Number of turbines.
+    nTurbines = N_TURBINES, # Number of turbines.
 
     monteCarloPts = 1000# Parameter whose accuracy will be modified.
     )
@@ -41,70 +47,113 @@ def get_windFLO_object():
     windFLO.terrainmodel = 'IDW'
 
     return windFLO
+WINDFLO_OBJ=get_windFLO_object()
 
-def EvaluateFarm(x, windFLO):
+
+def from_0_1_to_windflo(x: numpy.typing.ArrayLike):
+    lbound = np.zeros(SOLUTION_DIM)    
+    ubound = np.ones(SOLUTION_DIM)*2000
+    return lbound + x*(ubound - lbound)
+
+
+
+def f(x: numpy.typing.ArrayLike):
     '''Evaluating the performance of a single solution.'''
-    
+    solution=from_0_1_to_windflo(x)
+
     k = 0
-    for i in range(0, windFLO.nTurbines):
+    for i in range(0, N_TURBINES):
         for j in range(0, 2):
-            # unroll the variable vector 'x' and assign it to turbine positions
-            windFLO.turbines[i].position[j] = x[k]
+            # unroll the variable vector 'solution' and assign it to turbine positions
+            WINDFLO_OBJ.turbines[i].position[j] = solution[k]
             k = k + 1
 
     # Run WindFLO analysis.
-    windFLO.run(clean = True) 
+    WINDFLO_OBJ.run(clean = True) 
 
-    return windFLO.farmPower
+    return WINDFLO_OBJ.farmPower
 
-def generate_random_solution(seed,windFLO):
-    '''Generate random solution.'''
 
-    # Function to transform solution from scaled values to real values.
-    def transform_to_problem_dim(x):
-        lbound = np.zeros(windFLO.nTurbines*2)    
-        ubound = np.ones(windFLO.nTurbines*2)*2000
-        return lbound + x*(ubound - lbound)
 
-    # Random solution.
-    np.random.seed(seed)
-    solution=transform_to_problem_dim(np.random.random(windFLO.nTurbines*2))
-    return solution
 
-def plot_WindFLO(windFLO,path,file_name):
+
+
+def plot_WindFLO(x: numpy.typing.ArrayLike):
     '''Graphically represent the solution.'''
-
+    f(x) # Loads solution into WINDFLO_OBJ
     # Results in 2D.
     fig = plt.figure(figsize=(8,5), edgecolor = 'gray', linewidth = 2)
-    ax = windFLO.plotWindFLO2D(fig, plotVariable = 'P', scale = 1.0e-3, title = 'P [kW]')
-    windFLO.annotatePlot(ax)
+    ax = WINDFLO_OBJ.plotWindFLO2D(fig, plotVariable = 'P', scale = 1.0e-3, title = 'P [kW]')
+    WINDFLO_OBJ.annotatePlot(ax)
     plt.show()
 
     # Results in 3D.
     fig = plt.figure(figsize=(8,5), edgecolor = 'gray', linewidth = 2)
-    ax = windFLO.plotWindFLO3D(fig)
-    windFLO.annotatePlot(ax)
+    ax = WINDFLO_OBJ.plotWindFLO3D(fig)
+    WINDFLO_OBJ.annotatePlot(ax)
     plt.show()
 
-#==================================================================================================
-# MAIN PROGRAM
-#==================================================================================================
 
-# Initialize environment.
-windFLO=get_windFLO_object()
 
-# Select a possible solution randomly.
-solution=generate_random_solution(0,windFLO)
+def constraint_check(x: numpy.typing.ArrayLike):
+    
+    # Assuming turbines are placed in a 2000x2000 grid.
 
-# Evaluate solution.
-t=time.time()
-score=EvaluateFarm(solution, windFLO)
-elapsed=time.time()-t
+    # get position of the turbines in the 2000x2000 grid.
+    sol = from_0_1_to_windflo(x)
+    k = 0
+    x_pos = np.zeros((N_TURBINES, 2))
+    for i in range(0, N_TURBINES):
+        for j in range(0, 2):
+            x_pos[i,j] = sol[k]
+            k = k + 1
 
-print('Score: '+str(score)+' Time: '+str(elapsed))
+    # constraint 0: distance between every two turbines minimum 100 m
+    min_distance = 100.0
+    check_0 = True
+    for i_1 in range(N_TURBINES):
+        if check_0 == False:
+            break
+        for i_2 in range(N_TURBINES):
+            if i_1==i_2:
+                continue
+            if np.linalg.norm(x_pos[i_1]- x_pos[i_2]) < min_distance:
+                check_0 = False
+    
+    # constraint 1: solutions should be evenly distributed in the space: Each quandrant should not have more than 1/3 of the solutions.
+    check_1 = True
+    q_count = np.zeros(4)
+    for i in range(N_TURBINES):
+        if x_pos[i][0] > 1000 and x_pos[i][1] > 1000:
+            q_count[0] += 1
+        if x_pos[i][0] < 1000 and x_pos[i][1] > 1000:
+            q_count[1] += 1
+        if x_pos[i][0] < 1000 and x_pos[i][1] < 1000:
+            q_count[2] += 1
+        if x_pos[i][0] > 1000 and x_pos[i][1] < 1000:
+            q_count[3] += 1
+    if max(q_count) > N_TURBINES * 0.333333333:
+        check_1 = False
 
-# Draw solution..
-plot_WindFLO(windFLO,'results/figures/EvaluationExample','EvaluationExample')
 
-# Delete auxiliary files.
-os.remove(os.path.sep.join(sys.path[0].split(os.path.sep)[:-1])+'/terrain.dat')
+    # constraint 2: part of the terrain is not valid. None of the solutions can be placed in a circle of diameter 250m arround [1350, 750].
+    check_2 = True
+    center_non_valid_terrain = np.array([1350.0, 750.0])
+    diameter_non_valid_terrain = 250
+    for i in range(N_TURBINES):
+        if np.linalg.norm(x_pos[i] - center_non_valid_terrain) < diameter_non_valid_terrain:
+            check_2 = False
+
+
+    return (check_0, check_1, check_2)
+
+if __name__ == "__main__":
+    plot_WindFLO(np.random.random(SOLUTION_DIM))
+    plot_WindFLO(np.random.random(SOLUTION_DIM)/10)
+    plot_WindFLO(np.random.random(SOLUTION_DIM)/100)
+    plot_WindFLO(np.random.random(SOLUTION_DIM)/1000)
+    plot_WindFLO(np.random.random(SOLUTION_DIM)/10000)
+
+
+# # Delete auxiliary files.
+# os.remove(os.path.sep.join(sys.path[0].split(os.path.sep)[:-1])+'/terrain.dat')
