@@ -117,7 +117,9 @@ def fmt(x, pos):
 class WindFLO:
 
 	def __init__(self,  **kwargs):
-	
+
+		import os
+		print("current dir on windflo __init__", os.getcwd())		
 		self.runDir = kwargs.get('runDir', '')	
 	
 		self.rho = kwargs.get('rho', 1.2)
