@@ -14,6 +14,16 @@ https://github.com/ntnu-arl/aerial_gym_simulator and https://github.com/ntnu-arl
 #### windflo
 
 Already provided in this repo.
+```
+sudo apt install gfortran
+sudo apt install gfortran-10
+sudo apt install g++
+sudo apt install g++-10
+
+cd other_src/WindFLO/release/
+make OS=LINUX MAIN=main
+cd ../../../
+```
 
 #### general
 
@@ -21,3 +31,4 @@ Already provided in this repo.
 # Install custom supervenn package
 pip install -e git+https://github.com/EtorArza/supervenn.git#egg=supervenn
 ```
+
