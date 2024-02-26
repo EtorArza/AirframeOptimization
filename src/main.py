@@ -2,70 +2,53 @@ import sys
 from tqdm import tqdm as tqdm
 import numpy as np
 import plot_src
-
-
-np.random.seed(2)
-
-problem_name_list = ["airframes", "windflo"]
-class problem:
-
-    def __init__(self, problem_name):
-        assert problem_name in problem_name_list
-        self.problem_name = problem_name
-
-        if problem_name == "airframes":
-            import problem_airframes
-            self.dim = 6*4
-            self.constraint_check = problem_airframes.constraint_check
-            self.plot_solution = problem_airframes.plot_airframe_design
-
-        if problem_name == "windflo":
-            import problem_windflo
-            self.dim = problem_windflo.SOLUTION_DIM
-            self.constraint_check = problem_windflo.constraint_check
-            self.plot_solution = problem_windflo.plot_WindFLO
-            self.f = problem_windflo.f
-
-        self.n_constraints = len(self.constraint_check(np.random.random(self.dim)))
-
-    def f(self, x):
-        pass
-    
-    def constraint_check(self, x):
-        pass
-
-    def plot_solution(self, x):
-        pass
-
-
-class encoding:
-
-    def __init__(self, encoding_name, dim):
-        self.encoding_name = encoding_name
-        self.dim = dim
-
-
-class optimization_algorithm:
-
-    def __init__(self, problem, algorithm_name):
-        self.problem = problem
-        pass
-
-    def ask(self):
-        pass
-
-    def tell(self, f):
-        pass
+from interfaces import *
 
 
 if __name__ == "__main__":
+
     if sys.argv[1] == "--venn-diagram":
+        assert sys.argv[2] in problem_name_list
+        problem_name = sys.argv[2]
         n_montecarlo = 400
-        for problem_name in problem_name_list:
-            prob = problem(problem_name)
-            set_list = [set() for _ in range(prob.n_constraints)]
-            for i in tqdm(range(n_montecarlo)):
-                x_random = np.random.random(prob.dim)
-                res = prob.constraint_check(x_random)
-                [set_list[idx].add(i) for idx in range(prob.n_constraints) if res[idx]]
-            plot_src.plot_venn_diagram(set_list, n_montecarlo, ["constraint_"+str(i) for i in range(prob.n_constraints)])
+        prob = problem(problem_name)
+        set_list = [set() for _ in range(prob.n_constraints)]
+        for i in tqdm(range(n_montecarlo)):
+            x_random = np.random.random(prob.dim)
+            res = prob.constraint_check(x_random)
+            [set_list[idx].add(i) for idx in range(prob.n_constraints) if res[idx]]
+        plot_src.plot_venn_diagram(set_list, n_montecarlo, ["constraint_"+str(i) for i in range(prob.n_constraints)])
+
+
+    elif sys.argv[1] == "--local-solve":
+        problem_name = "toy"
+        algorithm_name = "snobfit"
+        seed = 4
+        np.random.seed(seed)
+
+        prob = problem(problem_name)
+        algo = optimization_algorithm(prob, algorithm_name, seed)
+
+        f_best = 1e10
+        x_best = None
+        print_every = 0
+        import time
+        ref = time.time()
+        while prob.n_f_evals < 1000:
+            x = algo.ask()
+            f = prob.f_nan_on_unfeasible(x)
+            algo.tell(f)
+            if f < f_best:
+                f_best = f
+                x_best = x
+                print("---")
+                print(x_best, f_best)
+            if print_every == 0:
+                print("n_constraint_checks = ",prob.n_constraint_checks, "| n_f_evals", prob.n_f_evals, " | ", time.time() - ref ,"seconds")
+                print_every = 1000
+            else:
+                print_every-=1
+            
+
+    else:
+        print("sys.argv[1]=",sys.argv[1],"not recognized.", sep=" ")      

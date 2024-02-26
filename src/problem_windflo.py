@@ -64,14 +64,12 @@ def f(x: numpy.typing.ArrayLike):
     k = 0
     for i in range(0, N_TURBINES):
         for j in range(0, 2):
-            # unroll the variable vector 'solution' and assign it to turbine positions
             WINDFLO_OBJ.turbines[i].position[j] = solution[k]
             k = k + 1
 
-    # Run WindFLO analysis.
     WINDFLO_OBJ.run(clean = True) 
 
-    return WINDFLO_OBJ.farmPower
+    return -WINDFLO_OBJ.farmPower # negative sign because we assume minimization in the paper.
 
 
 

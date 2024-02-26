@@ -11,55 +11,26 @@ from skquant.opt import minimize
 from main import problem
 import threading
 import queue
-import time
-from tqdm import tqdm as tqdm
-
-x_queue = queue.Queue()
-f_queue = queue.Queue()
 
 
 class snobfit:
 
-    def __init__(self, problem: problem):
+    def __init__(self, problem: problem, seed):
         self.problem = problem
-        x0 = np.random.random(problem.dim)
-        # self.minimizer = minimize(paused_flag, None, x0, bounds, np.inf, method='SnobFit', maxfail=np.inf)
+        self.rs = np.random.RandomState(seed+78)
+        x0 = self.rs.random(problem.dim)
+        self.x_queue = queue.Queue()
+        self.f_queue = queue.Queue()
+        bounds = np.array([[0, 1] for _ in range(problem.dim)], dtype=float)
+        thread = threading.Thread(target=minimize, args=(self.x_queue, self.f_queue, lambda x: ValueError("This parameter should not be used."), x0, bounds), kwargs={'budget':1000000, 'method':'SnobFit', 'maxfail':np.inf})
+        thread.start()
 
-    def show(self):
-        pass
+    def ask(self):
+        return self.x_queue.get()
 
-    def tell(self):
-        pass
+    def tell(self, f):
+        self.f_queue.put(f)
 
-
-# some interesting objective function to minimize
-def objective_function(x):
-    if x[0] < 0.8:
-        return np.nan
-    fv = np.inner(x, x)
-    fv *= 1 + 0.1*np.sin(10*(x[0]+x[1]+x[2]))
-    return np.random.normal(fv, 0.01)
-
-# create a numpy array of bounds, one (low, high) for each parameter
-bounds = np.array([[-1, 1], [-1, 1], [-1, 1]], dtype=float)
-
-
-
-# initial values for all parameters
-x0 = np.array([0.5, 0.5, 0.5])
-
-
-
-
-
-thread = threading.Thread(target=minimize, args=(x_queue, f_queue, objective_function, x0, bounds), kwargs={'budget':1000000, 'method':'SnobFit', 'maxfail':np.inf})
-thread.start()
-
-for i in tqdm(range(10000)):
-    x = x_queue.get()
-    f = objective_function(x)
-    f_queue.put(f)
-    print(x, f)
 
 
 
