@@ -1,7 +1,6 @@
 import sys
 from tqdm import tqdm as tqdm
 import numpy as np
-import plot_src
 from interfaces import *
 
 
@@ -10,6 +9,7 @@ if __name__ == "__main__":
     # Show the percentage of feasible solutions in a problem
     if sys.argv[1] == "--venn-diagram":
         assert sys.argv[2] in problem_name_list
+        import plot_src
         problem_name = sys.argv[2]
         n_montecarlo = 400
         prob = problem(problem_name)
