@@ -1,6 +1,6 @@
 ## Setup
 
-Tested working on Pop!_OS 22.04 LTS with python 3.7, should also work on Ubuntu 22.04. 
+Tested working on Pop!_OS 22.04 LTS with python 3.8, should also work on Ubuntu 22.04. 
 
 
 ### Step 1: Create python virtual environment
@@ -39,13 +39,20 @@ source venv/bin/activate
 
 --------------------------------------------------------------------------------------
 
-### Step 2: Install general requirements
+### Step 2: Install python packages
 
 
 ```
 # These are customized forks of the original, and are a requirement.
-pip install -e git+https://github.com/EtorArza/supervenn.git#egg=supervenn
-pip install -e git+https://github.com/EtorArza/scikit-quant.git#egg=scikit-quant
+pip install git+https://github.com/EtorArza/supervenn.git#egg=supervenn
+pip install git+https://github.com/EtorArza/scikit-quant.git#egg=scikit-quant
+```
+
+```
+# Also required.
+pip install cobyqa #requires python>=3.8
+pip install tqdm
+pip install matplotlib
 ```
 
 --------------------------------------------------------------------------------------
