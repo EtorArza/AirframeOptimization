@@ -108,18 +108,15 @@ def constraint_check(x: numpy.typing.ArrayLike):
 
     # constraint 0: distance between every two turbines minimum 100 m
     min_distance = 100.0
-    check_0 = True
+    check_0 = np.inf
     for i_1 in range(N_TURBINES):
-        if check_0 == False:
-            break
         for i_2 in range(N_TURBINES):
             if i_1==i_2:
                 continue
-            if np.linalg.norm(x_pos[i_1]- x_pos[i_2]) < min_distance:
-                check_0 = False
-    
+            check_0 = min(check_0, np.linalg.norm(x_pos[i_1]- x_pos[i_2]) - min_distance)
+
+
     # constraint 1: solutions should be evenly distributed in the space: Each quandrant should not have more than 1/3 of the solutions.
-    check_1 = True
     q_count = np.zeros(4)
     for i in range(N_TURBINES):
         if x_pos[i][0] > 1000 and x_pos[i][1] > 1000:
@@ -130,18 +127,12 @@ def constraint_check(x: numpy.typing.ArrayLike):
             q_count[2] += 1
         if x_pos[i][0] > 1000 and x_pos[i][1] < 1000:
             q_count[3] += 1
-    if max(q_count) > N_TURBINES * 0.333333333:
-        check_1 = False
+    check_1 = N_TURBINES * 0.333333333 - max(q_count)
 
-
-    # constraint 2: part of the terrain is not valid. None of the solutions can be placed in a circle of diameter 250m arround [1350, 750].
-    check_2 = True
+    # constraint 2: part of the terrain is not valid. None of the solutions can be placed in a circle of diameter 1000m arround [1350, 750].
     center_non_valid_terrain = np.array([1350.0, 750.0])
-    diameter_non_valid_terrain = 250
-    for i in range(N_TURBINES):
-        if np.linalg.norm(x_pos[i] - center_non_valid_terrain) < diameter_non_valid_terrain:
-            check_2 = False
-
+    diameter_non_valid_terrain = 1000
+    check_2 = np.linalg.norm(x_pos[i] - center_non_valid_terrain) - diameter_non_valid_terrain
 
     return (check_0, check_1, check_2)
 

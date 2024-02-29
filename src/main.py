@@ -6,24 +6,27 @@ from interfaces import *
 
 if __name__ == "__main__":
 
+    sys.argv.append("--local-solve")
+
     # Show the percentage of feasible solutions in a problem
     if sys.argv[1] == "--venn-diagram":
         assert sys.argv[2] in problem_name_list
         import plot_src
         problem_name = sys.argv[2]
-        n_montecarlo = 400
+        n_montecarlo = 1200
         prob = problem(problem_name)
         set_list = [set() for _ in range(prob.n_constraints)]
         for i in tqdm(range(n_montecarlo)):
             x_random = np.random.random(prob.dim)
             res = prob.constraint_check(x_random)
-            [set_list[idx].add(i) for idx in range(prob.n_constraints) if res[idx]]
+            [set_list[idx].add(i) for idx in range(prob.n_constraints) if res[idx] > 0.0]
         plot_src.plot_venn_diagram(set_list, n_montecarlo, ["constraint_"+str(i) for i in range(prob.n_constraints)])
 
     # Directly solve problem locally, with f function that returns np.nan on infeasible solutions.
     elif sys.argv[1] == "--local-solve":
-        problem_name = "toy"
-        algorithm_name = "snobfit"
+        problem_name = "windflo"
+        algorithm_name = "cobyqa"
+        verbose = False
         seed = 4
         np.random.seed(seed)
 
@@ -38,6 +41,8 @@ if __name__ == "__main__":
         while prob.n_f_evals < 1000:
             x = algo.ask()
             f = prob.f_nan_on_unfeasible(x)
+            if verbose:
+                print("n_f_evals:", prob.n_f_evals, "n_constraint_checks:", prob.n_constraint_checks, "x:", x, "f:", f)
             algo.tell(f)
             if f < f_best:
                 f_best = f

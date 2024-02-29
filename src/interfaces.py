@@ -2,7 +2,7 @@ import numpy as np
 
 
 problem_name_list = ["airframes", "windflo", "toy"]
-algorithm_name_list = ["snobfit"]
+algorithm_name_list = ["snobfit", "cobyqa"]
 
 class problem:
 
@@ -47,8 +47,15 @@ class problem:
         pass
     
     def f_nan_on_unfeasible(self, x):
-        feasible = np.all(self.constraint_check(x))
+        feasible = np.min(self.constraint_check(x)) > 0
         return self.f(x) if feasible else np.nan
+    
+    def random_feasible_sol(self, np_random_state):
+        feasible = False
+        while not feasible:
+            x0 = np_random_state.random(self.dim)
+            feasible = np.min(self.constraint_check(x0)) > 0
+        return x0
 
 class encoding:
 
@@ -65,7 +72,9 @@ class optimization_algorithm:
         if algorithm_name == "snobfit":
             import algorithm_snobfit
             self.algo = algorithm_snobfit.snobfit(problem, seed)
-        pass
+        elif algorithm_name == "cobyqa":
+            import algorithm_cobyqa
+            self.algo = algorithm_cobyqa.cobyqa(problem, seed)
 
     def ask(self):
         return self.algo.ask()

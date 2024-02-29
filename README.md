@@ -20,6 +20,15 @@ Remember to activate conda environment before executing the experiments:
 conda activate rlgpu
 ```
 
+Install python dependencies:
+```
+pip install -U "jax[cuda12_pip]" -f https://storage.googleapis.com/jax-releases/jax_cuda_releases.html
+pip install cvxopt
+pip install gym
+pip install qpth
+```
+
+
 #### option B: wihtout `airframes` and CPU only
 
 In this case, you need to create a python virtual environment.

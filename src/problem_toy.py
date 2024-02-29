@@ -3,7 +3,7 @@ import matplotlib.pyplot as plt
 from tqdm import tqdm as tqdm
 import numpy.typing
 import os
-
+import math
 
 def f(x: numpy.typing.ArrayLike):
     '''Evaluating the performance of a single solution.'''
@@ -12,12 +12,10 @@ def f(x: numpy.typing.ArrayLike):
 
 
 def constraint_check(x: numpy.typing.ArrayLike):
-    
-    # constraint 0: x[0] > x[1] > x[2] > x[3]
-    check_0 = False
-    if x[0] > x[1] > x[2] > x[3] > x[4]:
-        check_0 = True
-
-    return tuple([check_0])
+    check_0 = x[0] - x[1]
+    check_1 = math.cos(x[1]) - math.sin(x[2])
+    check_2 = math.atan(x[2]) - x[3]
+    check_3 = x[3]*x[3]*x[3] - x[4]*x[6]
+    return (check_0, check_1, check_2, check_3) 
 
 
