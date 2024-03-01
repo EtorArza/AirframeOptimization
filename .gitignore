@@ -11,3 +11,22 @@ other_src/WindFLO/release/main.o
 other_src/WindFLO/release/userDefined.o
 other_src/WindFLO/release/WindFLO_LINUX
 terrain.dat
+
+
+# optimization history, saved state and output
+*.cue
+*.bin
+*.out
+
+other_src/pyOpt/build
+*.pyc
+**/f2py/*.c
+**/f2py/*.f
+*.so
+.idea
+
+__pycache__
+
+*.egg-info
+venv*
+other_src/pyOpt/MANIFEST

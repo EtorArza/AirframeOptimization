@@ -66,15 +66,13 @@ pip install matplotlib
 
 --------------------------------------------------------------------------------------
 
-### Step 3: Install problem specific requirements
+### Step 3: Other specific requirements
 
 
 #### airframes
-
 Already done if you chose option A in step 1 above.
 
 #### windflo
-
 Already provided in this repo. Just need to build the binary:
 ```
 sudo apt install gfortran
@@ -85,6 +83,14 @@ sudo apt install g++-10
 cd other_src/WindFLO/release/
 make OS=LINUX MAIN=main
 cd ../../../
+```
+
+#### pyOpt
+```
+pip install swig
+cd other_src/pyOpt
+python setup.py install
+../../
 ```
 
 
