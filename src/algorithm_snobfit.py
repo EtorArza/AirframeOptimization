@@ -16,13 +16,23 @@ import queue
 class snobfit:
 
     def __init__(self, problem: problem, seed):
-        self.problem = problem
-        self.rs = np.random.RandomState(seed+78)
-        x0 = self.rs.random(problem.dim)
         self.x_queue = queue.Queue()
         self.f_queue = queue.Queue()
-        bounds = np.array([[0, 1] for _ in range(problem.dim)], dtype=float)
-        thread = threading.Thread(target=minimize, args=(self.x_queue, self.f_queue, lambda x: ValueError("This parameter should not be used."), x0, bounds), kwargs={'budget':1000000, 'method':'SnobFit', 'maxfail':np.inf})
+        self.problem = problem
+        self.rs = np.random.RandomState(seed+78)
+        def minimiz():
+            while True:
+                try:
+                    x0 = self.rs.random(problem.dim)
+                    bounds = np.array([[0, 1] for _ in range(problem.dim)], dtype=float)
+                    minimize(self.x_queue, self.f_queue, lambda x: ValueError("This parameter should not be used."), x0, bounds, budget=100000, method='SnobFit', maxfail=np.inf)
+                except Exception as e:
+                    print("Error on Snobfit:", e, "child thread crashed.")
+                    exit(1)
+                print("Optimization end. Optimization algorithm restart.")
+        
+
+        thread = threading.Thread(target=minimiz, args=(), kwargs={})
         thread.start()
 
     def ask(self):

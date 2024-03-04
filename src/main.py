@@ -38,7 +38,7 @@ if __name__ == "__main__":
         print_every = 0
         import time
         ref = time.time()
-        while prob.n_f_evals < 1000000:
+        while prob.n_f_evals < 4000:
             x = algo.ask()
             f = prob.f(x)
             if verbose:
@@ -56,12 +56,12 @@ if __name__ == "__main__":
             else:
                 print_every-=1
 
-        print("-----------")
-        print("-----------")
+        print("-------------------------------------------------------------")
         print("Finished local optimization.")
-        print("n_f_evals:", prob.n_f_evals, "n_constraint_checks:", prob.n_constraint_checks, "x:", x, "f:", f)
-        print("-----------")
-        print("-----------")
+        print("n_f_evals:", prob.n_f_evals, "\nn_constraint_checks:", prob.n_constraint_checks, "\nx:", x, "\nf:", f)
+        print("Constraints: ")
+        [print("x = ", el, " > 0") for el in  prob.constraint_check(x)]
+        print("-------------------------------------------------------------")
         exit(0)
 
     # Plot how time per evaluation in snobfit increases linearly

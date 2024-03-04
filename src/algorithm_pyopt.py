@@ -38,7 +38,8 @@ class pyopt:
                 print("Refinment start.")
                 slsqp = SLSQP()
                 slsqp(opt_prob)
-                raise NotImplementedError("Optimization terminated in child thread.")
+                print("Optimization end. Optimization algorithm restart.")
+
 
 
         thread = threading.Thread(target=minimize, args=[opt_prob])

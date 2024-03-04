@@ -26,7 +26,13 @@ class cobyqa:
         self.f_queue = f_queue
         self.problem = problem
         self.rs = np.random.RandomState(seed+78)
-        x0 = problem.random_feasible_sol(self.rs)
+
+        def minimz():
+            while True:
+                x0 = problem.random_feasible_sol(self.rs)
+                minimize(fun, x0, bounds=bounds, constraints=constraints, options=options)
+                print("Optimization end. Optimization algorithm restart.")
+
         bounds = Bounds([0.0 for _ in range(problem.dim)], [1.0 for _ in range(problem.dim)])
         constraints = NonlinearConstraint(lambda x: [el for el in problem.constraint_check(x)], 0.0, np.inf)
         options = {
@@ -34,7 +40,7 @@ class cobyqa:
         "radius_init": 0.1,
         "feasibility_tol": np.finfo(float).eps,
         }
-        thread = threading.Thread(target=minimize, args=(fun, x0), kwargs={"bounds":bounds, "constraints":constraints, "options":options})
+        thread = threading.Thread(target=minimz)
         thread.start()
 
 
