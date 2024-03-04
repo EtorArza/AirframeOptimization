@@ -2,7 +2,7 @@ import numpy as np
 
 
 problem_name_list = ["airframes", "windflo", "toy"]
-algorithm_name_list = ["snobfit", "cobyqa"]
+algorithm_name_list = ["snobfit", "cobyqa", "pyopt"]
 
 class problem:
 
@@ -36,6 +36,7 @@ class problem:
         self.n_constraints = len(self._constraint_check(np.random.random(self.dim)))
 
     def f(self, x):
+        assert type(x) == np.ndarray
         self.n_f_evals+=1
         return self._f(x)
     
@@ -75,6 +76,11 @@ class optimization_algorithm:
         elif algorithm_name == "cobyqa":
             import algorithm_cobyqa
             self.algo = algorithm_cobyqa.cobyqa(problem, seed)
+        elif algorithm_name == "pyopt":
+            import algorithm_pyopt
+            self.algo = algorithm_pyopt.pyopt(problem, seed)
+        else:
+            print("Algorithm name", algorithm_name, "not recognized.")
 
     def ask(self):
         return self.algo.ask()

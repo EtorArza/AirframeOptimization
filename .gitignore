@@ -30,3 +30,5 @@ __pycache__
 *.egg-info
 venv*
 other_src/pyOpt/MANIFEST
+WindFLO.inp
+turbine*.inp

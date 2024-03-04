@@ -24,8 +24,8 @@ if __name__ == "__main__":
 
     # Directly solve problem locally, with f function that returns np.nan on infeasible solutions.
     elif sys.argv[1] == "--local-solve":
-        problem_name = "windflo"
-        algorithm_name = "cobyqa"
+        problem_name = "toy"
+        algorithm_name = "pyopt"
         verbose = False
         seed = 4
         np.random.seed(seed)
@@ -38,9 +38,9 @@ if __name__ == "__main__":
         print_every = 0
         import time
         ref = time.time()
-        while prob.n_f_evals < 1000:
+        while prob.n_f_evals < 1000000:
             x = algo.ask()
-            f = prob.f_nan_on_unfeasible(x)
+            f = prob.f(x)
             if verbose:
                 print("n_f_evals:", prob.n_f_evals, "n_constraint_checks:", prob.n_constraint_checks, "x:", x, "f:", f)
             algo.tell(f)
@@ -55,6 +55,14 @@ if __name__ == "__main__":
                 ref = time.time()
             else:
                 print_every-=1
+
+        print("-----------")
+        print("-----------")
+        print("Finished local optimization.")
+        print("n_f_evals:", prob.n_f_evals, "n_constraint_checks:", prob.n_constraint_checks, "x:", x, "f:", f)
+        print("-----------")
+        print("-----------")
+        exit(0)
 
     # Plot how time per evaluation in snobfit increases linearly
     elif sys.argv[1] == "--plot-snobfit-time-per-1000-evaluations":
