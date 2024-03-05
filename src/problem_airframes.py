@@ -102,7 +102,6 @@ def constraint_check(x: numpy.typing.ArrayLike):
 def _plot_airframe_design(ax, params):
 
     og_pars = np.array([el for el in params.values()])
-    print(og_pars)
     pars = from_0_1_to_airframe(og_pars)
 
     assert len(pars.motor_orientations) == len(pars.motor_translations)
@@ -146,13 +145,18 @@ def plot_airframe_interactive():
     import matplotlib.pyplot as plt
     from matplotlib.widgets import Button, Slider
 
+    print("--------------------------------------")
+    print("-----Interactive Plot-----------------")
+    print("The parameter 'euler y' is irrelevant.")
+    print("--------------------------------------")
+
     params={
     'r1':0.5,
-    'r2':0.1,
-    'r3':0.1,
-    'theta1':0.2,
-    'theta2':0.1,
-    'theta3':0.3,
+    'r2':0.5,
+    'r3':0.5,
+    'euler x':0.5,
+    'euler y':0.5,
+    'euler z':0.5,
     }
 
     # Create the figure and the line that we will manipulate
@@ -176,10 +180,8 @@ def plot_airframe_interactive():
     def make_update(i):
         def update(val):
             key = list(params.keys())[i]
-            print("update ", i)
             ax.clear()
             params[key] = val
-            print("updated ", (key, val))
             _plot_airframe_design(ax, params)
             fig.canvas.draw_idle()
         return update
@@ -187,7 +189,7 @@ def plot_airframe_interactive():
 
     for key, item in params.items():
         i += 1
-        axes_list.append(fig.add_axes([0.25, 0.5*i/9, 0.65, 0.03]))
+        axes_list.append(fig.add_axes([0.25, 0.5*(9-i)/9, 0.65, 0.03]))
         slider_list.append(Slider(
             ax=axes_list[i],
             label=key,
