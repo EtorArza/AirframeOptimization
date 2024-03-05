@@ -257,8 +257,17 @@ def plot_airframe_interactive():
 if __name__ == "__main__":
 
 
+    # # Single rotor interactive plot
     # plot_airframe_interactive()
-    
+
+    # # Plot hexarotor simmetric random drone
+    # rs = np.random.RandomState(5)
+    # og_pars = rs.random(15)
+    # decoded_pars = decode_symmetric_hexarotor_to_0_1(og_pars)
+    # plot_airframe_design(decoded_pars)
+
+
+
 
     rs = np.random.RandomState(5)
     og_pars = rs.random(15)
