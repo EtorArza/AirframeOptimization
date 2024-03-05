@@ -58,14 +58,24 @@ def plot_airframe_design(x: numpy.typing.ArrayLike):
 
 def from_0_1_to_airframe(x: numpy.typing.ArrayLike):
 
+    '''
+    Every value in x is in the interval [0,1], where 0 represents lowest possible value, and 1 represents highest possible value.
+    x = [
+    [rx, ry, rz, theta1, theta2, theta3], # propeller 1
+    [rx, ry, rz, theta1, theta2, theta3], # propeller 2
+    etc.
+    ]
+
+    '''
+
+
     def _matrix_to_list_of_list(m):
         return [el for el in [row for row in m]]
 
     # A linear scalling to [0,1]^number_of_parameters
     assert type(x)==np.ndarray, "x = "+str(x)+" | type(x) = "+str(type(x))
-    l = len(x)
-    assert l%6 == 0
-    n_rotors = l // 6
+    assert len(x.shape)==2 and x.shape[1] == 6, "x = "+str(x)
+    n_rotors = x.shape[0]
     pars = RobotParameter
 
     
@@ -76,8 +86,11 @@ def from_0_1_to_airframe(x: numpy.typing.ArrayLike):
     pars.motor_masses = [0.1] * n_rotors
 
 
-    pars.motor_translations = x[:(l//2)].reshape(-1,3) * 2.0 - 1.0
-    pars.motor_orientations = x[(l//2):].reshape(-1, 3) * 360
+    x_motor_translations = np.array([x[rotor_idx, i] for rotor_idx in range(n_rotors) for i in range(3)])
+    x_motor_orientations = np.array([x[rotor_idx, i] for rotor_idx in range(n_rotors) for i in range(3,6)])
+
+    pars.motor_translations = x_motor_translations.reshape(-1,3) * 2.0 - 1.0
+    pars.motor_orientations = x_motor_orientations.reshape(-1, 3) * 360
 
     pars.motor_translations = _matrix_to_list_of_list(pars.motor_translations)
     pars.motor_orientations = _matrix_to_list_of_list(pars.motor_orientations)
@@ -101,7 +114,7 @@ def constraint_check(x: numpy.typing.ArrayLike):
 
 def _plot_airframe_design(ax, params):
 
-    og_pars = np.array([el for el in params.values()])
+    og_pars = np.array([[el for el in params.values()]])
     pars = from_0_1_to_airframe(og_pars)
 
     assert len(pars.motor_orientations) == len(pars.motor_translations)
@@ -137,8 +150,42 @@ def _plot_airframe_design(ax, params):
         ax.add_line(Line3D([t_vec[0],t_vec[0]+R[0,:]@e3*frame_scale_normal],[t_vec[1],t_vec[1]+R[1,:]@e3*frame_scale_normal],[t_vec[2],t_vec[2]+R[2,:]@e3*frame_scale_normal],color='g')) #z
 
 
+def decode_symmetric_hexarotor_to_0_1(x: numpy.typing.ArrayLike):
+
+    # 5 parameters per rotor, 6 rotors in total. We only define 3 rotors, due to simmetry.
+    assert x.shape == (5*3,)
+    
 
 
+    euler_x_max_proportion = 0.2 # Maximum rotor inclination from vertical position. We dont want them to tilt more than 20%
+    def scale_down_euler_x(euler_x_01):
+        return euler_x_01*euler_x_max_proportion + (0.5 - euler_x_max_proportion/2.0)
+    
+    simmetry_plane = "y"
+
+
+    x_decoded = np.zeros(shape=(6,6), dtype=np.float64)
+    # For each propeller, symmetric encoding has 5 parameters, and 0_1 encoding has 6 x 2 (one of the propellers has simmetric parameters).
+    if simmetry_plane == "y":
+        for prop_i in range(3):
+            # og
+            x_decoded[prop_i*2, 0] = x[prop_i*5 +0]                          # r_x same
+            x_decoded[prop_i*2, + 1] = x[prop_i*5 +1] / 2                    # r_y can only be in one side
+            x_decoded[prop_i*2, + 2] = x[prop_i*5 +2]                        # r_z same
+            x_decoded[prop_i*2, + 3] = scale_down_euler_x(x[prop_i*5 +3])      # euler_x same 
+            x_decoded[prop_i*2, + 4] = 0.5                                   # euler_y constant (0.5)
+            x_decoded[prop_i*2, + 5] = x[prop_i*5 +4]                        # euler_z same
+
+
+            # symmetric
+            x_decoded[prop_i*2+1, 0] = x[prop_i*5 +0]                        # r_x same
+            x_decoded[prop_i*2+1, 1] = 1.0 - (x[prop_i*5 +1]/2)              # r_y inverse, and can only be in one side
+            x_decoded[prop_i*2+1, 2] = x[prop_i*5 +2]                        # r_z same
+
+            x_decoded[prop_i*2+1, 3] = scale_down_euler_x(1.0 - x[prop_i*5 +3])# euler_x inverse 
+            x_decoded[prop_i*2+1, 4] = 0.5                                   # euler_y constant (0.5)
+            x_decoded[prop_i*2+1, 5] = 1.0 - x[prop_i*5 +4]                  # euler_z inverse
+    return x_decoded
 
 
 def plot_airframe_interactive():
@@ -210,38 +257,53 @@ def plot_airframe_interactive():
 if __name__ == "__main__":
 
 
-    plot_airframe_interactive()
-    exit(0)
+    # plot_airframe_interactive()
+    
 
-    og_pars = np.array([
-    0,0,0,
-    0.25,0,0,
-    ])
+    rs = np.random.RandomState(5)
+    og_pars = rs.random(15)
 
-
-
+    decoded_pars = decode_symmetric_hexarotor_to_0_1(og_pars)
+    plot_airframe_design(decoded_pars)
 
 
-    plot_airframe_design(og_pars)
 
 
-    # # If I change these parameters, is that the full set of possible quad configurations?
-
-    # print(pars.motor_orientations) # [[0,365] x 3] x 4
-    # print(pars.motor_translations) # [[-1,1] x 3] x 4
-    # print(pars.motor_directions) # {-1,1} x 4
 
 
-    # # Is there a way to visualize the drones?
 
-    # change the parameters in envs/base/generalized_aerial_robot_config.py
 
-    # then run scripts/example_control.py
 
-    # plot mr design function, https://github.com/WilhelmWG/Evolutionary-Algorithm-for-Multirotor-Morphology-Search/blob/main/plotting.py
 
-    # # How do I get a feasability check? I am looking for a function with binary output.
 
-    # analyze_robot_config.analyze_robot_config(robot)
+
+
+
+
+
+
+
+
+
+
+
+# # If I change these parameters, is that the full set of possible quad configurations?
+
+# print(pars.motor_orientations) # [[0,365] x 3] x 4
+# print(pars.motor_translations) # [[-1,1] x 3] x 4
+# print(pars.motor_directions) # {-1,1} x 4
+
+
+# # Is there a way to visualize the drones?
+
+# change the parameters in envs/base/generalized_aerial_robot_config.py
+
+# then run scripts/example_control.py
+
+# plot mr design function, https://github.com/WilhelmWG/Evolutionary-Algorithm-for-Multirotor-Morphology-Search/blob/main/plotting.py
+
+# # How do I get a feasability check? I am looking for a function with binary output.
+
+# analyze_robot_config.analyze_robot_config(robot)
 
 
