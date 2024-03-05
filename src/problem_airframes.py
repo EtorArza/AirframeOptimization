@@ -14,6 +14,8 @@ from scipy.spatial.transform import Rotation
 from aerial_gym_dev.envs.base.robot_model import RobotParameter, RobotModel
 import numpy.typing
 from tqdm import tqdm as tqdm
+from airframes_objective_functions import target_LQR_control
+
 
 def plot_airframe_design(x: numpy.typing.ArrayLike):
 
@@ -254,6 +256,7 @@ def plot_airframe_interactive():
 
 
 
+
 if __name__ == "__main__":
 
 
@@ -268,15 +271,18 @@ if __name__ == "__main__":
 
 
 
-
+    # Simulate random hexarotor with LQR control
     rs = np.random.RandomState(5)
     og_pars = rs.random(15)
-
     decoded_pars = decode_symmetric_hexarotor_to_0_1(og_pars)
-    plot_airframe_design(decoded_pars)
+    robot_params:RobotParameter = from_0_1_to_airframe(decoded_pars)
+    model = RobotModel(robot_params)
+    target_LQR_control(model)
 
 
 
+# cd /home/paran/Dropbox/aerial_gym_dev/aerial_gym_dev/scripts
+# python3 example_control.py --task=gen_aerial_robot --num_envs=1
 
 
 
