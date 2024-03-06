@@ -190,6 +190,26 @@ def decode_symmetric_hexarotor_to_0_1(x: numpy.typing.ArrayLike):
     return x_decoded
 
 
+def f_symmetric_hexarotor_0_1(x: numpy.typing.ArrayLike):
+    from datetime import datetime
+    target = [5.2, 0.75, 3.5]
+    current_time = datetime.now()
+    print("Evaluating ", x, current_time.strftime("%Y-%m-%d %H:%M:%S"))
+    assert x.shape == (15,)
+    decoded_pars = decode_symmetric_hexarotor_to_0_1(og_pars)
+    robot_params:RobotParameter = from_0_1_to_airframe(decoded_pars)
+    model = RobotModel(robot_params)
+    rewards, poses = target_LQR_control(model, target=[5.3,0.75,3.5])
+    
+    f = 0
+    for i, pose in enumerate(poses):
+        distance = np.linalg.norm(np.array(target) - pose[0:3])
+        f += distance*i
+    
+    return f, poses
+
+
+
 def plot_airframe_interactive():
     import matplotlib.pyplot as plt
     from matplotlib.widgets import Button, Slider
@@ -274,11 +294,9 @@ if __name__ == "__main__":
     # Simulate random hexarotor with LQR control
     rs = np.random.RandomState(5)
     og_pars = rs.random(15)
-    decoded_pars = decode_symmetric_hexarotor_to_0_1(og_pars)
-    robot_params:RobotParameter = from_0_1_to_airframe(decoded_pars)
-    model = RobotModel(robot_params)
-    target_LQR_control(model)
 
+    res = f_symmetric_hexarotor_0_1(og_pars)
+    print(res)
 
 
 # cd /home/paran/Dropbox/aerial_gym_dev/aerial_gym_dev/scripts

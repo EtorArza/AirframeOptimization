@@ -1,4 +1,4 @@
-def target_LQR_control(robot_model):
+def target_LQR_control(robot_model, target):
 
 
     import numpy as np
@@ -41,7 +41,9 @@ def target_LQR_control(robot_model):
         command_actions[:, 2] = 0.0
     elif env_cfg.control.controller == "LQR_control":
         env_cfg.num_actions = 12
-        command_actions = torch.tensor([0.3,0.,3.,0.,0.,0.7,0.,0.,0.,0.,0.,0.], dtype=torch.float32)
+        assert type(target)==list
+        assert len(target)==3
+        command_actions = torch.tensor(target+[0.,0.,0.7,0.,0.,0.,0.,0.,0.], dtype=torch.float32)
         command_actions = command_actions.reshape((1,env_cfg.control.num_actions))
         command_actions = command_actions.repeat(env_cfg.env.num_envs,1)
     elif env_cfg.control.controller == "no_control":
@@ -51,16 +53,16 @@ def target_LQR_control(robot_model):
         command_actions = command_actions.reshape((1,env_cfg.control.num_actions))
         command_actions = command_actions.repeat(env_cfg.env.num_envs,1)
     
-    #env.reset()
-    for i in range(0, 50000):
+    
+    episode_length = 400
+    reward_list = []
+    obs_list = []
+    for i in range(0, episode_length):
         obs, priviliged_obs, rewards, resets, extras = env.step(command_actions)
-        print(rewards)
-        # print("Done", i)
-        if i % 500 == 0 and i > 0:
-            print("Resetting environment")
-            if priviliged_obs is None:
-                print("Privileged observation is None")
-            else:
-                print("Shape of privileged observation tensor", priviliged_obs.shape)
-            print("------------------")
-            env.reset()
+        r = rewards[0].item()
+        pose = np.array(obs['obs'].cpu())[0][0:7]
+        reward_list.append(r)
+        obs_list.append(pose)
+
+    env.reset()
+    return np.array(reward_list), np.array(obs_list)
