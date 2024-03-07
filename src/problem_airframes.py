@@ -65,8 +65,7 @@ def from_0_1_to_RobotParameter(x: numpy.typing.ArrayLike):
     pars.min_u = 0
     return pars
 
-def constraint_check_0_1(x: numpy.typing.ArrayLike):
-    pars = from_0_1_to_RobotParameter(x)
+def constraint_check(pars: RobotParameter):
     robot = RobotModel(pars)
     check1, check2 = analyze_robot_config.analyze_robot_config(robot)
     return (check1, check2)
@@ -123,6 +122,10 @@ def f_symmetric_hexarotor_0_1(x: numpy.typing.ArrayLike, target):
         f += distance*i
     
     return f, poses
+
+def constraint_check_hexarotor_0_1(x: numpy.typing.ArrayLike):
+    pars = _decode_symmetric_hexarotor_to_RobotParameter(x)
+    return constraint_check(pars)
 
 def plot_airframe_design(pars:RobotParameter, translation:numpy.typing.ArrayLike=np.zeros(3), rotation_matrix: numpy.typing.ArrayLike=np.eye(3,3)):
 
@@ -362,7 +365,7 @@ if __name__ == "__main__":
     # rewards, poses = target_LQR_control(model, target)
     # animate_airframe(pars, poses, target)
 
-
+    pass
 
 
 # cd /home/paran/Dropbox/aerial_gym_dev/aerial_gym_dev/scripts

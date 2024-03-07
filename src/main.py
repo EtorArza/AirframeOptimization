@@ -6,7 +6,6 @@ from interfaces import *
 
 if __name__ == "__main__":
 
-    sys.argv.append("--local-solve")
 
     # Show the percentage of feasible solutions in a problem
     if sys.argv[1] == "--venn-diagram":
@@ -24,21 +23,28 @@ if __name__ == "__main__":
 
     # Directly solve problem locally, with f function that returns np.nan on infeasible solutions.
     elif sys.argv[1] == "--local-solve":
-        problem_name = "toy"
+        sys.argv.pop()
+        problem_name = "airframes"
         algorithm_name = "pyopt"
         verbose = False
         seed = 4
         np.random.seed(seed)
+
+        filepath = f'results/data/{problem_name}_{algorithm_name}_{seed}.csv'
+        with open(filepath, "a") as f:
+            print('evaluations;n_constraint_checks;time;f_best;x_best', file=f)
 
         prob = problem(problem_name)
         algo = optimization_algorithm(prob, algorithm_name, seed)
 
         f_best = 1e10
         x_best = None
-        print_every = 0
+        i = -1
+        print_status_every = 4
         import time
         ref = time.time()
         while prob.n_f_evals < 4000:
+            i += 1
             x = algo.ask()
             f = prob.f(x)
             if verbose:
@@ -47,14 +53,13 @@ if __name__ == "__main__":
             if f < f_best:
                 f_best = f
                 x_best = x
-                print("---")
-                print(x_best, f_best)
-            if print_every == 0:
+                print("--New best--")
+                print(x_best, f_best, time.time())
+                with open(filepath, "a") as f:
+                    print(f'{prob.n_f_evals};{prob.n_constraint_checks};{time.time() - ref};{f_best};{np.array_str(x_best, max_line_width=np.inf)}', file=f)
+
+            if i % print_status_every == 0:
                 print("n_constraint_checks = ",prob.n_constraint_checks, "| n_f_evals", prob.n_f_evals, " | ", time.time() - ref ,"seconds")
-                print_every = 1000
-                ref = time.time()
-            else:
-                print_every-=1
 
         print("-------------------------------------------------------------")
         print("Finished local optimization.")

@@ -16,8 +16,8 @@ class problem:
         if problem_name == "airframes":
             import problem_airframes
             self.dim = 15
-            self._constraint_check = problem_airframes.constraint_check_0_1
-            self._f = problem_airframes.f_symmetric_hexarotor_0_1
+            self._constraint_check = problem_airframes.constraint_check_hexarotor_0_1
+            self._f = lambda x: problem_airframes.f_symmetric_hexarotor_0_1(x, target=[2.3,0.75,1.5])[0]
             self.plot_solution = lambda x: problem_airframes.plot_airframe_design(problem_airframes._decode_symmetric_hexarotor_to_RobotParameter(x))
 
         if problem_name == "windflo":
@@ -42,6 +42,7 @@ class problem:
         return self._f(x)
     
     def constraint_check(self, x):
+        assert type(x) == np.ndarray
         self.n_constraint_checks+=1
         return self._constraint_check(x)
 
