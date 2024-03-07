@@ -15,12 +15,15 @@ from aerial_gym_dev.envs.base.robot_model import RobotParameter, RobotModel
 import numpy.typing
 from tqdm import tqdm as tqdm
 from airframes_objective_functions import target_LQR_control
+from math import sqrt
+from matplotlib.animation import FuncAnimation
 
+def plot_airframe_design(x: numpy.typing.ArrayLike, translation:numpy.typing.ArrayLike=np.zeros(3), rotation_matrix: numpy.typing.ArrayLike=np.eye(3,3)):
 
-def plot_airframe_design(x: numpy.typing.ArrayLike):
+    assert translation.shape==(3,)
+    assert rotation_matrix.shape==(3,3)
 
     pars = from_0_1_to_airframe(x)
-
 
     assert len(pars.motor_orientations) == len(pars.motor_translations)
 
@@ -32,12 +35,26 @@ def plot_airframe_design(x: numpy.typing.ArrayLike):
     ax.set_ylabel('y',size=18)
     ax.set_zlabel('z',size=18)
     
+    _plot_airframe_into_ax(ax, pars, translation, rotation_matrix)
+    plt.show()
+
+
+def _plot_airframe_into_ax(ax, pars, translation, rotation_matrix):
     e1 = np.array([1,0,0])
     e2 = np.array([0,1,0])
     e3 = np.array([0,0,1])
 
     frame_scale_plane = 0.16
     frame_scale_normal = 0.26
+
+    def apply_transformation(x, translation, rotation_matrix):
+        assert x.shape == (3,)
+        assert translation.shape == (3,)
+        assert rotation_matrix.shape == (3,3)
+        T = np.concatenate([rotation_matrix, translation.reshape(3,1)], axis=1)
+        T = np.concatenate([T, np.array([[0,0,0,1]])])
+        res = T@(np.array([x[0],x[1],x[2], 1]).T)
+        return res.flatten()[0:3]
 
     for i in range(len(pars.motor_orientations)):
         t_vec = pars.motor_translations[i]
@@ -48,15 +65,23 @@ def plot_airframe_design(x: numpy.typing.ArrayLike):
             color = "orange"
         else:
             raise ValueError("Direction should be either 1 or -1. Instead, pars.motor_directions[i]=", pars.motor_directions[i])
-        ax.add_line(Line3D([0,t_vec[0]],[0,t_vec[1]],[0,t_vec[2]]))
-        ax.add_line(Line3D([t_vec[0],t_vec[0]+R[0,:]@e1*frame_scale_plane],[t_vec[1],t_vec[1]+R[1,:]@e1*frame_scale_plane],[t_vec[2],t_vec[2]+R[2,:]@e1*frame_scale_plane],color=color)) #x
-        ax.add_line(Line3D([t_vec[0],t_vec[0]+R[0,:]@e2*frame_scale_plane],[t_vec[1],t_vec[1]+R[1,:]@e2*frame_scale_plane],[t_vec[2],t_vec[2]+R[2,:]@e2*frame_scale_plane],color=color)) #y
-        ax.add_line(Line3D([t_vec[0],t_vec[0]-R[0,:]@e1*frame_scale_plane],[t_vec[1],t_vec[1]-R[1,:]@e1*frame_scale_plane],[t_vec[2],t_vec[2]-R[2,:]@e1*frame_scale_plane],color=color)) #x
-        ax.add_line(Line3D([t_vec[0],t_vec[0]-R[0,:]@e2*frame_scale_plane],[t_vec[1],t_vec[1]-R[1,:]@e2*frame_scale_plane],[t_vec[2],t_vec[2]-R[2,:]@e2*frame_scale_plane],color=color)) #y
-        ax.add_line(Line3D([t_vec[0],t_vec[0]+R[0,:]@e3*frame_scale_normal],[t_vec[1],t_vec[1]+R[1,:]@e3*frame_scale_normal],[t_vec[2],t_vec[2]+R[2,:]@e3*frame_scale_normal],color='g')) #z
 
-    plt.show()
+        line_list = [
+            [[0,t_vec[0]],[0,t_vec[1]],[0,t_vec[2]]],
+            [[t_vec[0],t_vec[0]+R[0,:]@e1*frame_scale_plane],[t_vec[1],t_vec[1]+R[1,:]@e1*frame_scale_plane],[t_vec[2],t_vec[2]+R[2,:]@e1*frame_scale_plane]],
+            [[t_vec[0],t_vec[0]+R[0,:]@e2*frame_scale_plane],[t_vec[1],t_vec[1]+R[1,:]@e2*frame_scale_plane],[t_vec[2],t_vec[2]+R[2,:]@e2*frame_scale_plane]],
+            [[t_vec[0],t_vec[0]-R[0,:]@e1*frame_scale_plane],[t_vec[1],t_vec[1]-R[1,:]@e1*frame_scale_plane],[t_vec[2],t_vec[2]-R[2,:]@e1*frame_scale_plane]],
+            [[t_vec[0],t_vec[0]-R[0,:]@e2*frame_scale_plane],[t_vec[1],t_vec[1]-R[1,:]@e2*frame_scale_plane],[t_vec[2],t_vec[2]-R[2,:]@e2*frame_scale_plane]],
+            [[t_vec[0],t_vec[0]+R[0,:]@e3*frame_scale_normal],[t_vec[1],t_vec[1]+R[1,:]@e3*frame_scale_normal],[t_vec[2],t_vec[2]+R[2,:]@e3*frame_scale_normal]],
+        ]
 
+        color_list = ["gray"] + [color]*4 + ['g']
+        for line, color in zip(line_list, color_list):
+            start = np.array([line[0][0], line[1][0], line[2][0]])
+            end = np.array([line[0][1], line[1][1], line[2][1]])
+            start = apply_transformation(start, translation, rotation_matrix)
+            end = apply_transformation(end, translation, rotation_matrix)
+            ax.add_line(Line3D([start[0],end[0]],[start[1],end[1]],[start[2],end[2]], color=color))
 
 def from_0_1_to_airframe(x: numpy.typing.ArrayLike):
 
@@ -114,7 +139,7 @@ def constraint_check(x: numpy.typing.ArrayLike):
 
 
 
-def _plot_airframe_design(ax, params):
+def _plot_airframe_design_interactive(ax, params):
 
     og_pars = np.array([[el for el in params.values()]])
     pars = from_0_1_to_airframe(og_pars)
@@ -190,16 +215,15 @@ def decode_symmetric_hexarotor_to_0_1(x: numpy.typing.ArrayLike):
     return x_decoded
 
 
-def f_symmetric_hexarotor_0_1(x: numpy.typing.ArrayLike):
+def f_symmetric_hexarotor_0_1(x: numpy.typing.ArrayLike, target):
     from datetime import datetime
-    target = [5.2, 0.75, 3.5]
     current_time = datetime.now()
     print("Evaluating ", x, current_time.strftime("%Y-%m-%d %H:%M:%S"))
     assert x.shape == (15,)
     decoded_pars = decode_symmetric_hexarotor_to_0_1(og_pars)
     robot_params:RobotParameter = from_0_1_to_airframe(decoded_pars)
     model = RobotModel(robot_params)
-    rewards, poses = target_LQR_control(model, target=[5.3,0.75,3.5])
+    rewards, poses = target_LQR_control(model, target)
     
     f = 0
     for i, pose in enumerate(poses):
@@ -233,7 +257,7 @@ def plot_airframe_interactive():
     xlim = ylim = zlim = [-1.2,1.2]
     ax = fig.add_subplot(projection='3d', xlim=xlim, ylim=ylim, zlim=zlim)
 
-    _plot_airframe_design(ax, params)
+    _plot_airframe_design_interactive(ax, params)
 
     # adjust the main plot to make room for the sliders
     fig.subplots_adjust(left=0.25, bottom=0.55)
@@ -251,7 +275,7 @@ def plot_airframe_interactive():
             key = list(params.keys())[i]
             ax.clear()
             params[key] = val
-            _plot_airframe_design(ax, params)
+            _plot_airframe_design_interactive(ax, params)
             fig.canvas.draw_idle()
         return update
 
@@ -274,6 +298,36 @@ def plot_airframe_interactive():
 
     plt.show()
 
+def animate_airframe(x, pose_list, target):
+
+
+    fig = plt.figure()
+    xlim = ylim = zlim = [-1.2,8.0]
+    ax = fig.add_subplot(projection='3d', xlim=xlim, ylim=ylim, zlim=zlim)
+    ax.set_xlabel('x',size=18)
+    ax.set_ylabel('y',size=18)
+    ax.set_zlabel('z',size=18)
+
+    pars = from_0_1_to_airframe(x)
+
+    def animate(i):
+        pose = pose_list[i]
+        ax.clear()
+        translation = pose[0:3]
+        rotation_matrix = Rotation.from_euler("xyz", pose[3:6], degrees=False).as_matrix()
+        _plot_airframe_into_ax(ax, pars, translation, rotation_matrix)
+        ax.set_xlim(xlim); ax.set_ylim(ylim); ax.set_zlim(zlim)
+        ax.set_xlabel(f'x={pose[0]:.2f}',size=14)
+        ax.set_ylabel(f'y={pose[1]:.2f}',size=14)
+        ax.set_zlabel(f'z={pose[2]:.2f}',size=14)
+        ax.plot(*target, color="pink", marker="o")
+
+    ani = FuncAnimation(fig, animate, frames=len(pose_list)-1, interval=100, repeat=True, repeat_delay=4000)
+    plt.close()
+    
+    ani.save("test.gif", dpi=300)
+
+
 
 
 
@@ -287,16 +341,42 @@ if __name__ == "__main__":
     # rs = np.random.RandomState(5)
     # og_pars = rs.random(15)
     # decoded_pars = decode_symmetric_hexarotor_to_0_1(og_pars)
-    # plot_airframe_design(decoded_pars)
+    # rotation_matrix = np.array([
+    #     [1/sqrt(2) , -1/sqrt(2) , 0],
+    #     [1/sqrt(2) , 1/sqrt(2) , 0],
+    #     [0 , 0 , 1]
+    # ])
+    # translation = np.array([0.75,0,0])
+    # plot_airframe_design(decoded_pars, translation, rotation_matrix)
 
 
 
-    # Simulate random hexarotor with LQR control
-    rs = np.random.RandomState(5)
-    og_pars = rs.random(15)
 
-    res = f_symmetric_hexarotor_0_1(og_pars)
-    print(res)
+
+
+
+    # # Simulate random hexarotor with LQR control
+    # rs = np.random.RandomState(5)
+    # og_pars = rs.random(15)
+    # target = [5.3,0.75,3.5]
+    # res = f_symmetric_hexarotor_0_1(og_pars, target)
+    # animate_airframe(decode_symmetric_hexarotor_to_0_1(og_pars), res[1], target)
+
+
+    # Standard quad with LQR
+    print("the length of the arms increases over time??")
+    target = [5.3,0.75,3.5]
+    params_0_1 = np.array(
+        [[0.15 ,-0.15,0,  0,0,0],
+         [-0.15,-0.15,0, 0,0,0],
+         [-0.15,0.15 ,0,  0,0,0],
+         [0.15 ,0.15 ,0,  0,0,0]])
+    robot_params:RobotParameter = from_0_1_to_airframe(params_0_1)
+    model = RobotModel(robot_params)
+    rewards, poses = target_LQR_control(model, target)
+    animate_airframe(params_0_1, poses, target)
+
+
 
 
 # cd /home/paran/Dropbox/aerial_gym_dev/aerial_gym_dev/scripts

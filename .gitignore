@@ -32,3 +32,4 @@ venv*
 other_src/pyOpt/MANIFEST
 WindFLO.inp
 turbine*.inp
+test.gif
