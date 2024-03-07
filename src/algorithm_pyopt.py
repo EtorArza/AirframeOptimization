@@ -21,7 +21,7 @@ class pyopt:
             self.x_queue.put(np.array(x))
             f_res = self.f_queue.get(timeout=30000.0)
             assert type(f_res)==float or f_res==np.nan or type(f_res) == np.float64, "f_res = "+str(f_res) + "| type = " + str(type(f_res))
-            return f_res, [-el for el in problem.constraint_check(x)], 1 if type(f_res)==np.nan else 0
+            return f_res, [-el for el in problem.constraint_check(np.array(x))], 1 if type(f_res)==np.nan else 0
 
 
         # x0 = problem.random_feasible_sol(self.rs)
