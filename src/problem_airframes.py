@@ -365,12 +365,12 @@ if __name__ == "__main__":
 
     # Standard quad with LQR
     print("the length of the arms increases over time??")
-    target = [5.3,0.75,3.5]
+    target = [2.3,0.75,1.5]
     params_0_1 = np.array(
-        [[0.15 ,-0.15,0,  0,0,0],
-         [-0.15,-0.15,0, 0,0,0],
-         [-0.15,0.15 ,0,  0,0,0],
-         [0.15 ,0.15 ,0,  0,0,0]])
+        [[0.65 ,0.35,0.5,  0,0,0],
+         [0.35,0.35,0.5, 0,0,0],
+         [0.35,0.65 ,0.5,  0,0,0],
+         [0.65 ,0.65 ,0.5,  0,0,0]])
     robot_params:RobotParameter = from_0_1_to_airframe(params_0_1)
     model = RobotModel(robot_params)
     rewards, poses = target_LQR_control(model, target)
