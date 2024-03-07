@@ -21,15 +21,17 @@ class pyopt:
             self.x_queue.put(np.array(x))
             f_res = self.f_queue.get(timeout=30000.0)
             assert type(f_res)==float or f_res==np.nan or type(f_res) == np.float64, "f_res = "+str(f_res) + "| type = " + str(type(f_res))
-            return f_res, [-el for el in problem.constraint_check(np.array(x))], 1 if type(f_res)==np.nan else 0
+            constraints = [-el for el in problem.constraint_check(np.array(x))] if self.problem.constraint_method == 'algo_specific' else None
+            return f_res, constraints, 1 if type(f_res)==np.nan else 0
 
 
-        # x0 = problem.random_feasible_sol(self.rs)
+        # x0 = problem.random_initial_sol(self.rs)
 
         opt_prob = Optimization(problem.problem_name, fun)
         opt_prob.addObj('fun')
         opt_prob.addVarGroup('x', problem.dim, 'c', lower=0.0, upper=1.0, )#value=x0)
-        opt_prob.addConGroup('constraint', problem.n_constraints, 'i')
+        if self.problem.constraint_method == 'algo_specific':
+            opt_prob.addConGroup('constraint', problem.n_constraints, 'i')
 
         def minimize(opt_prob):
             while True:

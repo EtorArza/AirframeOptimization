@@ -29,12 +29,15 @@ class cobyqa:
 
         def minimz():
             while True:
-                x0 = problem.random_feasible_sol(self.rs)
+                x0 = problem.random_initial_sol(self.rs)
                 minimize(fun, x0, bounds=bounds, constraints=constraints, options=options)
                 print("Optimization end. Optimization algorithm restart.")
 
         bounds = Bounds([0.0 for _ in range(problem.dim)], [1.0 for _ in range(problem.dim)])
-        constraints = NonlinearConstraint(lambda x: [el for el in problem.constraint_check(x)], 0.0, np.inf)
+        if self.problem.constraint_method == 'algo_specific':
+            constraints = NonlinearConstraint(lambda x: [el for el in problem.constraint_check(x)], 0.0, np.inf)
+        else:
+            constraints = ()
         options = {
         "disp": False,
         "radius_init": 0.1,

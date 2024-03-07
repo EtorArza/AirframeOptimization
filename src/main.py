@@ -3,9 +3,11 @@ from tqdm import tqdm as tqdm
 import numpy as np
 from interfaces import *
 
+def explain_convention():
+    print("Convention for this package: We minimize the objective function f, and solutions are feasible as long as the constraints >= 0.")
 
 if __name__ == "__main__":
-
+    explain_convention()
 
     # Show the percentage of feasible solutions in a problem
     if sys.argv[1] == "--venn-diagram":
@@ -24,9 +26,10 @@ if __name__ == "__main__":
     # Directly solve problem locally, with f function that returns np.nan on infeasible solutions.
     elif sys.argv[1] == "--local-solve":
         sys.argv.pop()
-        problem_name = "airframes"
-        algorithm_name = "pyopt"
-        verbose = False
+        problem_name = "toy"
+        algorithm_name = "cobyqa"
+        constraint_method = "algo_specific" # 'ignore','nan_on_unfeasible','constant_penalty_no_evaluation','algo_specific'
+        verbose = True
         seed = 4
         np.random.seed(seed)
 
@@ -34,7 +37,7 @@ if __name__ == "__main__":
         with open(filepath, "a") as f:
             print('evaluations;n_constraint_checks;time;f_best;x_best', file=f)
 
-        prob = problem(problem_name)
+        prob = problem(problem_name, constraint_method)
         algo = optimization_algorithm(prob, algorithm_name, seed)
 
         f_best = 1e10
@@ -43,12 +46,12 @@ if __name__ == "__main__":
         print_status_every = 4
         import time
         ref = time.time()
-        while prob.n_f_evals < 4000:
+        while prob.n_f_evals < 500:
             i += 1
             x = algo.ask()
             f = prob.f(x)
             if verbose:
-                print("n_f_evals:", prob.n_f_evals, "n_constraint_checks:", prob.n_constraint_checks, "x:", x, "f:", f)
+                print("n_f_evals:", prob.n_f_evals, "n_constraint_checks:", prob.n_constraint_checks, "x:", x, "f:", f, "t:", time.time())
             algo.tell(f)
             if f < f_best:
                 f_best = f

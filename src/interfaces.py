@@ -3,13 +3,22 @@ import numpy as np
 
 problem_name_list = ["airframes", "windflo", "toy"]
 algorithm_name_list = ["snobfit", "cobyqa", "pyopt"]
+constraint_method_list = ['ignore','nan_on_unfeasible','constant_penalty_no_evaluation','algo_specific']
 
 class problem:
 
-    def __init__(self, problem_name):
+    def __init__(self, problem_name, constraint_method):
+        '''
+        Initializes the problem to be solved.
+        
+        Parameters:
+            problem_name (str): The name of the problem.
+            constraint_method (str): How to deal with constraints. Supported values are 'ignore','nan_on_unfeasible', 'constant_penalty_no_evaluation', 'algo_specific'.
+        '''
         assert problem_name in problem_name_list
+        assert constraint_method in constraint_method_list
+        self.constraint_method = constraint_method
         self.problem_name = problem_name
-
         self.n_f_evals = 0
         self.n_constraint_checks = 0
 
@@ -38,27 +47,45 @@ class problem:
 
     def f(self, x):
         assert type(x) == np.ndarray
-        self.n_f_evals+=1
-        return self._f(x)
+
+        return_value = None
+        if self.constraint_method == 'ignore' or self.constraint_method =='algo_specific':
+            return_value = 'f'
+        elif self.constraint_method == 'nan_on_unfeasible':
+            return_value = 'f' if np.all(np.array(self.constraint_check(x)) > 0) else np.nan
+        elif self.constraint_method == 'constant_penalty_no_evaluation':
+            return_value = 'f' if np.all(np.array(self.constraint_check(x)) > 0) else np.inf
+        else:
+            raise ValueError("Constraint method "+str(self.constraint_method)+" not recognized.")
+
+        if return_value=='f':
+            return_value = self._f(x)
+            self.n_f_evals+=1
+        return return_value
     
-    def constraint_check(self, x):
+    def constraint_check(self, x) -> tuple:
         assert type(x) == np.ndarray
         self.n_constraint_checks+=1
-        return self._constraint_check(x)
+        res = self._constraint_check(x)
+        assert type(res) == tuple, str(res) + " of type " + str(type(res))
+        return res
 
     def plot_solution(self, x):
         pass
-    
-    def f_nan_on_unfeasible(self, x):
-        feasible = np.min(self.constraint_check(x)) > 0
-        return self.f(x) if feasible else np.nan
-    
-    def random_feasible_sol(self, np_random_state):
-        feasible = False
-        while not feasible:
-            x0 = np_random_state.random(self.dim)
-            feasible = np.min(self.constraint_check(x0)) > 0
-        return x0
+
+    def random_initial_sol(self, np_random_state):
+
+        if self.constraint_method == 'ignore' or self.constraint_method =='algo_specific':
+            return np_random_state.random(self.dim)
+        elif self.constraint_method == 'nan_on_unfeasible' or 'constant_penalty_no_evaluation':
+            feasible = False
+            while not feasible:
+                x0 = np_random_state.random(self.dim)
+                feasible = np.all(np.array(self.constraint_check(x0)) > 0)
+            return x0
+        else:
+            raise ValueError("Constraint method "+str(self.constraint_method)+" not recognized.")
+
 
 class encoding:
 
