@@ -18,72 +18,7 @@ from airframes_objective_functions import target_LQR_control
 from math import sqrt
 from matplotlib.animation import FuncAnimation
 
-def plot_airframe_design(x: numpy.typing.ArrayLike, translation:numpy.typing.ArrayLike=np.zeros(3), rotation_matrix: numpy.typing.ArrayLike=np.eye(3,3)):
-
-    assert translation.shape==(3,)
-    assert rotation_matrix.shape==(3,3)
-
-    pars = from_0_1_to_airframe(x)
-
-    assert len(pars.motor_orientations) == len(pars.motor_translations)
-
-
-    fig = plt.figure()
-    xlim = ylim = zlim = [-1.2,1.2]
-    ax = fig.add_subplot(projection='3d', xlim=xlim, ylim=ylim, zlim=zlim)
-    ax.set_xlabel('x',size=18)
-    ax.set_ylabel('y',size=18)
-    ax.set_zlabel('z',size=18)
-    
-    _plot_airframe_into_ax(ax, pars, translation, rotation_matrix)
-    plt.show()
-
-
-def _plot_airframe_into_ax(ax, pars, translation, rotation_matrix):
-    e1 = np.array([1,0,0])
-    e2 = np.array([0,1,0])
-    e3 = np.array([0,0,1])
-
-    frame_scale_plane = 0.16
-    frame_scale_normal = 0.26
-
-    def apply_transformation(x, translation, rotation_matrix):
-        assert x.shape == (3,)
-        assert translation.shape == (3,)
-        assert rotation_matrix.shape == (3,3)
-        T = np.concatenate([rotation_matrix, translation.reshape(3,1)], axis=1)
-        T = np.concatenate([T, np.array([[0,0,0,1]])])
-        res = T@(np.array([x[0],x[1],x[2], 1]).T)
-        return res.flatten()[0:3]
-
-    for i in range(len(pars.motor_orientations)):
-        t_vec = pars.motor_translations[i]
-        R = Rotation.from_euler("xyz", pars.motor_orientations[i], degrees=True).as_matrix()
-        if pars.motor_directions[i] == -1:
-            color = "blue"
-        elif pars.motor_directions[i] == 1:
-            color = "orange"
-        else:
-            raise ValueError("Direction should be either 1 or -1. Instead, pars.motor_directions[i]=", pars.motor_directions[i])
-
-        line_list = [
-            [[0,t_vec[0]],[0,t_vec[1]],[0,t_vec[2]]],
-            [[t_vec[0],t_vec[0]+R[0,:]@e1*frame_scale_plane],[t_vec[1],t_vec[1]+R[1,:]@e1*frame_scale_plane],[t_vec[2],t_vec[2]+R[2,:]@e1*frame_scale_plane]],
-            [[t_vec[0],t_vec[0]+R[0,:]@e2*frame_scale_plane],[t_vec[1],t_vec[1]+R[1,:]@e2*frame_scale_plane],[t_vec[2],t_vec[2]+R[2,:]@e2*frame_scale_plane]],
-            [[t_vec[0],t_vec[0]-R[0,:]@e1*frame_scale_plane],[t_vec[1],t_vec[1]-R[1,:]@e1*frame_scale_plane],[t_vec[2],t_vec[2]-R[2,:]@e1*frame_scale_plane]],
-            [[t_vec[0],t_vec[0]-R[0,:]@e2*frame_scale_plane],[t_vec[1],t_vec[1]-R[1,:]@e2*frame_scale_plane],[t_vec[2],t_vec[2]-R[2,:]@e2*frame_scale_plane]],
-            [[t_vec[0],t_vec[0]+R[0,:]@e3*frame_scale_normal],[t_vec[1],t_vec[1]+R[1,:]@e3*frame_scale_normal],[t_vec[2],t_vec[2]+R[2,:]@e3*frame_scale_normal]],
-        ]
-
-        color_list = ["gray"] + [color]*4 + ['g']
-        for line, color in zip(line_list, color_list):
-            start = np.array([line[0][0], line[1][0], line[2][0]])
-            end = np.array([line[0][1], line[1][1], line[2][1]])
-            start = apply_transformation(start, translation, rotation_matrix)
-            end = apply_transformation(end, translation, rotation_matrix)
-            ax.add_line(Line3D([start[0],end[0]],[start[1],end[1]],[start[2],end[2]], color=color))
-
-def from_0_1_to_airframe(x: numpy.typing.ArrayLike):
+def from_0_1_to_RobotParameter(x: numpy.typing.ArrayLike):
 
     '''
     Every value in x is in the interval [0,1], where 0 represents lowest possible value, and 1 represents highest possible value.
@@ -130,54 +65,13 @@ def from_0_1_to_airframe(x: numpy.typing.ArrayLike):
     pars.min_u = 0
     return pars
 
-
-def constraint_check(x: numpy.typing.ArrayLike):
-    pars = from_0_1_to_airframe(x)
+def constraint_check_0_1(x: numpy.typing.ArrayLike):
+    pars = from_0_1_to_RobotParameter(x)
     robot = RobotModel(pars)
     check1, check2 = analyze_robot_config.analyze_robot_config(robot)
     return (check1, check2)
 
-
-
-def _plot_airframe_design_interactive(ax, params):
-
-    og_pars = np.array([[el for el in params.values()]])
-    pars = from_0_1_to_airframe(og_pars)
-
-    assert len(pars.motor_orientations) == len(pars.motor_translations)
-
-    xlim = ylim = zlim = [-1.2,1.2]
-    ax.set_xlim(xlim); ax.set_ylim(ylim); ax.set_zlim(zlim)
-
-    ax.set_xlabel('x',size=18)
-    ax.set_ylabel('y',size=18)
-    ax.set_zlabel('z',size=18)
-    
-    e1 = np.array([1,0,0])
-    e2 = np.array([0,1,0])
-    e3 = np.array([0,0,1])
-
-    frame_scale_plane = 0.16
-    frame_scale_normal = 0.26
-
-    for i in range(len(pars.motor_orientations)):
-        t_vec = pars.motor_translations[i]
-        R = Rotation.from_euler("xyz", pars.motor_orientations[i], degrees=True).as_matrix()
-        if pars.motor_directions[i] == -1:
-            color = "blue"
-        elif pars.motor_directions[i] == 1:
-            color = "orange"
-        else:
-            raise ValueError("Direction should be either 1 or -1. Instead, pars.motor_directions[i]=", pars.motor_directions[i])
-        ax.add_line(Line3D([0,t_vec[0]],[0,t_vec[1]],[0,t_vec[2]]))
-        ax.add_line(Line3D([t_vec[0],t_vec[0]+R[0,:]@e1*frame_scale_plane],[t_vec[1],t_vec[1]+R[1,:]@e1*frame_scale_plane],[t_vec[2],t_vec[2]+R[2,:]@e1*frame_scale_plane],color=color)) #x
-        ax.add_line(Line3D([t_vec[0],t_vec[0]+R[0,:]@e2*frame_scale_plane],[t_vec[1],t_vec[1]+R[1,:]@e2*frame_scale_plane],[t_vec[2],t_vec[2]+R[2,:]@e2*frame_scale_plane],color=color)) #y
-        ax.add_line(Line3D([t_vec[0],t_vec[0]-R[0,:]@e1*frame_scale_plane],[t_vec[1],t_vec[1]-R[1,:]@e1*frame_scale_plane],[t_vec[2],t_vec[2]-R[2,:]@e1*frame_scale_plane],color=color)) #x
-        ax.add_line(Line3D([t_vec[0],t_vec[0]-R[0,:]@e2*frame_scale_plane],[t_vec[1],t_vec[1]-R[1,:]@e2*frame_scale_plane],[t_vec[2],t_vec[2]-R[2,:]@e2*frame_scale_plane],color=color)) #y
-        ax.add_line(Line3D([t_vec[0],t_vec[0]+R[0,:]@e3*frame_scale_normal],[t_vec[1],t_vec[1]+R[1,:]@e3*frame_scale_normal],[t_vec[2],t_vec[2]+R[2,:]@e3*frame_scale_normal],color='g')) #z
-
-
-def decode_symmetric_hexarotor_to_0_1(x: numpy.typing.ArrayLike):
+def _decode_symmetric_hexarotor_to_RobotParameter(x: numpy.typing.ArrayLike):
 
     # 5 parameters per rotor, 6 rotors in total. We only define 3 rotors, due to simmetry.
     assert x.shape == (5*3,)
@@ -212,16 +106,14 @@ def decode_symmetric_hexarotor_to_0_1(x: numpy.typing.ArrayLike):
             x_decoded[prop_i*2+1, 3] = scale_down_euler_x(1.0 - x[prop_i*5 +3])# euler_x inverse 
             x_decoded[prop_i*2+1, 4] = 0.5                                   # euler_y constant (0.5)
             x_decoded[prop_i*2+1, 5] = 1.0 - x[prop_i*5 +4]                  # euler_z inverse
-    return x_decoded
-
+    return from_0_1_to_RobotParameter(x_decoded)
 
 def f_symmetric_hexarotor_0_1(x: numpy.typing.ArrayLike, target):
     from datetime import datetime
     current_time = datetime.now()
     print("Evaluating ", x, current_time.strftime("%Y-%m-%d %H:%M:%S"))
     assert x.shape == (15,)
-    decoded_pars = decode_symmetric_hexarotor_to_0_1(og_pars)
-    robot_params:RobotParameter = from_0_1_to_airframe(decoded_pars)
+    robot_params = _decode_symmetric_hexarotor_to_RobotParameter(x)
     model = RobotModel(robot_params)
     rewards, poses = target_LQR_control(model, target)
     
@@ -232,9 +124,106 @@ def f_symmetric_hexarotor_0_1(x: numpy.typing.ArrayLike, target):
     
     return f, poses
 
+def plot_airframe_design(pars:RobotParameter, translation:numpy.typing.ArrayLike=np.zeros(3), rotation_matrix: numpy.typing.ArrayLike=np.eye(3,3)):
+
+    assert translation.shape==(3,)
+    assert rotation_matrix.shape==(3,3)
+
+    assert len(pars.motor_orientations) == len(pars.motor_translations)
 
 
-def plot_airframe_interactive():
+    fig = plt.figure()
+    xlim = ylim = zlim = [-1.2,1.2]
+    ax = fig.add_subplot(projection='3d', xlim=xlim, ylim=ylim, zlim=zlim)
+    ax.set_xlabel('x',size=18)
+    ax.set_ylabel('y',size=18)
+    ax.set_zlabel('z',size=18)
+    
+    _plot_airframe_into_ax(ax, pars, translation, rotation_matrix)
+    plt.show()
+
+def _plot_airframe_into_ax(ax, pars:RobotParameter, translation, rotation_matrix):
+    e1 = np.array([1,0,0])
+    e2 = np.array([0,1,0])
+    e3 = np.array([0,0,1])
+
+    frame_scale_plane = 0.16
+    frame_scale_normal = 0.26
+
+    def apply_transformation(x, translation, rotation_matrix):
+        assert x.shape == (3,)
+        assert translation.shape == (3,)
+        assert rotation_matrix.shape == (3,3)
+        T = np.concatenate([rotation_matrix, translation.reshape(3,1)], axis=1)
+        T = np.concatenate([T, np.array([[0,0,0,1]])])
+        res = T@(np.array([x[0],x[1],x[2], 1]).T)
+        return res.flatten()[0:3]
+
+    for i in range(len(pars.motor_orientations)):
+        t_vec = pars.motor_translations[i]
+        R = Rotation.from_euler("xyz", pars.motor_orientations[i], degrees=True).as_matrix()
+        if pars.motor_directions[i] == -1:
+            color = "blue"
+        elif pars.motor_directions[i] == 1:
+            color = "orange"
+        else:
+            raise ValueError("Direction should be either 1 or -1. Instead, pars.motor_directions[i]=", pars.motor_directions[i])
+
+        line_list = [
+            [[0,t_vec[0]],[0,t_vec[1]],[0,t_vec[2]]],
+            [[t_vec[0],t_vec[0]+R[0,:]@e1*frame_scale_plane],[t_vec[1],t_vec[1]+R[1,:]@e1*frame_scale_plane],[t_vec[2],t_vec[2]+R[2,:]@e1*frame_scale_plane]],
+            [[t_vec[0],t_vec[0]+R[0,:]@e2*frame_scale_plane],[t_vec[1],t_vec[1]+R[1,:]@e2*frame_scale_plane],[t_vec[2],t_vec[2]+R[2,:]@e2*frame_scale_plane]],
+            [[t_vec[0],t_vec[0]-R[0,:]@e1*frame_scale_plane],[t_vec[1],t_vec[1]-R[1,:]@e1*frame_scale_plane],[t_vec[2],t_vec[2]-R[2,:]@e1*frame_scale_plane]],
+            [[t_vec[0],t_vec[0]-R[0,:]@e2*frame_scale_plane],[t_vec[1],t_vec[1]-R[1,:]@e2*frame_scale_plane],[t_vec[2],t_vec[2]-R[2,:]@e2*frame_scale_plane]],
+            [[t_vec[0],t_vec[0]+R[0,:]@e3*frame_scale_normal],[t_vec[1],t_vec[1]+R[1,:]@e3*frame_scale_normal],[t_vec[2],t_vec[2]+R[2,:]@e3*frame_scale_normal]],
+        ]
+
+        color_list = ["gray"] + [color]*4 + ['g']
+        for line, color in zip(line_list, color_list):
+            start = np.array([line[0][0], line[1][0], line[2][0]])
+            end = np.array([line[0][1], line[1][1], line[2][1]])
+            start = apply_transformation(start, translation, rotation_matrix)
+            end = apply_transformation(end, translation, rotation_matrix)
+            ax.add_line(Line3D([start[0],end[0]],[start[1],end[1]],[start[2],end[2]], color=color))
+
+def _plot_airframe_design_interactive(ax, params):
+
+    og_pars = np.array([[el for el in params.values()]])
+    pars = from_0_1_to_RobotParameter(og_pars)
+
+    assert len(pars.motor_orientations) == len(pars.motor_translations)
+
+    xlim = ylim = zlim = [-1.2,1.2]
+    ax.set_xlim(xlim); ax.set_ylim(ylim); ax.set_zlim(zlim)
+
+    ax.set_xlabel('x',size=18)
+    ax.set_ylabel('y',size=18)
+    ax.set_zlabel('z',size=18)
+    
+    e1 = np.array([1,0,0])
+    e2 = np.array([0,1,0])
+    e3 = np.array([0,0,1])
+
+    frame_scale_plane = 0.16
+    frame_scale_normal = 0.26
+
+    for i in range(len(pars.motor_orientations)):
+        t_vec = pars.motor_translations[i]
+        R = Rotation.from_euler("xyz", pars.motor_orientations[i], degrees=True).as_matrix()
+        if pars.motor_directions[i] == -1:
+            color = "blue"
+        elif pars.motor_directions[i] == 1:
+            color = "orange"
+        else:
+            raise ValueError("Direction should be either 1 or -1. Instead, pars.motor_directions[i]=", pars.motor_directions[i])
+        ax.add_line(Line3D([0,t_vec[0]],[0,t_vec[1]],[0,t_vec[2]]))
+        ax.add_line(Line3D([t_vec[0],t_vec[0]+R[0,:]@e1*frame_scale_plane],[t_vec[1],t_vec[1]+R[1,:]@e1*frame_scale_plane],[t_vec[2],t_vec[2]+R[2,:]@e1*frame_scale_plane],color=color)) #x
+        ax.add_line(Line3D([t_vec[0],t_vec[0]+R[0,:]@e2*frame_scale_plane],[t_vec[1],t_vec[1]+R[1,:]@e2*frame_scale_plane],[t_vec[2],t_vec[2]+R[2,:]@e2*frame_scale_plane],color=color)) #y
+        ax.add_line(Line3D([t_vec[0],t_vec[0]-R[0,:]@e1*frame_scale_plane],[t_vec[1],t_vec[1]-R[1,:]@e1*frame_scale_plane],[t_vec[2],t_vec[2]-R[2,:]@e1*frame_scale_plane],color=color)) #x
+        ax.add_line(Line3D([t_vec[0],t_vec[0]-R[0,:]@e2*frame_scale_plane],[t_vec[1],t_vec[1]-R[1,:]@e2*frame_scale_plane],[t_vec[2],t_vec[2]-R[2,:]@e2*frame_scale_plane],color=color)) #y
+        ax.add_line(Line3D([t_vec[0],t_vec[0]+R[0,:]@e3*frame_scale_normal],[t_vec[1],t_vec[1]+R[1,:]@e3*frame_scale_normal],[t_vec[2],t_vec[2]+R[2,:]@e3*frame_scale_normal],color='g')) #z
+
+def plot_airframe_interactive_single_rotor():
     import matplotlib.pyplot as plt
     from matplotlib.widgets import Button, Slider
 
@@ -298,17 +287,16 @@ def plot_airframe_interactive():
 
     plt.show()
 
-def animate_airframe(x, pose_list, target):
+def animate_airframe(pars:RobotParameter, pose_list, target):
 
 
     fig = plt.figure()
-    xlim = ylim = zlim = [-1.2,8.0]
+    xlim = ylim = zlim = [-1.2,4.0]
     ax = fig.add_subplot(projection='3d', xlim=xlim, ylim=ylim, zlim=zlim)
     ax.set_xlabel('x',size=18)
     ax.set_ylabel('y',size=18)
     ax.set_zlabel('z',size=18)
 
-    pars = from_0_1_to_airframe(x)
 
     def animate(i):
         pose = pose_list[i]
@@ -322,25 +310,24 @@ def animate_airframe(x, pose_list, target):
         ax.set_zlabel(f'z={pose[2]:.2f}',size=14)
         ax.plot(*target, color="pink", marker="o")
 
-    ani = FuncAnimation(fig, animate, frames=len(pose_list)-1, interval=100, repeat=True, repeat_delay=4000)
+    ani = FuncAnimation(fig, animate, frames=len(pose_list)-1, interval=100, repeat=False)
     plt.close()
     
     ani.save("test.gif", dpi=300)
-
-
-
 
 
 if __name__ == "__main__":
 
 
     # # Single rotor interactive plot
-    # plot_airframe_interactive()
+    # plot_airframe_interactive_single_rotor()
 
-    # # Plot hexarotor simmetric random drone
+
+
+    # # Plot hexarotor simmetric random drone, with 45 degree rotation and translation
     # rs = np.random.RandomState(5)
     # og_pars = rs.random(15)
-    # decoded_pars = decode_symmetric_hexarotor_to_0_1(og_pars)
+    # decoded_pars = _decode_symmetric_hexarotor_to_RobotParameter(og_pars)
     # rotation_matrix = np.array([
     #     [1/sqrt(2) , -1/sqrt(2) , 0],
     #     [1/sqrt(2) , 1/sqrt(2) , 0],
@@ -351,30 +338,29 @@ if __name__ == "__main__":
 
 
 
-
-
-
-
-    # # Simulate random hexarotor with LQR control
+    # Simulate random hexarotor with LQR control
     # rs = np.random.RandomState(5)
     # og_pars = rs.random(15)
-    # target = [5.3,0.75,3.5]
+    # target = [2.3,0.75,1.5]
     # res = f_symmetric_hexarotor_0_1(og_pars, target)
-    # animate_airframe(decode_symmetric_hexarotor_to_0_1(og_pars), res[1], target)
+    # animate_airframe(_decode_symmetric_hexarotor_to_RobotParameter(og_pars), res[1], target)
 
 
-    # Standard quad with LQR
-    print("the length of the arms increases over time??")
-    target = [2.3,0.75,1.5]
-    params_0_1 = np.array(
-        [[0.65 ,0.35,0.5,  0,0,0],
-         [0.35,0.35,0.5, 0,0,0],
-         [0.35,0.65 ,0.5,  0,0,0],
-         [0.65 ,0.65 ,0.5,  0,0,0]])
-    robot_params:RobotParameter = from_0_1_to_airframe(params_0_1)
-    model = RobotModel(robot_params)
-    rewards, poses = target_LQR_control(model, target)
-    animate_airframe(params_0_1, poses, target)
+
+    # # Standard quad with LQR
+    # print("the length of the arms increases over time??")
+    # target = [2.3,0.75,1.5]
+    # pars_0_1 = np.array(
+    #     [[0.65 ,0.35,0.5,  0,0,0],
+    #      [0.35,0.35,0.5, 0,0,0],
+    #      [0.35,0.65 ,0.5,  0,0,0],
+    #      [0.65 ,0.65 ,0.5,  0,0,0],
+    #      [0.5 ,0.65 ,0.5,  0,0,0],
+    #      [0.35 ,0.5 ,0.5,  0,0,0],])
+    # pars:RobotParameter = from_0_1_to_RobotParameter(pars_0_1)
+    # model = RobotModel(pars)
+    # rewards, poses = target_LQR_control(model, target)
+    # animate_airframe(pars, poses, target)
 
 
 

@@ -15,9 +15,10 @@ class problem:
 
         if problem_name == "airframes":
             import problem_airframes
-            self.dim = 6*4
-            self._constraint_check = problem_airframes.constraint_check
-            self.plot_solution = problem_airframes.plot_airframe_design
+            self.dim = 15
+            self._constraint_check = problem_airframes.constraint_check_0_1
+            self._f = problem_airframes.f_symmetric_hexarotor_0_1
+            self.plot_solution = lambda x: problem_airframes.plot_airframe_design(problem_airframes._decode_symmetric_hexarotor_to_RobotParameter(x))
 
         if problem_name == "windflo":
             import problem_windflo
