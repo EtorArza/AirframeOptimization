@@ -14,9 +14,9 @@ from scipy.spatial.transform import Rotation
 from aerial_gym_dev.envs.base.robot_model import RobotParameter, RobotModel
 import numpy.typing
 from tqdm import tqdm as tqdm
-from airframes_objective_functions import target_LQR_control
 from math import sqrt
 from matplotlib.animation import FuncAnimation
+import subprocess
 
 def from_0_1_to_RobotParameter(x: numpy.typing.ArrayLike):
 
@@ -73,7 +73,7 @@ def constraint_check(pars: RobotParameter):
 def _decode_symmetric_hexarotor_to_RobotParameter(x: numpy.typing.ArrayLike):
 
     # 5 parameters per rotor, 6 rotors in total. We only define 3 rotors, due to simmetry.
-    assert x.shape == (5*3,)
+    assert x.shape == (5*3,), "x.shape = "+ str(x.shape)
     
 
 
@@ -108,14 +108,20 @@ def _decode_symmetric_hexarotor_to_RobotParameter(x: numpy.typing.ArrayLike):
     return from_0_1_to_RobotParameter(x_decoded)
 
 def f_symmetric_hexarotor_0_1(x: numpy.typing.ArrayLike, target):
+
+    assert x.shape == (15,)
+
+    target_str = '[' + ','.join([str(el) for el in target]) + ']'
+    pars_str = '[' + ','.join([str(el) for el in x]) + ']'
+
+    cmd_str = f"python src/airframes_objective_functions.py {pars_str} {target_str}"
     from datetime import datetime
     current_time = datetime.now()
-    print("Evaluating ", x, current_time.strftime("%Y-%m-%d %H:%M:%S"))
-    assert x.shape == (15,)
-    robot_params = _decode_symmetric_hexarotor_to_RobotParameter(x)
-    model = RobotModel(robot_params)
-    rewards, poses = target_LQR_control(model, target)
-    
+    print(">>", cmd_str, current_time.strftime("%Y-%m-%d %H:%M:%S"))
+    output = subprocess.check_output(cmd_str, shell=True, text=True)
+    rewards = np.array(eval(output.split("result:")[-1].split("\n")[1]))
+    poses = np.array(eval(output.split("result:")[-1].split("\n")[2]))
+
     f = 0
     for i, pose in enumerate(poses):
         distance = np.linalg.norm(np.array(target) - pose[0:3])
@@ -341,14 +347,28 @@ if __name__ == "__main__":
 
 
 
-    # Simulate random hexarotor with LQR control
-    # rs = np.random.RandomState(5)
-    # og_pars = rs.random(15)
-    # target = [2.3,0.75,1.5]
-    # res = f_symmetric_hexarotor_0_1(og_pars, target)
-    # animate_airframe(_decode_symmetric_hexarotor_to_RobotParameter(og_pars), res[1], target)
+    target = [2.3,0.75,1.5]
+    target_str = '[' + ','.join([str(el) for el in target]) + ']'
+
+    rs = np.random.RandomState(5)
+    og_pars = rs.random(15)
+    pars_str = '[' + ','.join([str(el) for el in og_pars]) + ']'
 
 
+    output = subprocess.check_output(f"python src/airframes_objective_functions.py {pars_str} {target_str}", shell=True, text=True)
+    reward = np.array(output.split("result:")[-1].split("\n")[1])
+    poses_list = np.array(output.split("result:")[-1].split("\n")[2])
+
+    print("reward: ", reward)
+    print("poses", poses_list)
+    exit(0)
+
+    og_pars = rs.random(15)
+    pars_str = '[' + ','.join([str(el) for el in og_pars]) + ']'
+    output = subprocess.check_output(f"python src/airframes_objective_functions.py {pars_str} {target_str}", shell=True, text=True)
+    print(output.split("result:")[-1])
+
+    exit(0)
 
     # # Standard quad with LQR
     # print("the length of the arms increases over time??")

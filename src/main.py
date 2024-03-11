@@ -9,6 +9,10 @@ def explain_convention():
 if __name__ == "__main__":
     explain_convention()
 
+    def print_to_log(*args):
+        with open("log.txt", 'a') as f:
+            print(*args,  file=f)
+
     # Show the percentage of feasible solutions in a problem
     if sys.argv[1] == "--venn-diagram":
         assert sys.argv[2] in problem_name_list
@@ -26,12 +30,17 @@ if __name__ == "__main__":
     # Directly solve problem locally, with f function that returns np.nan on infeasible solutions.
     elif sys.argv[1] == "--local-solve":
         sys.argv.pop()
-        problem_name = "toy"
-        algorithm_name = "cobyqa"
-        constraint_method = "algo_specific" # 'ignore','nan_on_unfeasible','constant_penalty_no_evaluation','algo_specific'
+        problem_name = "airframes"
+        algorithm_name = "pyopt"
+        constraint_method = "ignore" # 'ignore','nan_on_unfeasible','constant_penalty_no_evaluation','algo_specific'
         verbose = True
         seed = 4
         np.random.seed(seed)
+
+        from datetime import datetime
+        current_time = datetime.now()
+
+        print_to_log(f"Starting optimization {problem_name} {algorithm_name} {constraint_method} {seed} at {current_time.strftime('%Y-%m-%d %H:%M:%S')}")
 
         filepath = f'results/data/{problem_name}_{algorithm_name}_{seed}.csv'
         with open(filepath, "a") as f:
@@ -46,30 +55,31 @@ if __name__ == "__main__":
         print_status_every = 4
         import time
         ref = time.time()
-        while prob.n_f_evals < 500:
+        while prob.n_f_evals < 10000:
             i += 1
             x = algo.ask()
             f = prob.f(x)
             if verbose:
-                print("n_f_evals:", prob.n_f_evals, "n_constraint_checks:", prob.n_constraint_checks, "x:", x, "f:", f, "t:", time.time())
+                print_to_log("n_f_evals:", prob.n_f_evals, "n_constraint_checks:", prob.n_constraint_checks, "x:", x, "f:", f, "t:", time.time())
             algo.tell(f)
             if f < f_best:
                 f_best = f
                 x_best = x
-                print("--New best--")
-                print(x_best, f_best, time.time())
+                print_to_log("--New best----------------------------------------------------")
+                print_to_log(x_best, f_best, time.time())
+                print_to_log("--------------------------------------------------------------")
                 with open(filepath, "a") as f:
                     print(f'{prob.n_f_evals};{prob.n_constraint_checks};{time.time() - ref};{f_best};{np.array_str(x_best, max_line_width=np.inf)}', file=f)
 
             if i % print_status_every == 0:
-                print("n_constraint_checks = ",prob.n_constraint_checks, "| n_f_evals", prob.n_f_evals, " | ", time.time() - ref ,"seconds")
+                print_to_log("n_constraint_checks = ",prob.n_constraint_checks, "| n_f_evals", prob.n_f_evals, " | ", time.time() - ref ,"seconds")
 
-        print("-------------------------------------------------------------")
-        print("Finished local optimization.")
-        print("n_f_evals:", prob.n_f_evals, "\nn_constraint_checks:", prob.n_constraint_checks, "\nx:", x, "\nf:", f)
-        print("Constraints: ")
-        [print("x = ", el, " > 0") for el in  prob.constraint_check(x)]
-        print("-------------------------------------------------------------")
+        print_to_log("-------------------------------------------------------------")
+        print_to_log("Finished local optimization.")
+        print_to_log("n_f_evals:", prob.n_f_evals, "\nn_constraint_checks:", prob.n_constraint_checks, "\nx:", x, "\nf:", f)
+        print_to_log("Constraints: ")
+        [print_to_log("x = ", el, " > 0") for el in  prob.constraint_check(x)]
+        print_to_log("-------------------------------------------------------------")
         exit(0)
 
     # Plot how time per evaluation in snobfit increases linearly
