@@ -125,8 +125,10 @@ def f_symmetric_hexarotor_0_1(x: numpy.typing.NDArray[np.float_], target):
     f = 0
     for i, pose in enumerate(poses):
         distance = np.linalg.norm(np.array(target) - pose[0:3])
-        f += distance*i
+        f += distance
     
+    f -= 100000 * len(poses) # Bonus reward for episode length. Longer episode length means that evaluation was not prematurely terminated.
+
     return f, poses
 
 def constraint_check_hexarotor_0_1(x: numpy.typing.NDArray[np.float_]):
@@ -347,29 +349,16 @@ if __name__ == "__main__":
 
 
 
-    target = [2.3,0.75,1.5]
-    target_str = '[' + ','.join([str(el) for el in target]) + ']'
+    # target = [2.3,0.75,1.5]
+    # target_str = '[' + ','.join([str(el) for el in target]) + ']'
 
-    rs = np.random.RandomState(5)
-    og_pars = rs.random(15)
-    pars_str = '[' + ','.join([str(el) for el in og_pars]) + ']'
+    # rs = np.random.RandomState(5)
+    # og_pars = rs.random(15)
+    # pars_str = '[' + ','.join([str(el) for el in og_pars]) + ']'
+    # output = subprocess.check_output(f"python src/airframes_objective_functions.py {pars_str} {target_str}", shell=True, text=True)
+    # print(output.split("result:")[-1])
 
-
-    output = subprocess.check_output(f"python src/airframes_objective_functions.py {pars_str} {target_str}", shell=True, text=True)
-    reward = np.array(output.split("result:")[-1].split("\n")[1])
-    poses_list = np.array(output.split("result:")[-1].split("\n")[2])
-
-    print("reward: ", reward)
-    print("poses", poses_list)
-    exit(0)
-
-    og_pars = rs.random(15)
-    pars_str = '[' + ','.join([str(el) for el in og_pars]) + ']'
-    output = subprocess.check_output(f"python src/airframes_objective_functions.py {pars_str} {target_str}", shell=True, text=True)
-    print(output.split("result:")[-1])
-
-    exit(0)
-
+ 
     # # Standard quad with LQR
     # print("the length of the arms increases over time??")
     # target = [2.3,0.75,1.5]
@@ -384,6 +373,16 @@ if __name__ == "__main__":
     # model = RobotModel(pars)
     # rewards, poses = target_LQR_control(model, target)
     # animate_airframe(pars, poses, target)
+
+    # Animate best solutoin with LQR
+    target = [2.3,0.75,1.5]
+    x = np.array([0.19851363,0.96946337,0.42332917,0.18290186,0.7737749,0.68323721,0.14474074,0.93003674,0.25275791,0.7919224,0.9294364,0.84222464,0.49513169,0.67478422,0.46153046])
+    
+    f, poses = f_symmetric_hexarotor_0_1(x, target)
+    print(f)
+    animate_airframe(_decode_symmetric_hexarotor_to_RobotParameter(x), poses, target)
+
+
 
     pass
 

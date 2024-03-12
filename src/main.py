@@ -3,15 +3,8 @@ from tqdm import tqdm as tqdm
 import numpy as np
 from interfaces import *
 
-def explain_convention():
-    print("Convention for this package: We minimize the objective function f, and solutions are feasible as long as the constraints >= 0.")
 
 if __name__ == "__main__":
-    explain_convention()
-
-    def print_to_log(*args):
-        with open("log.txt", 'a') as f:
-            print(*args,  file=f)
 
     # Show the percentage of feasible solutions in a problem
     if sys.argv[1] == "--venn-diagram":
@@ -30,19 +23,26 @@ if __name__ == "__main__":
     # Directly solve problem locally, with f function that returns np.nan on infeasible solutions.
     elif sys.argv[1] == "--local-solve":
         sys.argv.pop()
-        problem_name = "airframes"
+        problem_name = "toy"
         algorithm_name = "pyopt"
         constraint_method = "ignore" # 'ignore','nan_on_unfeasible','constant_penalty_no_evaluation','algo_specific'
         verbose = True
         seed = 4
         np.random.seed(seed)
 
-        from datetime import datetime
-        current_time = datetime.now()
-
-        print_to_log(f"Starting optimization {problem_name} {algorithm_name} {constraint_method} {seed} at {current_time.strftime('%Y-%m-%d %H:%M:%S')}")
+        def get_human_time() -> str:
+            from datetime import datetime
+            current_time = datetime.now()
+            return current_time.strftime('%Y-%m-%d %H:%M:%S')
 
         filepath = f'results/data/{problem_name}_{algorithm_name}_{seed}.csv'
+        def print_to_log(*args):
+            with open(f"{filepath}.log", 'a') as f:
+                print(*args,  file=f)
+
+
+        print_to_log(f"Starting optimization {problem_name} {algorithm_name} {constraint_method} {seed} at {get_human_time()}")
+
         with open(filepath, "a") as f:
             print('evaluations;n_constraint_checks;time;f_best;x_best', file=f)
 
@@ -52,7 +52,7 @@ if __name__ == "__main__":
         f_best = 1e10
         x_best = None
         i = -1
-        print_status_every = 4
+        print_status_every = 30
         import time
         ref = time.time()
         while prob.n_f_evals < 10000:
@@ -60,25 +60,25 @@ if __name__ == "__main__":
             x = algo.ask()
             f = prob.f(x)
             if verbose:
-                print_to_log("n_f_evals:", prob.n_f_evals, "n_constraint_checks:", prob.n_constraint_checks, "x:", x, "f:", f, "t:", time.time())
+                print_to_log("n_f_evals:", prob.n_f_evals, "n_constraint_checks:", prob.n_constraint_checks, "f:", f, "t:", time.time(), "x:", x.tolist())
             algo.tell(f)
             if f < f_best:
                 f_best = f
                 x_best = x
                 print_to_log("--New best----------------------------------------------------")
-                print_to_log(x_best, f_best, time.time())
+                print_to_log(get_human_time(), f_best, x_best.tolist())
                 print_to_log("--------------------------------------------------------------")
                 with open(filepath, "a") as f:
-                    print(f'{prob.n_f_evals};{prob.n_constraint_checks};{time.time() - ref};{f_best};{np.array_str(x_best, max_line_width=np.inf)}', file=f)
+                    print(f'{prob.n_f_evals};{prob.n_constraint_checks};{time.time() - ref};{f_best};{x_best.tolist()}', file=f)
 
-            if i % print_status_every == 0:
+            if i % print_status_every == 0 and not verbose:
                 print_to_log("n_constraint_checks = ",prob.n_constraint_checks, "| n_f_evals", prob.n_f_evals, " | ", time.time() - ref ,"seconds")
 
         print_to_log("-------------------------------------------------------------")
-        print_to_log("Finished local optimization.")
-        print_to_log("n_f_evals:", prob.n_f_evals, "\nn_constraint_checks:", prob.n_constraint_checks, "\nx:", x, "\nf:", f)
+        print_to_log("Finished local optimization.", get_human_time())
+        print_to_log("n_f_evals:", prob.n_f_evals, "\nn_constraint_checks:", prob.n_constraint_checks, "\nx:", x.tolist(), "\nf:", f)
         print_to_log("Constraints: ")
-        [print_to_log("x = ", el, " > 0") for el in  prob.constraint_check(x)]
+        [print_to_log("g(x) = ", el) for el in  prob.constraint_check(x)]
         print_to_log("-------------------------------------------------------------")
         exit(0)
 

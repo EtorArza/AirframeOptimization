@@ -58,6 +58,10 @@ def target_LQR_control(robot_model, target):
     obs_list = []
     for i in range(0, episode_length):
         obs, priviliged_obs, rewards, resets, extras = env.step(command_actions)
+
+        if bool(resets.cpu()[0]): # stop if the airframe is reinitialized
+            break
+
         # env.render()
         r = rewards[0].item()
         pose = np.array(obs['obs'].cpu())[0][0:7]
