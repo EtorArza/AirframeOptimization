@@ -43,7 +43,7 @@ class cobyqa:
         "radius_init": 0.1,
         "feasibility_tol": np.finfo(float).eps,
         }
-        thread = threading.Thread(target=minimz)
+        thread = threading.Thread(target=minimz, daemon=True)
         thread.start()
 
 

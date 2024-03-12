@@ -32,7 +32,7 @@ class snobfit:
                 print("Optimization end. Optimization algorithm restart.")
         
 
-        thread = threading.Thread(target=minimiz, args=(), kwargs={})
+        thread = threading.Thread(target=minimiz, args=(), kwargs={}, daemon=True)
         thread.start()
 
     def ask(self):

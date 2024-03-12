@@ -44,7 +44,7 @@ class pyopt:
 
 
 
-        thread = threading.Thread(target=minimize, args=[opt_prob])
+        thread = threading.Thread(target=minimize, args=[opt_prob], daemon=True)
         thread.start()
 
 
