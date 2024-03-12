@@ -18,7 +18,7 @@ from math import sqrt
 from matplotlib.animation import FuncAnimation
 import subprocess
 
-def from_0_1_to_RobotParameter(x: numpy.typing.ArrayLike):
+def from_0_1_to_RobotParameter(x: numpy.typing.NDArray[np.float_]):
 
     '''
     Every value in x is in the interval [0,1], where 0 represents lowest possible value, and 1 represents highest possible value.
@@ -70,7 +70,7 @@ def constraint_check(pars: RobotParameter):
     check1, check2 = analyze_robot_config.analyze_robot_config(robot)
     return (check1, check2)
 
-def _decode_symmetric_hexarotor_to_RobotParameter(x: numpy.typing.ArrayLike):
+def _decode_symmetric_hexarotor_to_RobotParameter(x: numpy.typing.NDArray[np.float_]):
 
     # 5 parameters per rotor, 6 rotors in total. We only define 3 rotors, due to simmetry.
     assert x.shape == (5*3,), "x.shape = "+ str(x.shape)
@@ -107,7 +107,7 @@ def _decode_symmetric_hexarotor_to_RobotParameter(x: numpy.typing.ArrayLike):
             x_decoded[prop_i*2+1, 5] = 1.0 - x[prop_i*5 +4]                  # euler_z inverse
     return from_0_1_to_RobotParameter(x_decoded)
 
-def f_symmetric_hexarotor_0_1(x: numpy.typing.ArrayLike, target):
+def f_symmetric_hexarotor_0_1(x: numpy.typing.NDArray[np.float_], target):
 
     assert x.shape == (15,)
 
@@ -129,11 +129,11 @@ def f_symmetric_hexarotor_0_1(x: numpy.typing.ArrayLike, target):
     
     return f, poses
 
-def constraint_check_hexarotor_0_1(x: numpy.typing.ArrayLike):
+def constraint_check_hexarotor_0_1(x: numpy.typing.NDArray[np.float_]):
     pars = _decode_symmetric_hexarotor_to_RobotParameter(x)
     return constraint_check(pars)
 
-def plot_airframe_design(pars:RobotParameter, translation:numpy.typing.ArrayLike=np.zeros(3), rotation_matrix: numpy.typing.ArrayLike=np.eye(3,3)):
+def plot_airframe_design(pars:RobotParameter, translation:numpy.typing.NDArray[np.float_]=np.zeros(3), rotation_matrix: numpy.typing.NDArray[np.float_]=np.eye(3,3)):
 
     assert translation.shape==(3,)
     assert rotation_matrix.shape==(3,3)

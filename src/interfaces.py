@@ -1,5 +1,5 @@
 import numpy as np
-
+import numpy.typing
 
 problem_name_list = ["airframes", "windflo", "toy"]
 algorithm_name_list = ["snobfit", "cobyqa", "pyopt"]
@@ -7,9 +7,12 @@ constraint_method_list = ['ignore','nan_on_unfeasible','constant_penalty_no_eval
 
 class problem:
 
-    def __init__(self, problem_name, constraint_method):
+    def __init__(self, problem_name:str, constraint_method:str):
         '''
-        Initializes the problem to be solved.
+        Initializes the problem to be solved. All the problems are minimization of the objective 
+        function f, and solutions are feasible as long as the constraints >= 0. This is the convention used 
+        in the textbook Numerical optimization by Jorge Nocedal.
+
         
         Parameters:
             problem_name (str): The name of the problem.
@@ -45,7 +48,7 @@ class problem:
 
         self.n_constraints = len(self._constraint_check(np.random.random(self.dim)))
 
-    def f(self, x):
+    def f(self, x:numpy.typing.NDArray[np.float_]):
         assert type(x) == np.ndarray
 
         return_value = None
@@ -63,17 +66,17 @@ class problem:
             self.n_f_evals+=1
         return return_value
     
-    def constraint_check(self, x) -> tuple:
+    def constraint_check(self, x:numpy.typing.NDArray[np.float_]) -> tuple:
         assert type(x) == np.ndarray
         self.n_constraint_checks+=1
         res = self._constraint_check(x)
         assert type(res) == tuple, str(res) + " of type " + str(type(res))
         return res
 
-    def plot_solution(self, x):
+    def plot_solution(self, x:numpy.typing.NDArray[np.float_]):
         pass
 
-    def random_initial_sol(self, np_random_state):
+    def random_initial_sol(self, np_random_state) -> numpy.typing.NDArray[np.float_]:
 
         if self.constraint_method == 'ignore' or self.constraint_method =='algo_specific':
             return np_random_state.random(self.dim)
@@ -111,8 +114,8 @@ class optimization_algorithm:
         else:
             print("Algorithm name", algorithm_name, "not recognized.")
 
-    def ask(self):
+    def ask(self) -> numpy.typing.NDArray[np.float_]:
         return self.algo.ask()
 
-    def tell(self, f):
+    def tell(self, f) -> None:
         self.algo.tell(f)
