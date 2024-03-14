@@ -38,16 +38,7 @@ def _get_feasability_data_airframes_one_run(path):
         for line in tqdm(f.readlines()):
             i += 1
             if 'n_constraint_checks: ' in line:
-                x = []
-                for item in line.split(" ")[5:]:
-                    if len(item.strip('\n][ ')) == 0:
-                        if ']' in item:
-                            break
-                        continue
-                    value = float(item.strip('\n][ '))
-                    x.append(value)
-                    if ']' in item:
-                        break
+                x = eval(line.split("x: ")[-1].strip("\n"))
                 f = float(line[line.find(' f: ')+len(' f: '):line.rfind(' t: ')] if ' f: ' in line and ' t: ' in line else None)
                 f_list.append(f)
                 x_list.append(x)
@@ -112,4 +103,4 @@ def plot_feasability(f_list, constraint_list, path):
 
 if __name__ == '__main__':
     plot_progress_one('results/data/airframes_pyopt_4.csv')
-    plot_feasability(*_get_feasability_data_airframes_one_run('log_airframes_pyopt_4.txt'),'log_airframes_pyopt_4.txt')
+    plot_feasability(*_get_feasability_data_airframes_one_run('results/data/airframes_pyopt_4.csv.log'),'results/data/airframes_pyopt_4.csv.log')

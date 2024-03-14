@@ -34,3 +34,5 @@ WindFLO.inp
 turbine*.inp
 test.gif
 log.txt
+robotConfigFile.txt
+*.gif

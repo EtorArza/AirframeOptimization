@@ -111,6 +111,9 @@ class optimization_algorithm:
         elif algorithm_name == "pyopt":
             import algorithm_pyopt
             self.algo = algorithm_pyopt.pyopt(problem, seed)
+        elif algorithm_name == "nevergrad":
+            import algorithm_nevergrad
+            self.algo = algorithm_nevergrad.ng_optimizer(problem, seed, parallel_threads=1, budget=10000)
         else:
             print("Algorithm name", algorithm_name, "not recognized.")
 

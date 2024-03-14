@@ -3,7 +3,6 @@ aerial_gym_dev_path="/home/paran/Dropbox/aerial_gym_dev/aerial_gym_dev"
 import sys
 import isaacgym
 sys.path.append(aerial_gym_dev_path)
-from aerial_gym_dev.envs.base import robot_model, example_configs
 from aerial_gym_dev.envs import *
 from aerial_gym_dev.utils import analyze_robot_config
 from matplotlib import pyplot as plt
@@ -31,8 +30,7 @@ def from_0_1_to_RobotParameter(x: numpy.typing.NDArray[np.float_]):
     '''
 
 
-    def _matrix_to_list_of_list(m):
-        return [el for el in [row for row in m]]
+
 
     # A linear scalling to [0,1]^number_of_parameters
     assert type(x)==np.ndarray, "x = "+str(x)+" | type(x) = "+str(type(x))
@@ -43,10 +41,10 @@ def from_0_1_to_RobotParameter(x: numpy.typing.NDArray[np.float_]):
     
     pars.cq = 0.1
     pars.frame_mass = 0.5
-    
-    pars.motor_directions = [1, -1]*(n_rotors//2) + [1]*(n_rotors%2)
     pars.motor_masses = [0.1] * n_rotors
+    
 
+    pars.motor_directions = ([1,-1,-1,1]*6)[:n_rotors]
 
     x_motor_translations = np.array([x[rotor_idx, i] for rotor_idx in range(n_rotors) for i in range(3)])
     x_motor_orientations = np.array([x[rotor_idx, i] for rotor_idx in range(n_rotors) for i in range(3,6)])
@@ -54,15 +52,29 @@ def from_0_1_to_RobotParameter(x: numpy.typing.NDArray[np.float_]):
     pars.motor_translations = x_motor_translations.reshape(-1,3) * 2.0 - 1.0
     pars.motor_orientations = x_motor_orientations.reshape(-1, 3) * 360
 
-    pars.motor_translations = _matrix_to_list_of_list(pars.motor_translations)
-    pars.motor_orientations = _matrix_to_list_of_list(pars.motor_orientations)
+    pars.motor_translations = pars.motor_translations.tolist()
+    pars.motor_orientations = pars.motor_orientations.tolist()
     
     #pars.sensor_masses = [0.15, 0.1]
     #pars.sensor_orientations = [[0,0,0],[0,-20,0]]
     #pars.sensor_translations = [[0,0.5,0.1],[0,0,-0.1]]
-    
+
     pars.max_u = 20
     pars.min_u = 0
+
+    if True:
+        with open('/home/paran/Dropbox/NTNU/11_constraints_encoding/code/robotConfigFile.txt','w') as f:
+            print('pars.cq=',pars.cq, file=f, flush=True)
+            print('pars.frame_mass=',pars.frame_mass, file=f)
+            print('pars.motor_masses=',pars.motor_masses, file=f)
+
+            print('pars.motor_translations=',pars.motor_translations, file=f)
+            print('pars.motor_orientations=',pars.motor_orientations, file=f)
+            print('pars.motor_directions=',pars.motor_directions, file=f)
+
+            print('pars.max_u=',pars.max_u, file=f)
+            print('pars.min_u=',pars.min_u, file=f)
+
     return pars
 
 def constraint_check(pars: RobotParameter):
@@ -73,10 +85,10 @@ def constraint_check(pars: RobotParameter):
 def _decode_symmetric_hexarotor_to_RobotParameter(x: numpy.typing.NDArray[np.float_]):
 
     # 5 parameters per rotor, 6 rotors in total. We only define 3 rotors, due to simmetry.
-    assert x.shape == (5*3,), "x.shape = "+ str(x.shape)
+    assert x.shape == (5*3,) or x.shape == (5*2,), "x.shape = "+ str(x.shape)
     
 
-
+    n_unique_rotors = round(x.shape[0]/5)
     euler_x_max_proportion = 0.2 # Maximum rotor inclination from vertical position. We dont want them to tilt more than 20%
     def scale_down_euler_x(euler_x_01):
         return euler_x_01*euler_x_max_proportion + (0.5 - euler_x_max_proportion/2.0)
@@ -84,10 +96,10 @@ def _decode_symmetric_hexarotor_to_RobotParameter(x: numpy.typing.NDArray[np.flo
     simmetry_plane = "y"
 
 
-    x_decoded = np.zeros(shape=(6,6), dtype=np.float64)
+    x_decoded = np.zeros(shape=(2*n_unique_rotors,6), dtype=np.float64)
     # For each propeller, symmetric encoding has 5 parameters, and 0_1 encoding has 6 x 2 (one of the propellers has simmetric parameters).
     if simmetry_plane == "y":
-        for prop_i in range(3):
+        for prop_i in range(n_unique_rotors):
             # og
             x_decoded[prop_i*2, 0] = x[prop_i*5 +0]                          # r_x same
             x_decoded[prop_i*2, + 1] = x[prop_i*5 +1] / 2                    # r_y can only be in one side
@@ -109,12 +121,14 @@ def _decode_symmetric_hexarotor_to_RobotParameter(x: numpy.typing.NDArray[np.flo
 
 def f_symmetric_hexarotor_0_1(x: numpy.typing.NDArray[np.float_], target):
 
-    assert x.shape == (15,)
+    assert x.shape == (15,) or x.shape== (10,)
 
     target_str = '[' + ','.join([str(el) for el in target]) + ']'
     pars_str = '[' + ','.join([str(el) for el in x]) + ']'
 
-    cmd_str = f"python src/airframes_objective_functions.py {pars_str} {target_str}"
+    print("save parameters to robotConfigFile.txt")
+    _decode_symmetric_hexarotor_to_RobotParameter(x)
+    cmd_str = f"python src/airframes_objective_functions.py {target_str}"
     from datetime import datetime
     current_time = datetime.now()
     print(">>", cmd_str, current_time.strftime("%Y-%m-%d %H:%M:%S"))
@@ -125,17 +139,16 @@ def f_symmetric_hexarotor_0_1(x: numpy.typing.NDArray[np.float_], target):
     f = 0
     for i, pose in enumerate(poses):
         distance = np.linalg.norm(np.array(target) - pose[0:3])
-        f += distance
+        f += distance / len(poses)
     
-    f -= 100000 * len(poses) # Bonus reward for episode length. Longer episode length means that evaluation was not prematurely terminated.
-
+    f -= 100000 * (len(poses) - 300) # Bonus reward for episode length. Longer episode length means that evaluation was not prematurely terminated.
     return f, poses
 
 def constraint_check_hexarotor_0_1(x: numpy.typing.NDArray[np.float_]):
     pars = _decode_symmetric_hexarotor_to_RobotParameter(x)
     return constraint_check(pars)
 
-def plot_airframe_design(pars:RobotParameter, translation:numpy.typing.NDArray[np.float_]=np.zeros(3), rotation_matrix: numpy.typing.NDArray[np.float_]=np.eye(3,3)):
+def plot_airframe_design(pars:RobotParameter, translation:numpy.typing.NDArray[np.float_]=np.zeros(3), rotation_matrix: numpy.typing.NDArray[np.float_]=np.eye(3,3), target=None):
 
     assert translation.shape==(3,)
     assert rotation_matrix.shape==(3,3)
@@ -144,13 +157,15 @@ def plot_airframe_design(pars:RobotParameter, translation:numpy.typing.NDArray[n
 
 
     fig = plt.figure()
-    xlim = ylim = zlim = [-1.2,1.2]
+    xlim = ylim = zlim = [-1.2,3.2]
     ax = fig.add_subplot(projection='3d', xlim=xlim, ylim=ylim, zlim=zlim)
     ax.set_xlabel('x',size=18)
     ax.set_ylabel('y',size=18)
     ax.set_zlabel('z',size=18)
     
     _plot_airframe_into_ax(ax, pars, translation, rotation_matrix)
+    if not target is None:
+        ax.plot(*target, color='blue', marker='o')
     plt.show()
 
 def _plot_airframe_into_ax(ax, pars:RobotParameter, translation, rotation_matrix):
@@ -374,10 +389,31 @@ if __name__ == "__main__":
     # rewards, poses = target_LQR_control(model, target)
     # animate_airframe(pars, poses, target)
 
-    # Animate best solutoin with LQR
+  
+
+
+    # Analyze solutions
+
     target = [2.3,0.75,1.5]
-    x = np.array([0.19851363,0.96946337,0.42332917,0.18290186,0.7737749,0.68323721,0.14474074,0.93003674,0.25275791,0.7919224,0.9294364,0.84222464,0.49513169,0.67478422,0.46153046])
-    
+
+    # Best solution
+    x = np.array([0.49580943483950735, 0.8446168367709378, 0.7518539791904498, 0.13353196954967322, 0.6860072491492938, 0.9692333121269158, 0.5187270188694916, 0.550890465330575, 0.1443820822505597, 0.2227223052526963, 0.31845214783310405, 0.8595968832825416, 0.4364441257720804, 0.4042662014448113, 0.455128119397063])
+
+    # # Quad
+    # x = np.array([0.1465, 0.1465*2, 0.5, 0.5, 0.0,
+    #               1.0-0.1465, 0.1465*2, 0.5, 0.5, 0.0,
+    #             ])
+
+    # Hex
+    # x = np.array([0,1.0,0.5,0.5,0.0,1.0-np.cos(np.pi/3)/2,1.0-np.sin(np.pi/3),0.5,0.5,0.0,np.cos(np.pi/3)/2,1.0-np.sin(np.pi/3),0.5,0.5,0.0]); is_hex = True
+
+    # pars.motor_translations = [[np.cos(np.pi / 3),-np.sin(np.pi / 3),0], [-np.cos(np.pi / 3),-np.sin(np.pi / 3),0], [-1.,0.,0], [-np.cos(np.pi / 3),np.sin(np.pi / 3) ,0], [np.cos(np.pi / 3),np.sin(np.pi / 3),0.], [1.,0.,0.]]
+
+    print(constraint_check_hexarotor_0_1(x))
+    plot_airframe_design(_decode_symmetric_hexarotor_to_RobotParameter(x), target=np.array(target))
+    print("Constraints: ")
+    [print("g(x) = ", el) for el in  constraint_check(_decode_symmetric_hexarotor_to_RobotParameter(x))]
+
     f, poses = f_symmetric_hexarotor_0_1(x, target)
     print(f)
     animate_airframe(_decode_symmetric_hexarotor_to_RobotParameter(x), poses, target)
