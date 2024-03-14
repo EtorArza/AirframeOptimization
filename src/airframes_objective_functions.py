@@ -1,8 +1,7 @@
-import problem_airframes
 import numpy as np
+import subprocess
 
-
-def target_LQR_control(target):
+def _target_LQR_control(target, render:bool):
 
     aerial_gym_dev_path="/home/paran/Dropbox/aerial_gym_dev/aerial_gym_dev"
     import sys
@@ -25,7 +24,7 @@ def target_LQR_control(target):
     args = get_args()
     args.num_envs = 1
     args.task = 'gen_aerial_robot'
-    args.headless = False
+    args.headless = not render
 
     env, env_cfg = task_registry.make_env(name=args.task, args=args)
     assert env_cfg.control.controller == "LQR_control"
@@ -44,7 +43,9 @@ def target_LQR_control(target):
         if bool(resets.cpu()[0]): # stop if the airframe is reinitialized
             break
 
-        env.render()
+        if render:
+            env.render()
+
         r = rewards[0].item()
         pose = np.array(obs['obs'].cpu())[0][0:7]
         reward_list.append(r)
@@ -54,11 +55,44 @@ def target_LQR_control(target):
     return np.array(reward_list), np.array(obs_list)
 
 
+
+def target_lqr_objective_function(pars, target):
+
+    print("save parameters to robotConfigFile.txt")
+    with open('/home/paran/Dropbox/NTNU/11_constraints_encoding/code/robotConfigFile.txt','w') as f:
+        print('pars.cq=',pars.cq, file=f, flush=True)
+        print('pars.frame_mass=',pars.frame_mass, file=f)
+        print('pars.motor_masses=',pars.motor_masses, file=f)
+
+        print('pars.motor_translations=',pars.motor_translations, file=f)
+        print('pars.motor_orientations=',pars.motor_orientations, file=f)
+        print('pars.motor_directions=',pars.motor_directions, file=f)
+
+        print('pars.max_u=',pars.max_u, file=f)
+        print('pars.min_u=',pars.min_u, file=f)
+
+    target_str = '[' + ','.join([str(el) for el in target]) + ']'
+
+    cmd_str = f"python src/airframes_objective_functions.py {target_str}"
+    from datetime import datetime
+    current_time = datetime.now()
+    print(">>", cmd_str, current_time.strftime("%Y-%m-%d %H:%M:%S"))
+    output = subprocess.check_output(cmd_str, shell=True, text=True)
+    rewards = np.array(eval(output.split("result:")[-1].split("\n")[1]))
+    poses = np.array(eval(output.split("result:")[-1].split("\n")[2]))
+
+    return rewards, poses
+
+
+
+
+
 if __name__ == '__main__':
+    # Call objective function from subprocess. Assumes robotConfigFile.txt has been previously written.
     import sys
     assert len(sys.argv) == 2
     target = eval(sys.argv[1])
-    res = target_LQR_control(target)
+    res = _target_LQR_control(target, False)
     print("result:")
     print(res[0].tolist())
     print(res[1].tolist())

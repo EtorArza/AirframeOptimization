@@ -11,11 +11,14 @@ from mpl_toolkits.mplot3d import Axes3D
 from mpl_toolkits.mplot3d.art3d import Line3D, Patch3D, Poly3DCollection, Text3D
 from scipy.spatial.transform import Rotation
 from aerial_gym_dev.envs.base.robot_model import RobotParameter, RobotModel
+from aerial_gym_dev.envs.base.example_configs import PredefinedConfigParameter
 import numpy.typing
 from tqdm import tqdm as tqdm
 from math import sqrt
 from matplotlib.animation import FuncAnimation
 import subprocess
+from airframes_objective_functions import target_lqr_objective_function
+
 
 def from_0_1_to_RobotParameter(x: numpy.typing.NDArray[np.float_]):
 
@@ -62,19 +65,6 @@ def from_0_1_to_RobotParameter(x: numpy.typing.NDArray[np.float_]):
     pars.max_u = 20
     pars.min_u = 0
 
-    if True:
-        with open('/home/paran/Dropbox/NTNU/11_constraints_encoding/code/robotConfigFile.txt','w') as f:
-            print('pars.cq=',pars.cq, file=f, flush=True)
-            print('pars.frame_mass=',pars.frame_mass, file=f)
-            print('pars.motor_masses=',pars.motor_masses, file=f)
-
-            print('pars.motor_translations=',pars.motor_translations, file=f)
-            print('pars.motor_orientations=',pars.motor_orientations, file=f)
-            print('pars.motor_directions=',pars.motor_directions, file=f)
-
-            print('pars.max_u=',pars.max_u, file=f)
-            print('pars.min_u=',pars.min_u, file=f)
-
     return pars
 
 def constraint_check(pars: RobotParameter):
@@ -119,29 +109,24 @@ def _decode_symmetric_hexarotor_to_RobotParameter(x: numpy.typing.NDArray[np.flo
             x_decoded[prop_i*2+1, 5] = 1.0 - x[prop_i*5 +4]                  # euler_z inverse
     return from_0_1_to_RobotParameter(x_decoded)
 
-def f_symmetric_hexarotor_0_1(x: numpy.typing.NDArray[np.float_], target):
 
-    assert x.shape == (15,) or x.shape== (10,)
-
-    target_str = '[' + ','.join([str(el) for el in target]) + ']'
-    pars_str = '[' + ','.join([str(el) for el in x]) + ']'
-
-    print("save parameters to robotConfigFile.txt")
-    _decode_symmetric_hexarotor_to_RobotParameter(x)
-    cmd_str = f"python src/airframes_objective_functions.py {target_str}"
-    from datetime import datetime
-    current_time = datetime.now()
-    print(">>", cmd_str, current_time.strftime("%Y-%m-%d %H:%M:%S"))
-    output = subprocess.check_output(cmd_str, shell=True, text=True)
-    rewards = np.array(eval(output.split("result:")[-1].split("\n")[1]))
-    poses = np.array(eval(output.split("result:")[-1].split("\n")[2]))
-
+def loss_function(poses, target):
     f = 0
     for i, pose in enumerate(poses):
         distance = np.linalg.norm(np.array(target) - pose[0:3])
         f += distance / len(poses)
     
     f -= 100000 * (len(poses) - 300) # Bonus reward for episode length. Longer episode length means that evaluation was not prematurely terminated.
+    return f
+
+def f_symmetric_hexarotor_0_1(x: numpy.typing.NDArray[np.float_], target):
+
+    assert x.shape == (15,) or x.shape== (10,)
+
+    pars = _decode_symmetric_hexarotor_to_RobotParameter(x)
+    _, poses = target_lqr_objective_function(pars, target)
+    f = loss_function(f, target)
+
     return f, poses
 
 def constraint_check_hexarotor_0_1(x: numpy.typing.NDArray[np.float_]):
@@ -390,33 +375,31 @@ if __name__ == "__main__":
     # animate_airframe(pars, poses, target)
 
   
-
-
     # Analyze solutions
-
     target = [2.3,0.75,1.5]
+
 
     # Best solution
     x = np.array([0.49580943483950735, 0.8446168367709378, 0.7518539791904498, 0.13353196954967322, 0.6860072491492938, 0.9692333121269158, 0.5187270188694916, 0.550890465330575, 0.1443820822505597, 0.2227223052526963, 0.31845214783310405, 0.8595968832825416, 0.4364441257720804, 0.4042662014448113, 0.455128119397063])
+    pars = _decode_symmetric_hexarotor_to_RobotParameter(x)
 
-    # # Quad
-    # x = np.array([0.1465, 0.1465*2, 0.5, 0.5, 0.0,
-    #               1.0-0.1465, 0.1465*2, 0.5, 0.5, 0.0,
-    #             ])
+    # Quad
+    pars = PredefinedConfigParameter('quad')
 
     # Hex
-    # x = np.array([0,1.0,0.5,0.5,0.0,1.0-np.cos(np.pi/3)/2,1.0-np.sin(np.pi/3),0.5,0.5,0.0,np.cos(np.pi/3)/2,1.0-np.sin(np.pi/3),0.5,0.5,0.0]); is_hex = True
+    pars = PredefinedConfigParameter('hex')
 
-    # pars.motor_translations = [[np.cos(np.pi / 3),-np.sin(np.pi / 3),0], [-np.cos(np.pi / 3),-np.sin(np.pi / 3),0], [-1.,0.,0], [-np.cos(np.pi / 3),np.sin(np.pi / 3) ,0], [np.cos(np.pi / 3),np.sin(np.pi / 3),0.], [1.,0.,0.]]
+    plot_airframe_design(pars, target=np.array(target))
 
-    print(constraint_check_hexarotor_0_1(x))
-    plot_airframe_design(_decode_symmetric_hexarotor_to_RobotParameter(x), target=np.array(target))
-    print("Constraints: ")
-    [print("g(x) = ", el) for el in  constraint_check(_decode_symmetric_hexarotor_to_RobotParameter(x))]
+    _, poses = target_lqr_objective_function(pars, target)
+    f = loss_function(poses, target)
 
-    f, poses = f_symmetric_hexarotor_0_1(x, target)
-    print(f)
-    animate_airframe(_decode_symmetric_hexarotor_to_RobotParameter(x), poses, target)
+    print("--------------------------")
+    print("f(x) = ", f)
+    [print(f"g_{i}(x) = ", el) for i,el in  enumerate(constraint_check(pars))]
+    print("--------------------------")
+
+    animate_airframe(pars, poses, target)
 
 
 
@@ -425,42 +408,4 @@ if __name__ == "__main__":
 
 # cd /home/paran/Dropbox/aerial_gym_dev/aerial_gym_dev/scripts
 # python3 example_control.py --task=gen_aerial_robot --num_envs=1
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-# # If I change these parameters, is that the full set of possible quad configurations?
-
-# print(pars.motor_orientations) # [[0,365] x 3] x 4
-# print(pars.motor_translations) # [[-1,1] x 3] x 4
-# print(pars.motor_directions) # {-1,1} x 4
-
-
-# # Is there a way to visualize the drones?
-
-# change the parameters in envs/base/generalized_aerial_robot_config.py
-
-# then run scripts/example_control.py
-
-# plot mr design function, https://github.com/WilhelmWG/Evolutionary-Algorithm-for-Multirotor-Morphology-Search/blob/main/plotting.py
-
-# # How do I get a feasability check? I am looking for a function with binary output.
-
-# analyze_robot_config.analyze_robot_config(robot)
-
 

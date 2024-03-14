@@ -35,7 +35,7 @@ if __name__ == "__main__":
             current_time = datetime.now()
             return current_time.strftime('%Y-%m-%d %H:%M:%S')
 
-        filepath = f'results/data/{problem_name}_{algorithm_name}_{seed}.csv'
+        filepath = f'results/data/{problem_name}_{algorithm_name}_{constraint_method}_{seed}.csv'
         def print_to_log(*args):
             with open(f"{filepath}.log", 'a') as f:
                 print(*args,  file=f)

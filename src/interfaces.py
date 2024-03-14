@@ -2,7 +2,7 @@ import numpy as np
 import numpy.typing
 
 problem_name_list = ["airframes", "windflo", "toy"]
-algorithm_name_list = ["snobfit", "cobyqa", "pyopt"]
+algorithm_name_list = ["snobfit", "cobyqa", "pyopt", "nevergrad"]
 constraint_method_list = ['ignore','nan_on_unfeasible','constant_penalty_no_evaluation','algo_specific']
 
 class problem:
@@ -118,7 +118,9 @@ class optimization_algorithm:
             print("Algorithm name", algorithm_name, "not recognized.")
 
     def ask(self) -> numpy.typing.NDArray[np.float_]:
-        return self.algo.ask()
+        x = self.algo.ask()
+        assert type(x) == np.ndarray
+        return x
 
     def tell(self, f) -> None:
         self.algo.tell(f)
