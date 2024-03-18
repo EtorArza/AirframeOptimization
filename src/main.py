@@ -23,7 +23,7 @@ if __name__ == "__main__":
     # Directly solve problem locally, with f function that returns np.nan on infeasible solutions.
     elif sys.argv[1] == "--local-solve":
         sys.argv.pop()
-        problem_name = "toy"
+        problem_name = "airframes"
         algorithm_name = "nevergrad"
         constraint_method = "algo_specific" # 'ignore','nan_on_unfeasible','constant_penalty_no_evaluation','algo_specific'
         verbose = True
@@ -55,7 +55,7 @@ if __name__ == "__main__":
         print_status_every = 30
         import time
         ref = time.time()
-        while prob.n_f_evals < 2000:
+        while prob.n_f_evals < 3000:
             i += 1
             x = algo.ask()
             f = prob.f(x)

@@ -19,6 +19,9 @@ from matplotlib.animation import FuncAnimation
 import subprocess
 from airframes_objective_functions import target_lqr_objective_function
 
+target_list = [[-2.0,-4.0,1.0],[4.0,-1.0,2.0],[-1.0,2.0,4.0]]
+
+
 
 def from_0_1_to_RobotParameter(x: numpy.typing.NDArray[np.float_]):
 
@@ -119,13 +122,15 @@ def loss_function(poses, target):
     f -= 100000 * (len(poses) - 300) # Bonus reward for episode length. Longer episode length means that evaluation was not prematurely terminated.
     return f
 
-def f_symmetric_hexarotor_0_1(x: numpy.typing.NDArray[np.float_], target):
+def f_symmetric_hexarotor_0_1(x: numpy.typing.NDArray[np.float_]):
 
     assert x.shape == (15,) or x.shape== (10,)
 
-    pars = _decode_symmetric_hexarotor_to_RobotParameter(x)
-    _, poses = target_lqr_objective_function(pars, target)
-    f = loss_function(f, target)
+    f = 0
+    for i in range(len(target_list)):
+        pars = _decode_symmetric_hexarotor_to_RobotParameter(x)
+        _, poses = target_lqr_objective_function(pars, target_list[i])
+        f += loss_function(poses, target_list[i])
 
     return f, poses
 
@@ -149,8 +154,9 @@ def plot_airframe_design(pars:RobotParameter, translation:numpy.typing.NDArray[n
     ax.set_zlabel('z',size=18)
     
     _plot_airframe_into_ax(ax, pars, translation, rotation_matrix)
-    if not target is None:
-        ax.plot(*target, color='blue', marker='o')
+    if not target_list is None:
+        for target in target_list:
+            ax.plot(*target, color='blue', marker='o')
     plt.show()
 
 def _plot_airframe_into_ax(ax, pars:RobotParameter, translation, rotation_matrix):
@@ -376,7 +382,6 @@ if __name__ == "__main__":
 
   
     # Analyze solutions
-    target = [2.3,0.75,1.5]
 
 
     # Best solution
@@ -389,17 +394,17 @@ if __name__ == "__main__":
     # Hex
     pars = PredefinedConfigParameter('hex')
 
-    plot_airframe_design(pars, target=np.array(target))
+    plot_airframe_design(pars, target=[np.array(el) for el in target_list])
 
-    _, poses = target_lqr_objective_function(pars, target)
-    f = loss_function(poses, target)
+    _, poses = target_lqr_objective_function(pars, target_list[0])
+    f = loss_function(poses, target_list[0])
 
     print("--------------------------")
     print("f(x) = ", f)
     [print(f"g_{i}(x) = ", el) for i,el in  enumerate(constraint_check(pars))]
     print("--------------------------")
 
-    animate_airframe(pars, poses, target)
+    animate_airframe(pars, poses, target_list[0])
 
 
 

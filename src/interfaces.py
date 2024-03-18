@@ -29,7 +29,7 @@ class problem:
             import problem_airframes
             self.dim = 15
             self._constraint_check = problem_airframes.constraint_check_hexarotor_0_1
-            self._f = lambda x: problem_airframes.f_symmetric_hexarotor_0_1(x, target=[2.3,0.75,1.5])[0]
+            self._f = lambda x: problem_airframes.f_symmetric_hexarotor_0_1(x)[0]
             self.plot_solution = lambda x: problem_airframes.plot_airframe_design(problem_airframes._decode_symmetric_hexarotor_to_RobotParameter(x))
 
         if problem_name == "windflo":
@@ -113,7 +113,7 @@ class optimization_algorithm:
             self.algo = algorithm_pyopt.pyopt(problem, seed)
         elif algorithm_name == "nevergrad":
             import algorithm_nevergrad
-            self.algo = algorithm_nevergrad.ng_optimizer(problem, seed, parallel_threads=1, budget=10000)
+            self.algo = algorithm_nevergrad.ng_optimizer(problem, seed, parallel_threads=1, budget=3000)
         else:
             print("Algorithm name", algorithm_name, "not recognized.")
 
