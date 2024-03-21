@@ -36,3 +36,5 @@ test.gif
 log.txt
 robotConfigFile.txt
 *.gif
+cache/*
+!cache/.gitkeep
