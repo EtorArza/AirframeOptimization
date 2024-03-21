@@ -44,7 +44,7 @@ if __name__ == "__main__":
         print_to_log(f"Starting optimization {problem_name} {algorithm_name} {constraint_method} {seed} at {get_human_time()}")
 
         with open(filepath, "a") as f:
-            print('evaluations;n_constraint_checks;time;f_best;x_best', file=f)
+            print('evaluations;n_evals_constraints;time;f_best;x_best', file=f)
 
         prob = problem(problem_name, constraint_method)
         algo = optimization_algorithm(prob, algorithm_name, seed)
@@ -60,7 +60,7 @@ if __name__ == "__main__":
             x = algo.ask()
             f = prob.f(x)
             if verbose:
-                print_to_log("n_f_evals:", prob.n_f_evals, "n_constraint_checks:", prob.n_constraint_checks, "f:", f, "t:", time.time(), "x:", x.tolist())
+                print_to_log("n_f_evals:", prob.n_f_evals, "n_evals_constraints:", prob.n_evals_constraints, "f:", f, "t:", time.time(), "x:", x.tolist())
             algo.tell(f)
             if f < f_best:
                 f_best = f
@@ -69,14 +69,14 @@ if __name__ == "__main__":
                 print_to_log(get_human_time(), f_best, x_best.tolist())
                 print_to_log("--------------------------------------------------------------")
                 with open(filepath, "a") as f:
-                    print(f'{prob.n_f_evals};{prob.n_constraint_checks};{time.time() - ref};{f_best};{x_best.tolist()}', file=f)
+                    print(f'{prob.n_f_evals};{prob.n_evals_constraints};{time.time() - ref};{f_best};{x_best.tolist()}', file=f)
 
             if i % print_status_every == 0 and not verbose:
-                print_to_log("n_constraint_checks = ",prob.n_constraint_checks, "| n_f_evals", prob.n_f_evals, " | ", time.time() - ref ,"seconds")
+                print_to_log("n_evals_constraints = ",prob.n_evals_constraints, "| n_f_evals", prob.n_f_evals, " | ", time.time() - ref ,"seconds")
 
         print_to_log("-------------------------------------------------------------")
         print_to_log("Finished local optimization.", get_human_time())
-        print_to_log("n_f_evals:", prob.n_f_evals, "\nn_constraint_checks:", prob.n_constraint_checks, "\nx:", x.tolist(), "\nf:", f)
+        print_to_log("n_f_evals:", prob.n_f_evals, "\nn_evals_constraints:", prob.n_evals_constraints, "\nx:", x.tolist(), "\nf:", f)
         print_to_log("Constraints: ")
         [print_to_log("g(x) = ", el) for el in  prob.constraint_check(x)]
         print_to_log("-------------------------------------------------------------")

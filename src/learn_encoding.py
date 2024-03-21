@@ -16,12 +16,9 @@ from torch.utils.data import DataLoader, TensorDataset
 from sklearn.model_selection import train_test_split
 
 mp.dps = 500
-epochs = 1000
-batch_size = 10000
 feasible_and_unfeasible_sample_size = 36000
-problem_name = 'windflo'
 seed = 2
-prbl = problem(problem_name, 'ignore')
+prob = problem('toy', 'ignore')
 
 
 def check_gpu():
@@ -39,19 +36,21 @@ def check_gpu():
 
 
 
-class Classifier(nn.Module):
-    def __init__(self, input_size, seed):
-        super(Classifier, self).__init__()
+class nn_classifier(nn.Module):
+    def __init__(self, prob: problem, seed):
+        super(nn_classifier, self).__init__()
+        self.prob = prob
+        self.model_path = f'cache/classifier_{prob.problem_name}_{seed}.pth'
         self.rs = np.random.RandomState(seed)
-        self.fc1 = nn.Linear(input_size, input_size*2)
+        self.fc1 = nn.Linear(prob.dim, prob.dim*2)
         self.dropout1 = nn.Dropout(p=0.5)
-        self.fc2 = nn.Linear(input_size*2, input_size*2)
+        self.fc2 = nn.Linear(prob.dim*2, prob.dim*2)
         self.dropout2 = nn.Dropout(p=0.5)
-        self.fc3 = nn.Linear(input_size*2, input_size*2)
+        self.fc3 = nn.Linear(prob.dim*2, prob.dim*2)
         self.dropout3 = nn.Dropout(p=0.5)
-        self.fc4 = nn.Linear(input_size*2, input_size)
+        self.fc4 = nn.Linear(prob.dim*2, prob.dim)
         self.dropout4 = nn.Dropout(p=0.5)
-        self.fc5 = nn.Linear(input_size, 1)
+        self.fc5 = nn.Linear(prob.dim, 1)
         self.sigmoid = nn.Sigmoid()
         self.training = False
 
@@ -76,12 +75,15 @@ class Classifier(nn.Module):
         y = torch.cat((torch.ones(len(feasible_samples), 1), torch.zeros(len(unfeasible_samples), 1)), 0)
         return x, y
 
-    def train_model(self, x_train, y_train, epochs=100, batch_size=32, validation_split=0.2):
+    def train_model(self, x_train, y_train, epochs, batch_size):
+        validation_split=0.2
+        if os.path.isfile(self.model_path):
+            raise FileExistsError("Aborting model train, as", self.model_path, " exists, which is the trained model. Delete this file to retrain.")
         check_gpu()
         self.train()
         self.training = True
         criterion = nn.BCELoss()
-        optimizer = optim.Adam(self.parameters(), lr=0.001)
+        optimizer = optim.Adam(self.parameters(), lr=0.00025)
         
         # Split data into training and validation sets
         x_train, x_val, y_train, y_val = train_test_split(x_train, y_train, test_size=validation_split, random_state=self.rs)
@@ -119,59 +121,64 @@ class Classifier(nn.Module):
                     total += labels.size(0)
             self.training = True
             validation_error = 1 - correct / total
-            print(f"Epoch {epoch+1}/{epochs}, Training Loss: {running_loss/len(train_dataloader)}, Validation Loss: {val_loss/len(val_dataloader)}, Validation Error: {validation_error:.3f}%")
+            print(f"Epoch {epoch+1}/{epochs}, Training Loss: {running_loss/len(train_dataloader):.3f}, Validation Loss: {val_loss/len(val_dataloader):.3f}, Validation Error: {validation_error*100.0:.3f}%")
         self.training = False
         print("Finished training.")
+        torch.save
+
+    def save_model_to_cache_folder(self):
+        torch.save(self.state_dict(), self.model_path)
 
 
-    def load_model(self, model_path):
-        if os.path.isfile(model_path):
-            self.load_state_dict(torch.load(model_path))
+    def load_model_from_cache_folder(self):
+        if os.path.isfile(self.model_path):
+            self.load_state_dict(torch.load(self.model_path))
             self.eval()
+            self.training = False
             print("Model loaded.")
         else:
-            print("No model found at specified path.")
+            raise FileNotFoundError("No model found at specified path.")
 
 
 
 class nn_encoding(nn.Module):
-    def __init__(self, feasibility_function, problem_dim, seed):
+    def __init__(self, prob: problem, seed):
         super(nn_encoding, self).__init__()
-        self.fc1 = nn.Linear(problem_dim, problem_dim)
-        self.fc2 = nn.Linear(problem_dim, problem_dim)
-        self.fc3 = nn.Linear(problem_dim, problem_dim)
-        self.fc4 = nn.Linear(problem_dim, problem_dim)
-        self.fc5 = nn.Linear(problem_dim, problem_dim)
+        self.fc1 = nn.Linear(prob.dim, prob.dim)
+        self.fc2 = nn.Linear(prob.dim, prob.dim)
+        self.fc3 = nn.Linear(prob.dim, prob.dim)
+        self.fc4 = nn.Linear(prob.dim, prob.dim)
+        self.fc5 = nn.Linear(prob.dim, prob.dim)
         self.relu = nn.ReLU()
         self.sigmoid = nn.Sigmoid()
-        self._feasibility_function = feasibility_function
-        self.n_constraints = self.feasibility_function(np.random.random((1, problem_dim))).shape[1]
-        self.problem_dim = problem_dim
+        self._feasibility_function = prob.constraint_check
+        self.n_constraints = prob.n_constraints
+        self.problem_dim = prob.dim
         self.seed = seed
         self.rs = np.random.RandomState(seed)
 
-        self.feasible_solutions = np.array([]).reshape((0,problem_dim))
-        self.unfeasible_solutions = np.array([]).reshape((0,problem_dim))
+        self.feasible_solutions = np.array([]).reshape((0,prob.dim))
+        self.unfeasible_solutions = np.array([]).reshape((0,prob.dim))
         stacked_res_feasibility_check = np.array([]).reshape((0,self.n_constraints))
-        stacked_random_sample = np.array([]).reshape((0,problem_dim))
+        stacked_random_sample = np.array([]).reshape((0,prob.dim))
 
         try:
-            self.feasible_solutions = np.load(f'cache/feasible_{problem_name}_{seed}.npy')
-            self.unfeasible_solutions = np.load(f'cache/unfeasible_{problem_name}_{seed}.npy')
-            stacked_res_feasibility_check = np.load(f'cache/stacked_res_feasibility_check_{problem_name}_{seed}.npy')
+            self.feasible_solutions = np.load(f'cache/feasible_{prob.problem_name}_{seed}.npy')
+            self.unfeasible_solutions = np.load(f'cache/unfeasible_{prob.problem_name}_{seed}.npy')
+            stacked_res_feasibility_check = np.load(f'cache/stacked_res_feasibility_check_{prob.problem_name}_{seed}.npy')
         except FileNotFoundError:
             # Generate feasible/unfeasible samples
             print("Loading feasible/unfeasible samples failed. Generating new samples:")
             pb = tqdm(total=feasible_and_unfeasible_sample_size)
-            self.feasible_solutions = np.empty((feasible_and_unfeasible_sample_size, problem_dim))
-            self.unfeasible_solutions = np.empty((feasible_and_unfeasible_sample_size, problem_dim))
+            self.feasible_solutions = np.empty((feasible_and_unfeasible_sample_size, prob.dim))
+            self.unfeasible_solutions = np.empty((feasible_and_unfeasible_sample_size, prob.dim))
             stacked_res_feasibility_check = np.empty((feasible_and_unfeasible_sample_size, self.n_constraints))
-            stacked_random_sample = np.empty((feasible_and_unfeasible_sample_size, problem_dim))
+            stacked_random_sample = np.empty((feasible_and_unfeasible_sample_size, prob.dim))
 
             count_feasible = 0
             count_unfeasible = 0
             while min(count_feasible, count_unfeasible) < feasible_and_unfeasible_sample_size:
-                random_sample = np.random.random((100, problem_dim))
+                random_sample = np.random.random((100, prob.dim))
                 res_feasibility_check = self.feasibility_function(random_sample)
                 new_feasible_solutions = random_sample[np.where(np.all(res_feasibility_check > 0.0, axis=1))]
                 new_unfeasible_solutions = random_sample[np.where(np.all(res_feasibility_check < 0.0, axis=1))]
@@ -188,9 +195,9 @@ class nn_encoding(nn.Module):
             pb.close()
             self.feasible_solutions = self.feasible_solutions[:feasible_and_unfeasible_sample_size,:]
             self.unfeasible_solutions = self.unfeasible_solutions[:feasible_and_unfeasible_sample_size,:]
-            np.save(f'cache/feasible_{problem_name}_{seed}.npy', self.feasible_solutions)
-            np.save(f'cache/unfeasible_{problem_name}_{seed}.npy', self.unfeasible_solutions)
-            np.save(f'cache/stacked_res_feasibility_check_{problem_name}_{seed}.npy', stacked_res_feasibility_check)
+            np.save(f'cache/feasible_{prob.problem_name}_{seed}.npy', self.feasible_solutions)
+            np.save(f'cache/unfeasible_{prob.problem_name}_{seed}.npy', self.unfeasible_solutions)
+            np.save(f'cache/stacked_res_feasibility_check_{prob.problem_name}_{seed}.npy', stacked_res_feasibility_check)
 
 
 
@@ -235,13 +242,13 @@ class nn_encoding(nn.Module):
         output = self(input).detach().numpy()
         l_constraints = self.loss_constraints(output)
         l_coverage = self.loss_coverage(output)
-        l_kl_div = self.kl_div_loss(output)
+        l_kl_div = self.loss_kl_div(output)
 
         print("loss constraints:", l_constraints, "|", "loss coverage:", l_coverage, "|", "loss kl_div:", l_kl_div)
 
         return (l_constraints, l_coverage, l_kl_div)
 
-    def kl_div_loss(self, input):
+    def loss_kl_div(self, input):
         # wangDivergenceEstimationMultidimensional2009
         output = self(input).detach().numpy()
         return scipy_estimator(self.feasible_solutions, output)
@@ -405,30 +412,29 @@ class nn_encoding(nn.Module):
 
 
 seed = 2
-encoding_model = nn_encoding(prbl.constraint_check, prbl.dim, seed)
-classifier_model = Classifier(prbl.dim, seed)
-
+encoding_model = nn_encoding(prob, seed)
+classifier_model = nn_classifier(prob, seed)
 
 try:
-    classifier_model.load_state_dict(torch.load('model.pth'))
-    classifier_model.eval()
-    print("Loaded model.pth")
+    classifier_model.load_model_from_cache_folder()
+    print("loaded model", classifier_model.model_path)
 
 except FileNotFoundError:
     print("Training classifier from scratch.")
     x_train, y_train = classifier_model.create_dataset(encoding_model.feasible_solutions, encoding_model.unfeasible_solutions)
-    classifier_model.train_model(x_train, y_train, epochs=5, batch_size=32)
-    torch.save(classifier_model.state_dict(), 'model.pth')
+    classifier_model.train_model(x_train, y_train, epochs=100, batch_size=32)
+    classifier_model.save_model_to_cache_folder()
+
 
 for i in range(100):
     input = encoding_model.unfeasible_solutions[i]
-    print("evaluation:",prbl.constraint_check(input),  classifier_model(torch.tensor(input, dtype=torch.float)))
+    print("evaluation:",prob.constraint_check(input),  classifier_model(torch.tensor(input, dtype=torch.float)))
 
 print("---")
 
 for i in range(100):
     input = encoding_model.feasible_solutions[i]
-    print("evaluation:",prbl.constraint_check(input),  classifier_model(torch.tensor(input, dtype=torch.float)))
+    print("evaluation:",prob.constraint_check(input),  classifier_model(torch.tensor(input, dtype=torch.float)))
 
 
 exit(0)

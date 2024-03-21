@@ -23,7 +23,7 @@ class problem:
         self.constraint_method = constraint_method
         self.problem_name = problem_name
         self.n_f_evals = 0
-        self.n_constraint_checks = 0
+        self.n_evals_constraints = 0
 
         if problem_name == "airframes":
             import problem_airframes
@@ -68,7 +68,7 @@ class problem:
     
     def constraint_check(self, x:numpy.typing.NDArray[np.float_]) -> tuple:
         assert type(x) == np.ndarray
-        self.n_constraint_checks+=1
+        self.n_evals_constraints+=1
         res = self._constraint_check(x)
         assert type(res) == tuple, str(res) + " of type " + str(type(res))
         return res
