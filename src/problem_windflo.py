@@ -24,7 +24,7 @@ from WindFLO import WindFLO
 # FUNCTIONS
 #==================================================================================================
 
-N_TURBINES = 25
+N_TURBINES = 10
 SOLUTION_DIM = N_TURBINES*2
 
 
@@ -51,6 +51,7 @@ WINDFLO_OBJ=get_windFLO_object()
 
 
 def from_0_1_to_windflo(x: numpy.typing.ArrayLike):
+    assert x.shape == (SOLUTION_DIM,), f"x.shape={x.shape} SOLUTION_DIM={SOLUTION_DIM}"
     lbound = np.zeros(SOLUTION_DIM)    
     ubound = np.ones(SOLUTION_DIM)*2000
     return lbound + x*(ubound - lbound)
