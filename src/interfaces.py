@@ -40,7 +40,7 @@ class problem:
             self.plot_solution = problem_windflo.plot_WindFLO
 
         if problem_name == "toy":
-            dim = 50
+            dim = 8
             import problem_toy
             self.dim = dim
             self._constraint_check = problem_toy.constraint_check
@@ -90,11 +90,6 @@ class problem:
             raise ValueError("Constraint method "+str(self.constraint_method)+" not recognized.")
 
 
-class encoding:
-
-    def __init__(self, encoding_name, dim):
-        self.encoding_name = encoding_name
-        self.dim = dim
 
 
 class optimization_algorithm:

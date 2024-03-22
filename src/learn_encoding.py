@@ -2,7 +2,6 @@ import torch
 import torch.nn as nn
 import torch.optim as optim
 import numpy as np
-from interfaces import problem
 from tqdm import tqdm as tqdm
 from scipy.stats import gaussian_kde
 from sklearn.neighbors import NearestNeighbors
@@ -14,11 +13,10 @@ import os
 import torch.optim as optim
 from torch.utils.data import DataLoader, TensorDataset
 from sklearn.model_selection import train_test_split
+import torch.nn.functional
 
-mp.dps = 500
 feasible_and_unfeasible_sample_size = 36000
-seed = 2
-prob = problem('toy', 'ignore')
+
 
 
 def check_gpu():
@@ -37,7 +35,7 @@ def check_gpu():
 
 
 class nn_classifier(nn.Module):
-    def __init__(self, prob: problem, seed):
+    def __init__(self, prob, seed):
         super(nn_classifier, self).__init__()
         self.prob = prob
         self.model_path = f'cache/classifier_{prob.problem_name}_{seed}.pth'
@@ -142,7 +140,7 @@ class nn_classifier(nn.Module):
 
 
 class nn_encoding(nn.Module):
-    def __init__(self, prob: problem, seed):
+    def __init__(self, prob, seed):
         super(nn_encoding, self).__init__()
         self.fc1 = nn.Linear(prob.dim, prob.dim)
         self.fc2 = nn.Linear(prob.dim, prob.dim)
@@ -156,6 +154,8 @@ class nn_encoding(nn.Module):
         self.problem_dim = prob.dim
         self.seed = seed
         self.rs = np.random.RandomState(seed)
+        self.model_path = f'cache/encoder_{prob.problem_name}_{seed}.pth'
+
 
         self.feasible_solutions = np.array([]).reshape((0,prob.dim))
         self.unfeasible_solutions = np.array([]).reshape((0,prob.dim))
@@ -219,23 +219,48 @@ class nn_encoding(nn.Module):
     
     def loss_constraints(self, output):
         feasibility_values = self.feasibility_function(output)
-                
-        # clip to 0 as max, because as constraints, the value does not matter as long as it is positive.
-        res = np.clip(feasibility_values, a_min=None, a_max=1e-5) 
+        return np.mean(np.all(feasibility_values<0, axis=1)) # Return the proportion of unfeasible values.
 
-        # normalize such that sum is usually lower than 1
-        res = np.sum(res / self.q99_abs_unfeasible) / feasibility_values.shape[0] / feasibility_values.shape[1]
+    def get_coverage_batch_size(self):
 
-        res = -res # loss function is minimized.
-        return  res
+        sample_size = 500
+        loss = 1.0
+        x = []
+        y = []
+        while sample_size*2 < self.feasible_solutions.shape[0]:
+            sample_size += 500
+            indices = self.rs.choice(self.feasible_solutions.shape[0], size=sample_size*2, replace=False)
+            feasible_refs1 = torch.tensor(self.feasible_solutions[indices[:sample_size],:], dtype=torch.float32)
+            feasible_refs2 = torch.tensor(self.feasible_solutions[indices[sample_size:],:], dtype=torch.float32)
+            loss = self._loss_coverage_formula(feasible_refs1, feasible_refs2)
+            x.append(sample_size)
+            y.append(float(loss.cpu()))
+        from matplotlib import pyplot as plt
+        plt.plot(x, y)
+        plt.show()
+
+
+    def _loss_coverage_formula(self, output, references):
+        return torch.mean(torch.min(torch.cdist(output, references), dim=0)[0])
 
     def loss_coverage(self, output):
-        total_d = 0
-        for v in output:
-            distances = np.linalg.norm(self.feasible_solutions - v, axis=1)
-            min_distance = np.min(distances)
-            total_d += min_distance
-        return total_d / output.shape[0]
+        '''
+        Average (over all outputs) of the minimum distance between the output and any of the feasible solutions. 
+        '''
+        feasible_ref_size = 6200
+        indices = self.rs.choice(self.feasible_solutions.shape[0], size=feasible_ref_size, replace=False)
+        feasible_refs = torch.tensor(self.feasible_solutions[indices,:], dtype=torch.float32)
+        res = self._loss_coverage_formula(output, feasible_refs)
+        return res
+        
+    def loss_distances_mantained(self, input, output):
+        '''
+        Minimize difference in distance between input and output.
+        Compute difference in pairwise distance matrices, and compute the frobenius norm of the result.
+        Minimizing 'distances_mantained_loss' implies the distances between the vectors in input and output are similar to each other.
+        '''
+        distances_mantained_loss = torch.mean(torch.abs(torch.cdist(input, input) - torch.cdist(output, output)))
+        return distances_mantained_loss
 
 
     def validation_loss(self, input):
@@ -248,10 +273,12 @@ class nn_encoding(nn.Module):
 
         return (l_constraints, l_coverage, l_kl_div)
 
-    def loss_kl_div(self, input):
+    def loss_kl_div(self, output):
         # wangDivergenceEstimationMultidimensional2009
-        output = self(input).detach().numpy()
-        return scipy_estimator(self.feasible_solutions, output)
+        sample_size = 3600
+        return skl_efficient(self.feasible_solutions[:sample_size,:], output[:sample_size,:])
+
+
 
     def set_parameters(self, params):
         idx = 0
@@ -266,180 +293,87 @@ class nn_encoding(nn.Module):
             params.extend(param.cpu().detach().numpy().flatten())
         return np.array(params)
 
+    def train_model(self, classifier_model, epochs, batch_size):
+        if os.path.isfile(self.model_path):
+            raise FileExistsError("Aborting model train, as", self.model_path, " exists, which is the trained model. Delete this file to retrain.")
+        check_gpu()
+        self.train()
 
-
-    def train_constraints_network(self, epochs):
-        pass
-
-
-
-
-    def optimize_network_parameters(self, max_evaluations):
-        pass
-
-
-
-
-        exit(0)
-
-        import torch
-        from denoising_diffusion_pytorch import Unet1D, GaussianDiffusion1D, Trainer1D, Dataset1D
-
-        model = Unet1D(
-            dim = 64,
-            dim_mults = (1, 2, 4, 8),
-            channels = 32
-            # dim = problem_dim//2,
-            # dim_mults = (1,),
-            # resnet_block_groups=1,
-            # channels = 1
-        )
-
-        diffusion = GaussianDiffusion1D(
-            model,
-            seq_length = problem_dim,
-            timesteps = 1000,
-            objective = 'pred_v'
-        )
-
-        training_seq = torch.rand(64, 1, problem_dim) # features are normalized from 0 to 1
-        dataset = Dataset1D(training_seq)  # this is just an example, but you can formulate your own Dataset and pass it into the `Trainer1D` below
-
-
-        # Define optimizer
-        optimizer = torch.optim.Adam(diffusion.parameters(), lr=1e-3)  # Adjust learning rate as needed
-
-        # Define training parameters
-        epochs = 10  # Adjust number of epochs as needed
-
-        # Training loop
-        for epoch in range(epochs):
-            # Forward pass
-            loss = diffusion(training_seq)
-            
-            # Backward pass
-            optimizer.zero_grad()
+        optimizer_encoding = optim.Adam(self.parameters(), lr=0.001)
+        for epoch in tqdm(range(epochs)):
+            inputs = torch.rand((batch_size, self.problem_dim))
+            encoding_outputs = self(inputs)
+            classifier_outputs = classifier_model(encoding_outputs)
+            loss = self.loss_distances_mantained(inputs, encoding_outputs) + torch.mean(classifier_outputs) + self.loss_coverage(encoding_outputs)
+            optimizer_encoding.zero_grad()
             loss.backward()
-            optimizer.step()
-            
-            # Print training progress
-            print(f"Epoch {epoch+1}/{epochs}, Loss: {loss.item()}")
-        exit(0)
+            optimizer_encoding.step()
+
+            if epoch % 1000 == 0:
+                with torch.no_grad():
+                    inputs = torch.rand((batch_size*10, self.problem_dim))
+                    encoding_outputs = self(inputs)
+                    classifier_outputs = classifier_model(encoding_outputs)
+                    loss = torch.mean(classifier_outputs) + self.loss_coverage(encoding_outputs) + self.loss_distances_mantained(inputs, encoding_outputs) 
+                    print(f'Epoch [{epoch+1}/{epochs}], Validation Loss: {torch.mean(classifier_outputs)} + {self.loss_coverage(encoding_outputs)} + {self.loss_distances_mantained(inputs, encoding_outputs)} = {loss}')
+                    # print('Validation loss: ', self.validation_loss(self(torch.rand((3600, self.problem_dim)))))
+    def save_model_to_cache_folder(self):
+        torch.save(self.state_dict(), self.model_path)
+
+    def load_model_from_cache_folder(self):
+        if os.path.isfile(self.model_path):
+            self.load_state_dict(torch.load(self.model_path))
+            self.eval()
+            print("Model loaded.")
+        else:
+            raise FileNotFoundError("No model found at specified path.")
 
 
-        loss = diffusion(training_seq)
-        loss.backward()
+# y = []
+# x = []
+# for size in tqdm(range(5,600, 20)):
+#     num_matrices = 1000
+#     random_matrices = torch.rand(num_matrices, size, size) - torch.rand(num_matrices, size, size)
+#     frobenius_norms = torch.norm(random_matrices, p='fro', dim=(1, 2))
+#     x.append(size)
+#     y.append(float(torch.mean(frobenius_norms).cpu()))
+# from matplotlib import pyplot as plt
+# plt.plot(x, y)
+# plt.show()
+# exit(0)
 
+class solution_space_encoder:
 
+    def __init__(self, prob, seed):
 
-        # Or using trainer
+        self.classifier_model = nn_classifier(prob, seed)
+        self.encoding_model = nn_encoding(prob, seed)
 
-        trainer = Trainer1D(
-            diffusion,
-            dataset = dataset,
-            train_batch_size = 32,
-            train_lr = 1.6e-4,
-            train_num_steps = 700000,         # total training steps
-            gradient_accumulate_every = 2,    # gradient accumulation steps
-            ema_decay = 0.995,                # exponential moving average decay
-            amp = True,                       # turn on mixed precision
-        )
-        trainer.train()
+        try:
+            self.classifier_model.load_model_from_cache_folder()
+            print("loaded model", self.classifier_model.model_path)
 
-        # after a lot of training
+        except FileNotFoundError:
+            print("Training classifier from scratch.")
+            x_train, y_train = self.classifier_model.create_dataset(self.encoding_model.feasible_solutions, self.encoding_model.unfeasible_solutions)
+            self.classifier_model.train_model(x_train, y_train, epochs=100, batch_size=32)
+            self.classifier_model.save_model_to_cache_folder()
 
-        sampled_seq = diffusion.sample(batch_size = 1)
-        sampled_seq.shape # (4, 32, 128)
+        try:
+            self.encoding_model.load_model_from_cache_folder()
+            print("loaded model", self.encoding_model.model_path)
+        except FileNotFoundError:
+            print("Training classifier from scratch.")
+            self.encoding_model.train_model(self.encoding_model, 30000, 3200)
+            self.encoding_model.save_model_to_cache_folder()
 
-        print(sampled_seq, sampled_seq.shape)
-
-        exit(0)
-
-
-
-
-
-
-        # directly
-
-        input_data = torch.randn(batch_size, problem_dim)
-        optimizer = optim.Adam(self.parameters())  # Using Adam optimizer
-        criterion = nn.MSELoss()  # You can change the loss function as needed
-
-        for epoch in range(epochs):
-            optimizer.zero_grad()  # Zero the gradients
-
-            output = self(input_data)
-            loss = criterion(output, torch.zeros_like(output))  # Example loss, change as needed
-            loss.backward()
-            optimizer.step()
-
-            if epoch % 100 == 0:
-                print(f'Epoch [{epoch}/{epochs}], Loss: {loss.item()}')
-
-        print('Optimization finished.')
-
-
-
-
-        # import nevergrad as ng
-        # self.rs = np.random.RandomState(seed+78)
-        # x0 = self.get_parameters()
-        # print(x0.shape, type(x0))
-
-        # param = ng.p.Instrumentation(ng.p.Array(lower=-5.0, upper=5.0, init=x0))
-        # self.optimizer = ng.optimizers.NGOpt(parametrization=param, budget=max_evaluations, num_workers=1)
-
-        # for i in range(max_evaluations):
-
-        #     self.prev_sol = self.optimizer.ask()
-        #     params = self.prev_sol[0][0].value
-        #     print(param.shape)
-        #     print(params.shape)
-        #     self.set_parameters(params)
-        #     input_data = torch.randn(batch_size, problem_dim)
-        #     loss = model.kl_div_loss(input_data)
-        #     self.optimizer.tell(self.prev_sol, loss)
-        #     print(i, loss)
-
-
-
-
-        exit(0)
-
-        loss = model.kl_div_loss(input_data)
-
-
-
-seed = 2
-encoding_model = nn_encoding(prob, seed)
-classifier_model = nn_classifier(prob, seed)
-
-try:
-    classifier_model.load_model_from_cache_folder()
-    print("loaded model", classifier_model.model_path)
-
-except FileNotFoundError:
-    print("Training classifier from scratch.")
-    x_train, y_train = classifier_model.create_dataset(encoding_model.feasible_solutions, encoding_model.unfeasible_solutions)
-    classifier_model.train_model(x_train, y_train, epochs=100, batch_size=32)
-    classifier_model.save_model_to_cache_folder()
-
-
-for i in range(100):
-    input = encoding_model.unfeasible_solutions[i]
-    print("evaluation:",prob.constraint_check(input),  classifier_model(torch.tensor(input, dtype=torch.float)))
-
-print("---")
-
-for i in range(100):
-    input = encoding_model.feasible_solutions[i]
-    print("evaluation:",prob.constraint_check(input),  classifier_model(torch.tensor(input, dtype=torch.float)))
-
-
-exit(0)
-model.optimize_network_parameters(1000)
-
+    def encode(self, input):
+        assert input.shape == (self.classifier_model.prob.dim,)
+        res = self.encoding_model(torch.tensor(input)).cpu().numpy()
+        return res
+        
+        
+        
 
 
 
