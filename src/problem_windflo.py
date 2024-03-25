@@ -70,7 +70,7 @@ def f(x: numpy.typing.ArrayLike):
 
     WINDFLO_OBJ.run(clean = True) 
 
-    return -WINDFLO_OBJ.farmPower # negative sign because we assume minimization in the paper.
+    return -WINDFLO_OBJ.farmPower / 10000000.0 # negative sign because we assume minimization in the paper Scale down to avoid numerical errors.
 
 
 

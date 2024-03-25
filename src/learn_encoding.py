@@ -15,7 +15,7 @@ from torch.utils.data import DataLoader, TensorDataset
 from sklearn.model_selection import train_test_split
 import torch.nn.functional
 
-feasible_and_unfeasible_sample_size = 36000
+feasible_and_unfeasible_sample_size = 72000
 
 
 
@@ -149,7 +149,7 @@ class nn_encoding(nn.Module):
         self.fc5 = nn.Linear(prob.dim, prob.dim)
         self.relu = nn.ReLU()
         self.sigmoid = nn.Sigmoid()
-        self._feasibility_function = prob.constraint_check
+        self._feasibility_function = prob._constraint_check
         self.n_constraints = prob.n_constraints
         self.problem_dim = prob.dim
         self.seed = seed
@@ -159,21 +159,16 @@ class nn_encoding(nn.Module):
 
         self.feasible_solutions = np.array([]).reshape((0,prob.dim))
         self.unfeasible_solutions = np.array([]).reshape((0,prob.dim))
-        stacked_res_feasibility_check = np.array([]).reshape((0,self.n_constraints))
-        stacked_random_sample = np.array([]).reshape((0,prob.dim))
 
         try:
             self.feasible_solutions = np.load(f'cache/feasible_{prob.problem_name}_{seed}.npy')
             self.unfeasible_solutions = np.load(f'cache/unfeasible_{prob.problem_name}_{seed}.npy')
-            stacked_res_feasibility_check = np.load(f'cache/stacked_res_feasibility_check_{prob.problem_name}_{seed}.npy')
         except FileNotFoundError:
             # Generate feasible/unfeasible samples
             print("Loading feasible/unfeasible samples failed. Generating new samples:")
             pb = tqdm(total=feasible_and_unfeasible_sample_size)
             self.feasible_solutions = np.empty((feasible_and_unfeasible_sample_size, prob.dim))
             self.unfeasible_solutions = np.empty((feasible_and_unfeasible_sample_size, prob.dim))
-            stacked_res_feasibility_check = np.empty((feasible_and_unfeasible_sample_size, self.n_constraints))
-            stacked_random_sample = np.empty((feasible_and_unfeasible_sample_size, prob.dim))
 
             count_feasible = 0
             count_unfeasible = 0
@@ -197,13 +192,8 @@ class nn_encoding(nn.Module):
             self.unfeasible_solutions = self.unfeasible_solutions[:feasible_and_unfeasible_sample_size,:]
             np.save(f'cache/feasible_{prob.problem_name}_{seed}.npy', self.feasible_solutions)
             np.save(f'cache/unfeasible_{prob.problem_name}_{seed}.npy', self.unfeasible_solutions)
-            np.save(f'cache/stacked_res_feasibility_check_{prob.problem_name}_{seed}.npy', stacked_res_feasibility_check)
 
 
-
-        self.std = np.std(stacked_res_feasibility_check, axis=0)
-        self.mean = np.mean(stacked_res_feasibility_check, axis=0)
-        self.q99_abs_unfeasible = np.quantile(np.abs(np.clip(stacked_res_feasibility_check, a_min=None, a_max=1e-5)), q=0.99, axis=0)
 
 
     def feasibility_function(self, x_matrix):
@@ -356,7 +346,7 @@ class solution_space_encoder:
         except FileNotFoundError:
             print("Training classifier from scratch.")
             x_train, y_train = self.classifier_model.create_dataset(self.encoding_model.feasible_solutions, self.encoding_model.unfeasible_solutions)
-            self.classifier_model.train_model(x_train, y_train, epochs=100, batch_size=32)
+            self.classifier_model.train_model(x_train, y_train, epochs=400, batch_size=32)
             self.classifier_model.save_model_to_cache_folder()
 
         try:
@@ -364,17 +354,18 @@ class solution_space_encoder:
             print("loaded model", self.encoding_model.model_path)
         except FileNotFoundError:
             print("Training classifier from scratch.")
-            self.encoding_model.train_model(self.encoding_model, 30000, 3200)
+            self.encoding_model.train_model(self.encoding_model, 60000, 3200)
             self.encoding_model.save_model_to_cache_folder()
 
     def encode(self, input):
         assert input.shape == (self.classifier_model.prob.dim,)
-        res = self.encoding_model(torch.tensor(input)).cpu().numpy()
+        with torch.no_grad():
+            res = self.encoding_model(torch.tensor(input, dtype=torch.float32)).cpu().numpy()
         return res
         
-        
-        
-
+# import interfaces 
+# prob = interfaces.problem('windflo', 100, 'ignore', 2)
+# solution_space_encoder(prob, 2)
 
 
 

@@ -4,7 +4,7 @@ from scipy.optimize import NonlinearConstraint, Bounds
 import threading
 import queue
 from interfaces import *
-
+import warnings
 
 
 
@@ -15,6 +15,9 @@ class ng_optimizer:
         self.rs = np.random.RandomState(seed+78)
         x0 = self.prob.random_initial_sol(self.rs)
         param = ng.p.Instrumentation(ng.p.Array(lower=0.0, upper=1.0, init=x0))
+        self.budget = budget
+        self.n_f_evals = None
+        self.parallel_threads = parallel_threads
         self.optimizer = ng.optimizers.NGOpt(parametrization=param, budget=budget, num_workers=parallel_threads, )
 
         if self.prob.constraint_method == 'algo_specific':
@@ -28,7 +31,20 @@ class ng_optimizer:
             pass
 
     def ask(self):
-        self.prev_sol = self.optimizer.ask()
+        with warnings.catch_warnings(record=True) as wrngs:
+            warnings.simplefilter("always")  # Set warning mode to always to catch warnings
+            self.prev_sol = self.optimizer.ask()
+            while len(wrngs) > 0:
+                warning = wrngs.pop()
+                if ' has already converged' in str(warning.message):
+                        if self.budget - self.n_f_evals > 10:
+                            print(f"Reinitializing nevergrad with budget {self.budget - self.n_f_evals} left, as it already converged.")
+                            x0 = self.prob.random_initial_sol(self.rs)
+                            param = ng.p.Instrumentation(ng.p.Array(lower=0.0, upper=1.0, init=x0))
+                            self.optimizer = ng.optimizers.NGOpt(parametrization=param, budget=self.budget - self.n_f_evals, num_workers=self.parallel_threads,)
+                else:
+                    print(warning.message)
+
         return self.prev_sol[0][0].value
 
     def tell(self, f, x=None):

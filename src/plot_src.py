@@ -37,7 +37,7 @@ def _get_feasability_data_airframes_one_run(path):
     with open(path, 'r') as f:
         for line in tqdm(f.readlines()):
             i += 1
-            if 'n_evals_constraints: ' in line:
+            if 'n_constraint_evals: ' in line:
                 x = eval(line.split("x: ")[-1].strip("\n"))
                 f = float(line[line.find(' f: ')+len(' f: '):line.rfind(' t: ')] if ' f: ' in line and ' t: ' in line else None)
                 f_list.append(f)

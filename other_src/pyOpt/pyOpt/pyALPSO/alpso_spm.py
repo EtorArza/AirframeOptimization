@@ -1286,8 +1286,7 @@ def alpso(dimensions, constraints, neqcons, xtype, x0, xmin, xmax, swarmsize,
     opt_g = swarm_g
     opt_lambda = lambda_val[:]
 
-    # TODO: replace this, receive messages from all nodes and take best one
-    # (this just sends results from node 0 to all others)
+
     opt_x = Bcast(opt_x, root=0)
     opt_f = Bcast(opt_f, root=0)
     opt_g = Bcast(opt_g, root=0)

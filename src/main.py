@@ -12,7 +12,7 @@ if __name__ == "__main__":
         import plot_src
         problem_name = sys.argv[2]
         n_montecarlo = 1200
-        prob = problem(problem_name, 'ignore')
+        prob = problem(problem_name, 100, 'ignore', 2)
         set_list = [set() for _ in range(prob.n_constraints)]
         for i in tqdm(range(n_montecarlo)):
             x_random = np.random.random(prob.dim)
@@ -23,64 +23,15 @@ if __name__ == "__main__":
     # Directly solve problem locally, with f function that returns np.nan on infeasible solutions.
     elif sys.argv[1] == "--local-solve":
         sys.argv.pop()
-        problem_name = "airframes"
+        problem_name = "windflo"
         algorithm_name = "nevergrad"
-        constraint_method = "algo_specific" # 'ignore','nan_on_unfeasible','constant_penalty_no_evaluation','algo_specific'
-        verbose = True
-        seed = 4
-        np.random.seed(seed)
+        constraint_method = "nn_encoding" # 'ignore','nan_on_unfeasible','constant_penalty_no_evaluation','algo_specific', 'nn_encoding'
+        reuse_encoding = True
+        seed = 2
+        budget = 900
 
-        def get_human_time() -> str:
-            from datetime import datetime
-            current_time = datetime.now()
-            return current_time.strftime('%Y-%m-%d %H:%M:%S')
+        local_solve(problem_name, algorithm_name, constraint_method, seed, budget, reuse_encoding, log_every=1)
 
-        filepath = f'results/data/{problem_name}_{algorithm_name}_{constraint_method}_{seed}.csv'
-        def print_to_log(*args):
-            with open(f"{filepath}.log", 'a') as f:
-                print(*args,  file=f)
-
-
-        print_to_log(f"Starting optimization {problem_name} {algorithm_name} {constraint_method} {seed} at {get_human_time()}")
-
-        with open(filepath, "a") as f:
-            print('evaluations;n_evals_constraints;time;f_best;x_best', file=f)
-
-        prob = problem(problem_name, constraint_method)
-        algo = optimization_algorithm(prob, algorithm_name, seed)
-
-        f_best = 1e10
-        x_best = None
-        i = -1
-        print_status_every = 30
-        import time
-        ref = time.time()
-        while prob.n_f_evals < 3000:
-            i += 1
-            x = algo.ask()
-            f = prob.f(x)
-            if verbose:
-                print_to_log("n_f_evals:", prob.n_f_evals, "n_evals_constraints:", prob.n_evals_constraints, "f:", f, "t:", time.time(), "x:", x.tolist())
-            algo.tell(f)
-            if f < f_best:
-                f_best = f
-                x_best = x
-                print_to_log("--New best----------------------------------------------------")
-                print_to_log(get_human_time(), f_best, x_best.tolist())
-                print_to_log("--------------------------------------------------------------")
-                with open(filepath, "a") as f:
-                    print(f'{prob.n_f_evals};{prob.n_evals_constraints};{time.time() - ref};{f_best};{x_best.tolist()}', file=f)
-
-            if i % print_status_every == 0 and not verbose:
-                print_to_log("n_evals_constraints = ",prob.n_evals_constraints, "| n_f_evals", prob.n_f_evals, " | ", time.time() - ref ,"seconds")
-
-        print_to_log("-------------------------------------------------------------")
-        print_to_log("Finished local optimization.", get_human_time())
-        print_to_log("n_f_evals:", prob.n_f_evals, "\nn_evals_constraints:", prob.n_evals_constraints, "\nx:", x.tolist(), "\nf:", f)
-        print_to_log("Constraints: ")
-        [print_to_log("g(x) = ", el) for el in  prob.constraint_check(x)]
-        print_to_log("-------------------------------------------------------------")
-        exit(0)
 
     # Plot how time per evaluation in snobfit increases linearly
     elif sys.argv[1] == "--plot-snobfit-time-per-1000-evaluations":

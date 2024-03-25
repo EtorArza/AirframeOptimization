@@ -70,7 +70,7 @@ def test_rosenbrock():
     ksopt(opt_prob, sens_type='FD')
 
     # Instantiate Optimizer (NSGA2) & Solve Problem
-    # TODO: reactivate, currently NSGA2 fails (when building the wheels and then testing)
+    # reactivate, currently NSGA2 fails (when building the wheels and then testing)
     # from pyOpt import NSGA2
     #
     # nsga2 = NSGA2()

@@ -19,7 +19,7 @@ from matplotlib.animation import FuncAnimation
 import subprocess
 from airframes_objective_functions import target_lqr_objective_function
 
-target_list = [[-2.0,-4.0,1.0],[4.0,-1.0,2.0],[-1.0,2.0,4.0]]
+target_list = [[2.3,0.75,1.5],[-2.0,-4.0,1.0],[4.0,-1.0,2.0],[-1.0,2.0,4.0]]
 
 
 
@@ -388,13 +388,13 @@ if __name__ == "__main__":
     x = np.array([0.49580943483950735, 0.8446168367709378, 0.7518539791904498, 0.13353196954967322, 0.6860072491492938, 0.9692333121269158, 0.5187270188694916, 0.550890465330575, 0.1443820822505597, 0.2227223052526963, 0.31845214783310405, 0.8595968832825416, 0.4364441257720804, 0.4042662014448113, 0.455128119397063])
     pars = _decode_symmetric_hexarotor_to_RobotParameter(x)
 
-    # Quad
-    pars = PredefinedConfigParameter('quad')
+    # # Quad
+    # pars = PredefinedConfigParameter('quad')
 
-    # Hex
-    pars = PredefinedConfigParameter('hex')
+    # # Hex
+    # pars = PredefinedConfigParameter('hex')
 
-    plot_airframe_design(pars, target=[np.array(el) for el in target_list])
+    # plot_airframe_design(pars, target=[np.array(el) for el in target_list])
 
     _, poses = target_lqr_objective_function(pars, target_list[0])
     f = loss_function(poses, target_list[0])
