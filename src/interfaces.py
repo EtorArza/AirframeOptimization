@@ -2,6 +2,7 @@ import numpy as np
 import numpy.typing
 import os
 import time
+from tqdm import tqdm as tqdm
 
 problem_name_list = ["airframes", "windflo", "toy"]
 algorithm_name_list = ["snobfit", "cobyqa", "pyopt", "nevergrad"]
@@ -27,6 +28,7 @@ class problem:
         self.budget = budget
         self.n_f_evals = 0
         self.n_constraint_evals = 0
+        self.n_unfeasible_on_ask = 0
 
         if problem_name == "airframes":
             import problem_airframes
@@ -59,25 +61,29 @@ class problem:
         assert type(x) == np.ndarray
 
         return_value = None
+        value_on_unfeasible = np.inf
         if self.constraint_method == 'ignore' or self.constraint_method =='algo_specific':
             return_value = 'f'
         elif self.constraint_method == 'nan_on_unfeasible':
             return_value = 'f' if np.all(np.array(self.constraint_check(x)) > 0) else np.nan
         elif self.constraint_method == 'constant_penalty_no_evaluation':
-            return_value = 'f' if np.all(np.array(self.constraint_check(x)) > 0) else np.inf
+            return_value = 'f' if np.all(np.array(self.constraint_check(x)) > 0) else value_on_unfeasible
         elif self.constraint_method == 'nn_encoding':
             x_encoded = self.encoder.encode(x)
-            value_on_infeasible = np.inf
-            return_value = self._f(x_encoded) if np.all(np.array(self.constraint_check(x)) > 0) else value_on_infeasible
-            if return_value != value_on_infeasible:
+            if np.all(np.array(self.constraint_check(x)) > 0):
                 self.n_f_evals += 1
-            return return_value
+                return self._f(x_encoded)
+            else:
+                self.n_unfeasible_on_ask += 1
+                return np.inf
         else:
             raise ValueError("Constraint method "+str(self.constraint_method)+" not recognized.")
 
         if return_value=='f':
             return_value = self._f(x)
             self.n_f_evals+=1
+        else:
+            self.n_unfeasible_on_ask += 1
         return return_value
 
     def constraint_check(self, x:numpy.typing.NDArray[np.float_]) -> tuple:
@@ -132,6 +138,7 @@ class optimization_algorithm:
             print("Algorithm name", algorithm_name, "not recognized.")
 
     def ask(self) -> numpy.typing.NDArray[np.float_]:
+        self.algo.n_f_evals = self.problem.n_f_evals
         x = self.algo.ask()
         self.algo.n_f_evals = self.problem.n_f_evals
         assert type(x) == np.ndarray
@@ -170,6 +177,8 @@ def local_solve(problem_name, algorithm_name, constraint_method, seed, budget, r
 
     prob = problem(problem_name, budget, constraint_method, 2 if reuse_encoding else seed) # Use same encoding with all seeds.
     algo = optimization_algorithm(prob, algorithm_name, seed)
+
+    pb = tqdm(total=budget)
 
 
     # Load from cache (resume previous run)
@@ -210,7 +219,7 @@ def local_solve(problem_name, algorithm_name, constraint_method, seed, budget, r
         f_list = []
         print_to_log(f"--- Starting optimization {problem_name} {algorithm_name} {constraint_method} {seed} {budget} at {get_human_time()}")
         with open(result_file_path, "a") as f:
-            print('n_f_evals;n_constraint_evals;time;f_best;x_best', file=f)
+            print('n_f_evals;n_constraint_evals;n_unfeasible_on_ask;time;f_best;x_best', file=f)
 
 
     assert len(x_list) == len(f_list), f"(len(x_list), len(f_list))={(len(x_list), len(f_list))}"
@@ -219,6 +228,8 @@ def local_solve(problem_name, algorithm_name, constraint_method, seed, budget, r
     i = 0
     ref = time.time() - solver_time
     while prob.n_f_evals < prob.budget:
+        pb.n = prob.n_f_evals
+        pb.refresh()
         x = algo.ask()
         x_list.append(x)
     
@@ -239,7 +250,7 @@ def local_solve(problem_name, algorithm_name, constraint_method, seed, budget, r
             print_to_log("---", get_human_time(), f_best, x_best.tolist())
             print_to_log("--------------------------------------------------------------")
             with open(result_file_path, "a") as file:
-                print(f'{prob.n_f_evals};{prob.n_constraint_evals};{time.time() - ref};{f_best};{x_best.tolist()}', file=file)
+                print(f'{prob.n_f_evals};{prob.n_constraint_evals};{prob.n_unfeasible_on_ask};{time.time() - ref};{f_best};{x_best.tolist()}', file=file)
 
         if not log_every is None and i % log_every == 0:
             print_to_log("n_f_evals:", prob.n_f_evals, "n_constraint_evals:", prob.n_constraint_evals, "f:", f, "t:", time.time() - ref, "x:", x.tolist())
@@ -247,7 +258,7 @@ def local_solve(problem_name, algorithm_name, constraint_method, seed, budget, r
 
 
     with open(result_file_path, "a") as file:
-        print(f'{prob.n_f_evals};{prob.n_constraint_evals};{time.time() - ref};{f_best};{x_best.tolist()}', file=file)
+        print(f'{prob.n_f_evals};{prob.n_constraint_evals};{prob.n_unfeasible_on_ask};{time.time() - ref};{f_best};{x_best.tolist()}', file=file)
 
     print_to_log("-------------------------------------------------------------")
     print_to_log("Finished local optimization.", get_human_time())

@@ -38,3 +38,5 @@ robotConfigFile.txt
 *.gif
 cache/*
 !cache/.gitkeep
+global_log.txt
+*.log

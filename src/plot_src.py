@@ -1,10 +1,15 @@
 from matplotlib import pyplot as plt
 import matplotlib.axes._axes
 import pandas as pd
-import problem_airframes
 import numpy as np
 import typing
 from tqdm import tqdm as tqdm
+
+
+marker_list = ["","o","x","s","d","2","^","*"]
+linestyle_list = ["-","--","-.", ":",(0, (3, 5, 1, 5, 1, 5)),(5, (10, 3)), (0, (3, 1, 1, 1))]
+color_list = ['#000004', "#414487","#2a788e","#22a884","#7ad151","#fde725"]
+
 
 def plot_venn_diagram(set_list, total, label_list):
     import supervenn
@@ -29,6 +34,7 @@ def plot_progress_one(path: str):
 
 
 def _get_feasability_data_airframes_one_run(path):
+    import problem_airframes
     x_list = []
     f_list = []
     feasability_list = []
@@ -101,6 +107,50 @@ def plot_feasability(f_list, constraint_list, path):
 
 
 
+def get_f_curves(problem, algorithm, constraint_method, target_column_name):
+    data_path = "results/data/"
+
+    df0: pd.DataFrame = pd.read_csv(data_path + problem + "_" + algorithm + "_" + constraint_method + "_2.csv", sep=";")
+    n_datapoints = 20
+    x_array = np.linspace(1, df0["n_f_evals"].max(), n_datapoints)
+
+    import glob
+    file_pattern = data_path + problem + "_" + algorithm + "_" + constraint_method + "_*.csv"
+    file_list = glob.glob(file_pattern)
+    y_array = np.zeros((len(file_list), n_datapoints))    
+
+    for file_i, file_path in enumerate(file_list):
+        df = pd.read_csv(file_path, sep=";")
+        assert df0["n_f_evals"].max() == df["n_f_evals"].max() 
+        for x_i, x in enumerate(x_array):
+            # Get index of row in df that has the largest n_f_evals value that is still lower than x. 
+            index_in_df = np.searchsorted(df["n_f_evals"], x, side='left')
+            y_array[file_i, x_i] = df[target_column_name][index_in_df]
+
+    return x_array, np.quantile(y_array, 0.5, axis=0), np.quantile(y_array, 0.25, axis=0), np.quantile(y_array, 0.75, axis=0)
+
+
+def compare_different_constraint_methods(problem, algorithm, constraint_method_list, target_column_name):
+    plt.figure(figsize=(4,3))
+    for i, constraint_method in enumerate(constraint_method_list):
+        x_array, y_median, y_lower, y_upper = get_f_curves(problem, algorithm, constraint_method, target_column_name)
+        plt.plot(x_array, y_median, color=color_list[i], marker=marker_list[i], linestyle=linestyle_list[i], label=constraint_method)
+        plt.fill_between(x_array, y_lower, y_upper, color=color_list[i], alpha=0.2)
+    plt.xlabel("Evaluations")
+    plt.ylabel(target_column_name)
+    plt.legend(loc='lower left', bbox_to_anchor=(0.0, 1.05), shadow=False, ncol=1)
+    plt.tight_layout()
+
+
 if __name__ == '__main__':
-    plot_progress_one('results/data/airframes_pyopt_4.csv')
-    plot_feasability(*_get_feasability_data_airframes_one_run('results/data/airframes_pyopt_4.csv.log'),'results/data/airframes_pyopt_4.csv.log')
+    # plot_progress_one('results/data/airframes_pyopt_4.csv')
+    # plot_feasability(*_get_feasability_data_airframes_one_run('results/data/airframes_pyopt_4.csv.log'),'results/data/airframes_pyopt_4.csv.log')
+
+    import os
+    dir_path = "results/figures/compare_constraint_methods/"
+    os.makedirs(dir_path, exist_ok=True)
+    for problem in ["windflo", "toy"]:
+        for column in ["f_best", "n_unfeasible_on_ask"]:
+            compare_different_constraint_methods(problem, "nevergrad", ["nn_encoding", 'constant_penalty_no_evaluation'],column)
+            plt.savefig(f"results/figures/compare_constraint_methods/{problem}_windflo_nevergrad_{column}.pdf")
+            plt.close()

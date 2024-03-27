@@ -15,8 +15,21 @@ from torch.utils.data import DataLoader, TensorDataset
 from sklearn.model_selection import train_test_split
 import torch.nn.functional
 
-feasible_and_unfeasible_sample_size = 72000
+feasible_and_unfeasible_sample_size = int(5e5)
 
+
+classifier_epochs = 2000
+classifier_batch_size = 3200
+classfier_learning_rate = 0.00025
+classifier_learning_log = "classifier_training.log"
+
+
+encoder_epochs = int(5e5)
+encoder_leraning_rate = 0.00025
+encoder_batch_size = 3200
+batch_size_distances_mantained = 120
+feasible_refs_sample_size_for_loss = 120
+encoder_learning_log = "encoder_training.log"
 
 
 def check_gpu():
@@ -81,7 +94,7 @@ class nn_classifier(nn.Module):
         self.train()
         self.training = True
         criterion = nn.BCELoss()
-        optimizer = optim.Adam(self.parameters(), lr=0.00025)
+        optimizer = optim.Adam(self.parameters(), lr=classfier_learning_rate)
         
         # Split data into training and validation sets
         x_train, x_val, y_train, y_val = train_test_split(x_train, y_train, test_size=validation_split, random_state=self.rs)
@@ -91,7 +104,7 @@ class nn_classifier(nn.Module):
         train_dataloader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True)
         val_dataloader = DataLoader(val_dataset, batch_size=batch_size, shuffle=False)
         
-        for epoch in range(epochs):
+        for epoch in tqdm(range(epochs)):
             running_loss = 0.0
             
             # Training loop
@@ -119,7 +132,8 @@ class nn_classifier(nn.Module):
                     total += labels.size(0)
             self.training = True
             validation_error = 1 - correct / total
-            print(f"Epoch {epoch+1}/{epochs}, Training Loss: {running_loss/len(train_dataloader):.3f}, Validation Loss: {val_loss/len(val_dataloader):.3f}, Validation Error: {validation_error*100.0:.3f}%")
+            with open(classifier_learning_log, "a") as file:
+                print(f"Epoch {epoch+1}/{epochs}, Training Loss: {running_loss/len(train_dataloader):.3f}, Validation Loss: {val_loss/len(val_dataloader):.3f}, Validation Error: {validation_error*100.0:.3f}%", file=file)
         self.training = False
         print("Finished training.")
         torch.save
@@ -166,6 +180,7 @@ class nn_encoding(nn.Module):
         except FileNotFoundError:
             # Generate feasible/unfeasible samples
             print("Loading feasible/unfeasible samples failed. Generating new samples:")
+            print(feasible_and_unfeasible_sample_size)
             pb = tqdm(total=feasible_and_unfeasible_sample_size)
             self.feasible_solutions = np.empty((feasible_and_unfeasible_sample_size, prob.dim))
             self.unfeasible_solutions = np.empty((feasible_and_unfeasible_sample_size, prob.dim))
@@ -237,8 +252,7 @@ class nn_encoding(nn.Module):
         '''
         Average (over all outputs) of the minimum distance between the output and any of the feasible solutions. 
         '''
-        feasible_ref_size = 6200
-        indices = self.rs.choice(self.feasible_solutions.shape[0], size=feasible_ref_size, replace=False)
+        indices = self.rs.choice(self.feasible_solutions.shape[0], size=feasible_refs_sample_size_for_loss, replace=False)
         feasible_refs = torch.tensor(self.feasible_solutions[indices,:], dtype=torch.float32)
         res = self._loss_coverage_formula(output, feasible_refs)
         return res
@@ -249,7 +263,11 @@ class nn_encoding(nn.Module):
         Compute difference in pairwise distance matrices, and compute the frobenius norm of the result.
         Minimizing 'distances_mantained_loss' implies the distances between the vectors in input and output are similar to each other.
         '''
-        distances_mantained_loss = torch.mean(torch.abs(torch.cdist(input, input) - torch.cdist(output, output)))
+        distances_mantained_loss = 0
+        for idx_start in range(batch_size_distances_mantained, input.shape[0], batch_size_distances_mantained):
+            idx_end = idx_start + batch_size_distances_mantained
+            distances_mantained_loss += torch.mean(torch.abs(torch.cdist(input[idx_start:idx_end], input[idx_start:idx_end]) - torch.cdist(output[idx_start:idx_end], output[idx_start:idx_end])))
+        distances_mantained_loss *= (batch_size_distances_mantained / input.shape[0])
         return distances_mantained_loss
 
 
@@ -283,13 +301,38 @@ class nn_encoding(nn.Module):
             params.extend(param.cpu().detach().numpy().flatten())
         return np.array(params)
 
+    def log_validation_loss(self, epoch, classifier_model):
+        n_reps = 50
+        validation_batch_size = encoder_batch_size
+        classifier_loss = 0
+        coverage_loss = 0
+        distances_mantained_loss = 0
+        baseline_coverage_loss = 0
+        with torch.no_grad():
+            for i in range(n_reps):
+                inputs = torch.rand((validation_batch_size, self.problem_dim))
+                encoding_outputs = self(inputs)
+                classifier_outputs = classifier_model(encoding_outputs)
+                classifier_loss += torch.mean(classifier_outputs) / n_reps
+                coverage_loss += self.loss_coverage(encoding_outputs) / n_reps
+
+                indices = self.rs.choice(self.feasible_solutions.shape[0], size=validation_batch_size, replace=False)
+                feasible_refs1 = torch.tensor(self.feasible_solutions[indices,:], dtype=torch.float32)
+                baseline_coverage_loss += self.loss_coverage(feasible_refs1) / n_reps
+
+
+                distances_mantained_loss += self.loss_distances_mantained(inputs, encoding_outputs) / n_reps
+            with open(encoder_learning_log, "a") as file:
+                print(f'Epoch: {epoch} Validation Loss: {classifier_loss} + {coverage_loss - baseline_coverage_loss} + {distances_mantained_loss} = {classifier_loss+(coverage_loss-baseline_coverage_loss)+distances_mantained_loss}', file=file)
+
+
     def train_model(self, classifier_model, epochs, batch_size):
         if os.path.isfile(self.model_path):
             raise FileExistsError("Aborting model train, as", self.model_path, " exists, which is the trained model. Delete this file to retrain.")
         check_gpu()
         self.train()
 
-        optimizer_encoding = optim.Adam(self.parameters(), lr=0.001)
+        optimizer_encoding = optim.Adam(self.parameters(), lr=0.00025)
         for epoch in tqdm(range(epochs)):
             inputs = torch.rand((batch_size, self.problem_dim))
             encoding_outputs = self(inputs)
@@ -300,13 +343,9 @@ class nn_encoding(nn.Module):
             optimizer_encoding.step()
 
             if epoch % 1000 == 0:
-                with torch.no_grad():
-                    inputs = torch.rand((batch_size*10, self.problem_dim))
-                    encoding_outputs = self(inputs)
-                    classifier_outputs = classifier_model(encoding_outputs)
-                    loss = torch.mean(classifier_outputs) + self.loss_coverage(encoding_outputs) + self.loss_distances_mantained(inputs, encoding_outputs) 
-                    print(f'Epoch [{epoch+1}/{epochs}], Validation Loss: {torch.mean(classifier_outputs)} + {self.loss_coverage(encoding_outputs)} + {self.loss_distances_mantained(inputs, encoding_outputs)} = {loss}')
-                    # print('Validation loss: ', self.validation_loss(self(torch.rand((3600, self.problem_dim)))))
+                self.log_validation_loss(epoch, classifier_model)
+
+
     def save_model_to_cache_folder(self):
         torch.save(self.state_dict(), self.model_path)
 
@@ -344,17 +383,22 @@ class solution_space_encoder:
             print("loaded model", self.classifier_model.model_path)
 
         except FileNotFoundError:
-            print("Training classifier from scratch.")
+            with open(classifier_learning_log, "a") as file:
+                print("-----------------------------", file=file)
+                print(f"Training classifier from scratch. {prob.problem_name} {seed}", file=file)
             x_train, y_train = self.classifier_model.create_dataset(self.encoding_model.feasible_solutions, self.encoding_model.unfeasible_solutions)
-            self.classifier_model.train_model(x_train, y_train, epochs=400, batch_size=32)
+            self.classifier_model.train_model(x_train, y_train, classifier_epochs, classifier_batch_size)
             self.classifier_model.save_model_to_cache_folder()
 
         try:
             self.encoding_model.load_model_from_cache_folder()
             print("loaded model", self.encoding_model.model_path)
         except FileNotFoundError:
-            print("Training classifier from scratch.")
-            self.encoding_model.train_model(self.encoding_model, 60000, 3200)
+            with open(encoder_learning_log, "a") as file:
+                print("-----------------------------", file=file)
+                print(f"Training encoder from scratch. {prob.problem_name} {seed}", file=file)
+            print("Training encoding from scratch.")
+            self.encoding_model.train_model(self.encoding_model, encoder_epochs, encoder_batch_size)
             self.encoding_model.save_model_to_cache_folder()
 
     def encode(self, input):

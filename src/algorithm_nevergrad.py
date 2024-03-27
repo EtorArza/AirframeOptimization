@@ -16,7 +16,6 @@ class ng_optimizer:
         x0 = self.prob.random_initial_sol(self.rs)
         param = ng.p.Instrumentation(ng.p.Array(lower=0.0, upper=1.0, init=x0))
         self.budget = budget
-        self.n_f_evals = None
         self.parallel_threads = parallel_threads
         self.optimizer = ng.optimizers.NGOpt(parametrization=param, budget=budget, num_workers=parallel_threads, )
 
@@ -31,20 +30,21 @@ class ng_optimizer:
             pass
 
     def ask(self):
-        with warnings.catch_warnings(record=True) as wrngs:
-            warnings.simplefilter("always")  # Set warning mode to always to catch warnings
-            self.prev_sol = self.optimizer.ask()
-            while len(wrngs) > 0:
-                warning = wrngs.pop()
-                if ' has already converged' in str(warning.message):
-                        if self.budget - self.n_f_evals > 10:
-                            print(f"Reinitializing nevergrad with budget {self.budget - self.n_f_evals} left, as it already converged.")
-                            x0 = self.prob.random_initial_sol(self.rs)
-                            param = ng.p.Instrumentation(ng.p.Array(lower=0.0, upper=1.0, init=x0))
-                            self.optimizer = ng.optimizers.NGOpt(parametrization=param, budget=self.budget - self.n_f_evals, num_workers=self.parallel_threads,)
-                else:
-                    print(warning.message)
-
+        # with warnings.catch_warnings(record=True) as wrngs:
+        #     warnings.simplefilter("always")  # Set warning mode to always to catch warnings
+        #     self.prev_sol = self.optimizer.ask()
+        #     while len(wrngs) > 0:
+        #         warning = wrngs.pop()
+        #         if ' has already converged' in str(warning.message):
+        #                 if self.budget - self.n_f_evals > 10:
+        #                     print(f"Reinitializing nevergrad with budget {self.budget - self.n_f_evals} left, as it already converged.")
+        #                     x0 = self.prob.random_initial_sol(self.rs)
+        #                     param = ng.p.Instrumentation(ng.p.Array(lower=0.0, upper=1.0, init=x0))
+        #                     self.optimizer = ng.optimizers.NGOpt(parametrization=param, budget=self.budget - self.n_f_evals, num_workers=self.parallel_threads,)
+        #         else:
+        #             print(warning.message)
+        
+        self.prev_sol = self.optimizer.ask()
         return self.prev_sol[0][0].value
 
     def tell(self, f, x=None):

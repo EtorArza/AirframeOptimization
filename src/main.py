@@ -28,9 +28,32 @@ if __name__ == "__main__":
         constraint_method = "nn_encoding" # 'ignore','nan_on_unfeasible','constant_penalty_no_evaluation','algo_specific', 'nn_encoding'
         reuse_encoding = True
         seed = 2
-        budget = 900
+        budget = 500
 
         local_solve(problem_name, algorithm_name, constraint_method, seed, budget, reuse_encoding, log_every=1)
+
+
+    # Directly solve problem locally, with f function that returns np.nan on infeasible solutions.
+    elif sys.argv[1] == "--all-local-solve":
+        sys.argv.pop()
+        algorithm_name = "nevergrad"
+        reuse_encoding = True
+        budget = 500
+        global_log_path = "global_log.log"
+        if os.path.exists(global_log_path):
+            os.remove(global_log_path)
+
+        for algorithm_name in ["nevergrad", "snobfit", "cobyqa", "pyopt"]:
+            for constraint_method in ["nn_encoding", 'constant_penalty_no_evaluation']:
+                for problem_name in ['windflo', 'toy']:
+                    for seed in range(2,50):
+                        with open(global_log_path, "a") as file:
+                            file.write(f"Launching {problem_name} {seed} {constraint_method} - ")
+                        local_solve(problem_name, algorithm_name, constraint_method, seed, budget, reuse_encoding, log_every=100)
+                        with open(global_log_path, "a") as file:
+                            file.write("done\n")
+
+
 
 
     # Plot how time per evaluation in snobfit increases linearly
