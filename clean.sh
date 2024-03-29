@@ -1,41 +1,37 @@
 #!/bin/bash
 
-# Check if an argument is provided
-if [ $# -ne 1 ]; then
-    echo "Usage: $0 <results|cache|logs|nn|all>"
+# Check if two arguments are provided
+if [ $# -ne 2 ]; then
+    echo "Usage: $0 <results|solver|nn|all> <exclude>"
     exit 1
 fi
 
-# Perform deletion based on the provided argument
+exclude=$(echo "${2}|.gitkeep" | sed 's/|/\\|/g')
+
 case "$1" in
     results)
-        # Delete result data files and comparison figures
-        rm results/data/* -f
-        rm results/figures/* -rf
+        find results/data/ -type f ! -regex '.*\('$exclude'\).*' -delete
+        find results/figures/ -type f ! -regex '.*\('$exclude'\).*' -delete
         ;;
-    solver-cache)
-        # Delete solver cache files
-        rm cache/*_f.npy -f
-        rm cache/*_probstatus.txt -f 
-        rm cache/*_x.npy -f
-        ;;
-    logs)
-        # Delete log files
-        rm *.log -f
-        rm results/data/*.log
+    solver)
+        find cache/ -type f -name '*_f.npy' ! -regex '.*\('$exclude'\).*' -delete
+        find cache/ -type f -name '*_probstatus.txt' ! -regex '.*\('$exclude'\).*' -delete
+        find cache/ -type f -name '*_x.npy' ! -regex '.*\('$exclude'\).*' -delete
+        find results/data/ -type f -name '*.log' ! -regex '.*\('$exclude'\).*' -delete
+        find results/data/ -type f -name '*.csv' ! -regex '.*\('$exclude'\).*' -delete
         ;;
     nn)
-        # Delete neural network model files
-        rm cache/*.pth
+        find cache/ -type f -name '*.pth' ! -regex '.*\('$exclude'\).*' -delete
+        find . -type f -name '*.log' ! -regex '.*\('$exclude'\).*' -delete
         ;;
     all)
-        # Delete all cache, result data, and figures
-        rm cache/* -f
-        rm results/data/* -f
-        rm results/figures/* -f
+        find cache/ -type f ! -regex '.*\('$exclude'\).*' -delete
+        find results/data/ -type f ! -regex '.*\('$exclude'\).*' -delete
+        find results/figures/ -type f ! -regex '.*\('$exclude'\).*' -delete
+        find . -type f -name '*.log' ! -regex '.*\('$exclude'\).*' -delete
         ;;
     *)
-        echo "Invalid argument. Please provide 'results', 'cache', 'logs', 'nn', or 'all'."
+        echo "Invalid argument. Please provide 'results', 'solver', 'nn', 'all'."
         exit 1
         ;;
 esac
