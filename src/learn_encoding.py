@@ -18,7 +18,7 @@ import torch.nn.functional
 feasible_and_unfeasible_sample_size = int(5e5)
 
 
-classifier_epochs = 2000
+classifier_epochs = 100
 classifier_batch_size = 3200
 classfier_learning_rate = 0.00025
 classifier_learning_log = "classifier_training.log"
@@ -156,11 +156,11 @@ class nn_classifier(nn.Module):
 class nn_encoding(nn.Module):
     def __init__(self, prob, seed):
         super(nn_encoding, self).__init__()
-        self.fc1 = nn.Linear(prob.dim, prob.dim)
-        self.fc2 = nn.Linear(prob.dim, prob.dim)
-        self.fc3 = nn.Linear(prob.dim, prob.dim)
-        self.fc4 = nn.Linear(prob.dim, prob.dim)
-        self.fc5 = nn.Linear(prob.dim, prob.dim)
+        self.fc1 = nn.Linear(prob.dim, prob.dim*2)
+        self.fc2 = nn.Linear(prob.dim*2, prob.dim*2)
+        self.fc3 = nn.Linear(prob.dim*2, prob.dim*2)
+        self.fc4 = nn.Linear(prob.dim*2, prob.dim*2)
+        self.fc5 = nn.Linear(prob.dim*2, prob.dim)
         self.relu = nn.ReLU()
         self.sigmoid = nn.Sigmoid()
         self._feasibility_function = prob._constraint_check

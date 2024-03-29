@@ -139,7 +139,6 @@ def main(seed, accuracy):
         return lbound + x*(ubound - lbound)
 
 
-    np.random.seed(seed)
     es = cma.CMAEvolutionStrategy(np.random.random(nTurbines*2), 0.33, inopts={'bounds': [0, 1],'seed':seed,'maxiter':1e9, 'maxfevals':maxfevals, 'popsize':popsize})
     
     sw = stopwatch()

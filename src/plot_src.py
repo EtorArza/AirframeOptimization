@@ -11,10 +11,15 @@ linestyle_list = ["-","--","-.", ":",(0, (3, 5, 1, 5, 1, 5)),(5, (10, 3)), (0, (
 color_list = ['#000004', "#414487","#2a788e","#22a884","#7ad151","#fde725"]
 
 
-def plot_venn_diagram(set_list, total, label_list):
+def plot_venn_diagram(problem_name, set_list, total, label_list):
     import supervenn
-    fig = supervenn.supervenn(set_list, total, set_annotations=label_list, sets_ordering=None, chunks_ordering='occurence', side_plots=False, col_annotations="percentage")
-    plt.show()
+    plt.figure(figsize=(10,3))
+    fig = supervenn.supervenn(set_list, total, set_annotations=label_list, sets_ordering=None, chunks_ordering='occurrence', side_plots=False, col_annotations="percentage")
+    import os
+    dir_path = "results/figures/venn"
+    os.makedirs(dir_path, exist_ok=True)
+    plt.savefig(dir_path + f"/{problem_name}_venn_constraints.pdf")
+    plt.close()
     
    
 def plot_progress_one(path: str):
@@ -151,6 +156,6 @@ if __name__ == '__main__':
     os.makedirs(dir_path, exist_ok=True)
     for problem in ["windflo", "toy"]:
         for column in ["f_best", "n_unfeasible_on_ask"]:
-            compare_different_constraint_methods(problem, "nevergrad", ["nn_encoding", 'constant_penalty_no_evaluation'],column)
-            plt.savefig(f"results/figures/compare_constraint_methods/{problem}_windflo_nevergrad_{column}.pdf")
+            compare_different_constraint_methods(problem, "nevergrad", ["nn_encoding", 'constant_penalty_no_evaluation', 'algo_specific'],column)
+            plt.savefig(f"results/figures/compare_constraint_methods/{problem}_nevergrad_{column}.pdf")
             plt.close()

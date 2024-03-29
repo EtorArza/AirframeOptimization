@@ -10,7 +10,7 @@ constraint_method_list = ['ignore','nan_on_unfeasible','constant_penalty_no_eval
 
 class problem:
 
-    def __init__(self, problem_name:str, budget:int, constraint_method:str, seed:int):
+    def __init__(self, problem_name:str, budget:int, constraint_method:str, seed:int, reuse_encoding:bool):
         '''
         Initializes the problem to be solved. All the problems are minimization of the objective 
         function f, and solutions are feasible as long as the constraints >= 0. This is the convention used 
@@ -29,6 +29,9 @@ class problem:
         self.n_f_evals = 0
         self.n_constraint_evals = 0
         self.n_unfeasible_on_ask = 0
+        self.x0 = None
+        self.x0_f = None
+        self.rs = np.random.RandomState(seed=seed+128428)
 
         if problem_name == "airframes":
             import problem_airframes
@@ -51,10 +54,13 @@ class problem:
             self._constraint_check = problem_toy.constraint_check
             self._f = problem_toy.f
 
-        self.n_constraints = len(self._constraint_check(np.random.random(self.dim)))
+        self.last_x_constraint_check = np.random.random(self.dim)
+        self.last_x_constraint_check_result = self._constraint_check(self.last_x_constraint_check)
+        self.n_constraints = len(self.last_x_constraint_check_result)
+
         if self.constraint_method == 'nn_encoding':
             import learn_encoding
-            self.encoder = learn_encoding.solution_space_encoder(self, seed)
+            self.encoder = learn_encoding.solution_space_encoder(self, 2 if reuse_encoding else seed)
 
 
     def f(self, x:numpy.typing.NDArray[np.float_]):
@@ -75,41 +81,48 @@ class problem:
                 return self._f(x_encoded)
             else:
                 self.n_unfeasible_on_ask += 1
-                return np.inf
+                return value_on_unfeasible
         else:
             raise ValueError("Constraint method "+str(self.constraint_method)+" not recognized.")
 
         if return_value=='f':
             return_value = self._f(x)
             self.n_f_evals+=1
-        else:
+        
+        if not np.all(np.array(self.constraint_check(x)) > 0):
             self.n_unfeasible_on_ask += 1
         return return_value
 
     def constraint_check(self, x:numpy.typing.NDArray[np.float_]) -> tuple:
         assert type(x) == np.ndarray
-        self.n_constraint_evals+=1
         if self.constraint_method == 'nn_encoding':
             x_encoded = self.encoder.encode(x)
-            res = self._constraint_check(x_encoded)
         else:
-            res = self._constraint_check(x)
+            x_encoded = x
+
+        if np.all(self.last_x_constraint_check == x):
+            res = self.last_x_constraint_check_result
+        else:
+            self.last_x_constraint_check = x
+            res = self._constraint_check(x_encoded)
+            self.n_constraint_evals += 1
+            self.last_x_constraint_check_result = res
         assert type(res) == tuple, str(res) + " of type " + str(type(res))
         return res
 
     def plot_solution(self, x:numpy.typing.NDArray[np.float_]):
         pass
 
-    def random_initial_sol(self, np_random_state) -> numpy.typing.NDArray[np.float_]:
+    def random_initial_sol(self) -> numpy.typing.NDArray[np.float_]:
 
-        if self.constraint_method == 'ignore' or self.constraint_method =='algo_specific':
-            return np_random_state.random(self.dim)
-        elif self.constraint_method == 'nan_on_unfeasible' or 'constant_penalty_no_evaluation':
+        if self.constraint_method in ('ignore'):
+            return self.rs.random(self.dim)
+        elif self.constraint_method in ('nan_on_unfeasible', 'constant_penalty_no_evaluation', 'algo_specific', 'nn_encoding'):
             feasible = False
             while not feasible:
-                x0 = np_random_state.random(self.dim)
-                feasible = np.all(np.array(self.constraint_check(x0)) > 0)
-            return x0
+                self.x0 = self.rs.random(self.dim)
+                feasible = np.all(np.array(self.constraint_check(self.x0)) > 0)
+            return self.x0
         else:
             raise ValueError("Constraint method "+str(self.constraint_method)+" not recognized.")
 
@@ -138,6 +151,9 @@ class optimization_algorithm:
             print("Algorithm name", algorithm_name, "not recognized.")
 
     def ask(self) -> numpy.typing.NDArray[np.float_]:
+        if not self.problem.x0 is None:
+            return self.problem.x0
+
         self.algo.n_f_evals = self.problem.n_f_evals
         x = self.algo.ask()
         self.algo.n_f_evals = self.problem.n_f_evals
@@ -145,7 +161,55 @@ class optimization_algorithm:
         return x
 
     def tell(self, f) -> None:
+        if not self.problem.x0 is None:
+            self.problem.x0 = None
+            return
         self.algo.tell(f)
+
+
+
+def _resume_previous_local_solve(prob: problem, algo:optimization_algorithm, optimization_cache_path_f, optimization_cache_path_x, prob_status_cache_path):
+    x_list = [el for el in np.load(optimization_cache_path_x)]
+    f_list = [el for el in np.load(optimization_cache_path_f)]
+    assert len(x_list) == len(f_list)
+
+    def load_prob_status():
+        with open(prob_status_cache_path, 'r') as file:
+            data = file.read()
+            status = eval(data)
+            return status
+
+    status = load_prob_status()
+    prob.n_f_evals = status['n_f_evals']
+    prob.n_constraint_evals = status['n_constraint_evals']
+    solver_time = status['solver_time']
+    if prob.n_f_evals >= prob.budget:
+        print("Error. Optimization already finished, n_f_evals > budget on load from cache.")
+        print("Skipping optimization.")
+        return [None,]*5
+
+    f_best = 1e10
+    x_best = None
+    for i in range(len(x_list)): # Repeat optimization algorithm with values from from cache.
+        x = algo.ask()
+
+
+        print("-")
+        print(i)
+        print(x_list[i])
+        print(x)
+        print("-")
+
+        assert np.all(x == x_list[i]), f"cached solution {x_list[i]} and algorithm solution {x} at index {i} differ and should be exactly the same, the euclidean distance between them is {np.linalg.norm(x - x_list[i])}"
+        f = f_list[i]
+        algo.tell(f)
+        if f < f_best and (prob.constraint_method == 'ignore' or np.all(np.array(prob.constraint_check(x)) > 0)):
+            f_best = f
+            x_best = x
+    ref = time.time() - solver_time
+    print("loaded.")
+    return ref, x_best, f_best, x_list, f_list
+
 
 
 def local_solve(problem_name, algorithm_name, constraint_method, seed, budget, reuse_encoding, log_every=None):
@@ -154,16 +218,13 @@ def local_solve(problem_name, algorithm_name, constraint_method, seed, budget, r
     optimization_cache_path_x = f'cache/{problem_name}_{algorithm_name}_{constraint_method}_{seed}_{budget}_x.npy'
     prob_status_cache_path = f'cache/{problem_name}_{algorithm_name}_{constraint_method}_{seed}_{budget}_probstatus.txt'
     result_file_path = f'results/data/{problem_name}_{algorithm_name}_{constraint_method}_{seed}.csv'
-    
-    
+    np.random.seed(seed+28342348)
+    import random
+    random.seed(seed+28342348)
+
     def save_prob_status(solver_time, f_best, n_f_evals, n_constraint_evals):
         with open(prob_status_cache_path, 'w') as file:
             file.write(str({'solver_time':solver_time, 'f_best':f_best, 'n_f_evals':n_f_evals, 'n_constraint_evals':n_constraint_evals,}))
-    def load_prob_status():
-        with open(prob_status_cache_path, 'r') as file:
-            data = file.read()
-            status = eval(data)
-            return status
     def print_to_log(*args):
             with open(f"{result_file_path}.log", 'a') as f:
                 print(*args,  file=f)
@@ -173,40 +234,20 @@ def local_solve(problem_name, algorithm_name, constraint_method, seed, budget, r
         current_time = datetime.now()
         return current_time.strftime('%Y-%m-%d %H:%M:%S')
 
-    np.random.seed(seed)
 
-    prob = problem(problem_name, budget, constraint_method, 2 if reuse_encoding else seed) # Use same encoding with all seeds.
+    prob = problem(problem_name, budget, constraint_method, seed, reuse_encoding)
     algo = optimization_algorithm(prob, algorithm_name, seed)
 
-    pb = tqdm(total=budget)
+    # pb = tqdm(total=budget)
 
 
     # Load from cache (resume previous run)
     if os.path.exists(optimization_cache_path_f) or os.path.exists(optimization_cache_path_x) or os.path.exists(prob_status_cache_path):
         assert os.path.exists(optimization_cache_path_f) and os.path.exists(optimization_cache_path_x) and os.path.exists(prob_status_cache_path)
         print("Optimization cache files exist. Loading cached optimization...")
-        x_list = [el for el in np.load(optimization_cache_path_x)]
-        f_list = [el for el in np.load(optimization_cache_path_f)]
-        assert len(x_list) == len(f_list)
-        status = load_prob_status()
-        prob.n_f_evals = status['n_f_evals']
-        prob.n_constraint_evals = status['n_constraint_evals']
-        solver_time = status['solver_time']
-        if prob.n_f_evals >= budget:
-            print("Error. Optimization already finished, n_f_evals > budget on load from cache.")
-            exit(1)
-
-        f_best = 1e10
-        x_best = None
-        for i in range(len(x_list)): # Repeat optimization algorithm with values from from cache.
-            x = algo.ask()
-            assert np.all(x == x_list[i]), f"cached solution {x} and algorithm solution {x_list[i]} at index {i} differ and should be exactly the same, the euclidean distance between them is {np.linalg.norm(x - x_list[i])}"
-            f = f_list[i]
-            algo.tell(f)
-            if f < f_best:
-                f_best = f
-                x_best = x
-        print("loaded.")
+        ref, x_best, f_best, x_list, f_list = _resume_previous_local_solve(prob, algo, optimization_cache_path_f, optimization_cache_path_x, prob_status_cache_path)
+        if ref is None: # Skip finished optimization
+            return
         print_to_log(f"--- Resuming optimization {problem_name} {algorithm_name} {constraint_method} {seed} {budget} at {get_human_time()}, from {prob.n_f_evals} evaluations.")
 
 
@@ -217,19 +258,23 @@ def local_solve(problem_name, algorithm_name, constraint_method, seed, budget, r
         x_best = None
         x_list = []
         f_list = []
+        ref = time.time()
         print_to_log(f"--- Starting optimization {problem_name} {algorithm_name} {constraint_method} {seed} {budget} at {get_human_time()}")
-        with open(result_file_path, "a") as f:
-            print('n_f_evals;n_constraint_evals;n_unfeasible_on_ask;time;f_best;x_best', file=f)
+        if os.path.exists(result_file_path):
+            raise FileExistsError(f"result file {result_file_path} already exists, but no cache file was loaded.")
+        else:
+            with open(result_file_path, "a") as f:
+                print('n_f_evals;n_constraint_evals;n_unfeasible_on_ask;time;f_best;x_best', file=f)
+
 
 
     assert len(x_list) == len(f_list), f"(len(x_list), len(f_list))={(len(x_list), len(f_list))}"
 
 
     i = 0
-    ref = time.time() - solver_time
     while prob.n_f_evals < prob.budget:
-        pb.n = prob.n_f_evals
-        pb.refresh()
+        # pb.n = prob.n_f_evals
+        # pb.refresh()
         x = algo.ask()
         x_list.append(x)
     
@@ -243,7 +288,7 @@ def local_solve(problem_name, algorithm_name, constraint_method, seed, budget, r
         np.save(optimization_cache_path_f, np.array(f_list))
         save_prob_status(solver_time, f_best, prob.n_f_evals, prob.n_constraint_evals)
 
-        if f < f_best:
+        if f < f_best and (prob.constraint_method == 'ignore' or np.all(np.array(prob.constraint_check(x)) > 0)):
             f_best = f
             x_best = x
             print_to_log("---New best----------------------------------------------------")
@@ -256,13 +301,13 @@ def local_solve(problem_name, algorithm_name, constraint_method, seed, budget, r
             print_to_log("n_f_evals:", prob.n_f_evals, "n_constraint_evals:", prob.n_constraint_evals, "f:", f, "t:", time.time() - ref, "x:", x.tolist())
         i += 1
 
-
+    # pb.close()
     with open(result_file_path, "a") as file:
         print(f'{prob.n_f_evals};{prob.n_constraint_evals};{prob.n_unfeasible_on_ask};{time.time() - ref};{f_best};{x_best.tolist()}', file=file)
 
     print_to_log("-------------------------------------------------------------")
     print_to_log("Finished local optimization.", get_human_time())
-    print_to_log("n_f_evals:", prob.n_f_evals, "\nn_constraint_evals:", prob.n_constraint_evals, "\nx:", x.tolist(), "\nf:", f)
+    print_to_log("n_f_evals:", prob.n_f_evals, "\nn_constraint_evals:", prob.n_constraint_evals, "\nx:", x_best.tolist(), "\nf:", f_best)
     print_to_log("Constraints: ")
-    [print_to_log("g(x) = ", el) for el in  prob.constraint_check(x)]
+    [print_to_log("g(x) = ", el) for el in  prob.constraint_check(x_best)]
     print_to_log("-------------------------------------------------------------")

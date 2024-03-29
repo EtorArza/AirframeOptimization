@@ -29,7 +29,7 @@ class cobyqa:
 
         def minimz():
             while True:
-                x0 = problem.random_initial_sol(self.rs)
+                x0 = problem.random_initial_sol()
                 minimize(fun, x0, bounds=bounds, constraints=constraints, options=options)
                 print("Optimization end. Optimization algorithm restart.")
 

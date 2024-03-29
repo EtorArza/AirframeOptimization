@@ -19,7 +19,7 @@ from matplotlib.animation import FuncAnimation
 import subprocess
 from airframes_objective_functions import target_lqr_objective_function
 
-target_list = [[2.3,0.75,1.5],[-2.0,-4.0,1.0],[4.0,-1.0,2.0],[-1.0,2.0,4.0]]
+target_list = [[-2.0,-4.0,1.0],[4.0,-1.0,2.0],[-1.0,2.0,4.0]]
 
 
 
