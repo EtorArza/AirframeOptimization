@@ -104,6 +104,8 @@ class nn_classifier(nn.Module):
         train_dataloader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True)
         val_dataloader = DataLoader(val_dataset, batch_size=batch_size, shuffle=False)
         
+        best_loss = 1e10
+
         for epoch in tqdm(range(epochs)):
             running_loss = 0.0
             
@@ -130,10 +132,13 @@ class nn_classifier(nn.Module):
                     predicted = torch.round(outputs)  # Assuming threshold at 0.5
                     correct += (predicted == labels).sum().item()
                     total += labels.size(0)
+            if val_loss < best_loss:
+                best_loss = val_loss
+                self.save_model_to_cache_folder()
             self.training = True
             validation_error = 1 - correct / total
             with open(classifier_learning_log, "a") as file:
-                print(f"Epoch {epoch+1}/{epochs}, Training Loss: {running_loss/len(train_dataloader):.3f}, Validation Loss: {val_loss/len(val_dataloader):.3f}, Validation Error: {validation_error*100.0:.3f}%", file=file)
+                print(f"Epoch {epoch+1}/{epochs}, Training Loss: {running_loss/len(train_dataloader):.3f}, Validation Loss: {val_loss/len(val_dataloader):.3f}, Validation Error: {validation_error*100.0:.3f}%, Best loss: {best_loss}", file=file)
         self.training = False
         print("Finished training.")
         torch.save
@@ -301,7 +306,7 @@ class nn_encoding(nn.Module):
             params.extend(param.cpu().detach().numpy().flatten())
         return np.array(params)
 
-    def log_validation_loss(self, epoch, classifier_model):
+    def validation_loss(self, epoch, classifier_model):
         n_reps = 50
         validation_batch_size = encoder_batch_size
         classifier_loss = 0
@@ -322,28 +327,32 @@ class nn_encoding(nn.Module):
 
 
                 distances_mantained_loss += self.loss_distances_mantained(inputs, encoding_outputs) / n_reps
+                total_loss = classifier_loss+(coverage_loss-baseline_coverage_loss)
             with open(encoder_learning_log, "a") as file:
-                print(f'Epoch: {epoch} Validation Loss: {classifier_loss} + {coverage_loss - baseline_coverage_loss} + {distances_mantained_loss} = {classifier_loss+(coverage_loss-baseline_coverage_loss)+distances_mantained_loss}', file=file)
-
+                print(f'Epoch: {epoch} Validation Loss: {classifier_loss} + {coverage_loss - baseline_coverage_loss} = {total_loss}', file=file)
+        return total_loss
 
     def train_model(self, classifier_model, epochs, batch_size):
         if os.path.isfile(self.model_path):
             raise FileExistsError("Aborting model train, as", self.model_path, " exists, which is the trained model. Delete this file to retrain.")
         check_gpu()
         self.train()
-
+        best_loss = 1e10
         optimizer_encoding = optim.Adam(self.parameters(), lr=0.00025)
         for epoch in tqdm(range(epochs)):
             inputs = torch.rand((batch_size, self.problem_dim))
             encoding_outputs = self(inputs)
             classifier_outputs = classifier_model(encoding_outputs)
-            loss = self.loss_distances_mantained(inputs, encoding_outputs) + torch.mean(classifier_outputs) + self.loss_coverage(encoding_outputs)
+            loss = torch.mean(classifier_outputs) + self.loss_coverage(encoding_outputs) + # self.loss_distances_mantained(inputs, encoding_outputs)
             optimizer_encoding.zero_grad()
             loss.backward()
             optimizer_encoding.step()
 
             if epoch % 1000 == 0:
-                self.log_validation_loss(epoch, classifier_model)
+                val_loss = self.validation_loss(epoch, classifier_model)
+                if val_loss < best_loss:
+                    best_loss = val_loss
+                    self.save_model_to_cache_folder()
 
 
     def save_model_to_cache_folder(self):
@@ -388,7 +397,6 @@ class solution_space_encoder:
                 print(f"Training classifier from scratch. {prob.problem_name} {seed}", file=file)
             x_train, y_train = self.classifier_model.create_dataset(self.encoding_model.feasible_solutions, self.encoding_model.unfeasible_solutions)
             self.classifier_model.train_model(x_train, y_train, classifier_epochs, classifier_batch_size)
-            self.classifier_model.save_model_to_cache_folder()
 
         try:
             self.encoding_model.load_model_from_cache_folder()
@@ -399,7 +407,6 @@ class solution_space_encoder:
                 print(f"Training encoder from scratch. {prob.problem_name} {seed}", file=file)
             print("Training encoding from scratch.")
             self.encoding_model.train_model(self.encoding_model, encoder_epochs, encoder_batch_size)
-            self.encoding_model.save_model_to_cache_folder()
 
     def encode(self, input):
         assert input.shape == (self.classifier_model.prob.dim,)
