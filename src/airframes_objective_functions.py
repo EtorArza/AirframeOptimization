@@ -23,7 +23,7 @@ def loss_function(poses, target_list):
 
 def _target_LQR_control(target_list, render:bool):
 
-    aerial_gym_dev_path="/home/paran/Dropbox/aerial_gym_dev/aerial_gym_dev"
+    aerial_gym_dev_path="/home/paran/Dropbox/NTNU/aerial_gym_dev/aerial_gym_dev"
     import sys
     import isaacgym
     sys.path.append(aerial_gym_dev_path)

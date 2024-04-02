@@ -1,4 +1,4 @@
-aerial_gym_dev_path="/home/paran/Dropbox/aerial_gym_dev/aerial_gym_dev"
+aerial_gym_dev_path="/home/paran/Dropbox/NTNU/aerial_gym_dev/aerial_gym_dev"
 
 import sys
 import isaacgym
@@ -403,6 +403,6 @@ if __name__ == "__main__":
     pass
 
 
-# cd /home/paran/Dropbox/aerial_gym_dev/aerial_gym_dev/scripts
+# cd /home/paran/Dropbox/NTNU/aerial_gym_dev/aerial_gym_dev/scripts
 # python3 example_control.py --task=gen_aerial_robot --num_envs=1
 
