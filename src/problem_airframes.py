@@ -17,7 +17,7 @@ from tqdm import tqdm as tqdm
 from math import sqrt
 from matplotlib.animation import FuncAnimation
 import subprocess
-from airframes_objective_functions import target_lqr_objective_function
+from airframes_objective_functions import target_lqr_objective_function, loss_function
 
 target_list = [[-2.0,-4.0,1.0],[4.0,-1.0,2.0],[-1.0,2.0,4.0]]
 
@@ -113,14 +113,6 @@ def _decode_symmetric_hexarotor_to_RobotParameter(x: numpy.typing.NDArray[np.flo
     return from_0_1_to_RobotParameter(x_decoded)
 
 
-def loss_function(poses, target):
-    f = 0
-    for i, pose in enumerate(poses):
-        distance = np.linalg.norm(np.array(target) - pose[0:3])
-        f += distance / len(poses)
-    
-    f -= 100000 * (len(poses) - 300) # Bonus reward for episode length. Longer episode length means that evaluation was not prematurely terminated.
-    return f
 
 def f_symmetric_hexarotor_0_1(x: numpy.typing.NDArray[np.float_]):
 
@@ -147,7 +139,7 @@ def plot_airframe_design(pars:RobotParameter, translation:numpy.typing.NDArray[n
 
 
     fig = plt.figure()
-    xlim = ylim = zlim = [-1.2,3.2]
+    xlim = ylim = zlim = [-4.5,4.5]
     ax = fig.add_subplot(projection='3d', xlim=xlim, ylim=ylim, zlim=zlim)
     ax.set_xlabel('x',size=18)
     ax.set_ylabel('y',size=18)
@@ -308,7 +300,7 @@ def animate_airframe(pars:RobotParameter, pose_list, target):
 
 
     fig = plt.figure()
-    xlim = ylim = zlim = [-1.2,4.0]
+    xlim = ylim = zlim = [-4.5,4.5]
     ax = fig.add_subplot(projection='3d', xlim=xlim, ylim=ylim, zlim=zlim)
     ax.set_xlabel('x',size=18)
     ax.set_ylabel('y',size=18)
@@ -325,7 +317,7 @@ def animate_airframe(pars:RobotParameter, pose_list, target):
         ax.set_xlabel(f'x={pose[0]:.2f}',size=14)
         ax.set_ylabel(f'y={pose[1]:.2f}',size=14)
         ax.set_zlabel(f'z={pose[2]:.2f}',size=14)
-        ax.plot(*target, color="pink", marker="o")
+        ax.plot(*target, color="pink", marker="o", linestyle="")
 
     ani = FuncAnimation(fig, animate, frames=len(pose_list)-1, interval=100, repeat=False)
     plt.close()
@@ -384,27 +376,27 @@ if __name__ == "__main__":
     # Analyze solutions
 
 
-    # Best solution
-    x = np.array([0.49580943483950735, 0.8446168367709378, 0.7518539791904498, 0.13353196954967322, 0.6860072491492938, 0.9692333121269158, 0.5187270188694916, 0.550890465330575, 0.1443820822505597, 0.2227223052526963, 0.31845214783310405, 0.8595968832825416, 0.4364441257720804, 0.4042662014448113, 0.455128119397063])
-    pars = _decode_symmetric_hexarotor_to_RobotParameter(x)
+    # # Best solution
+    # x = np.array([0.4448177699439353, 0.7970561131065482, 0.30309180727290835, 0.9974804109312205, 0.24201813756617488, 0.25154423219417815, 0.762868019724063, 0.3481747675793908, 0.4646549532613141, 0.00539634104869154, 0.7976134586503578, 0.7208604440608757, 0.5828024393343265, 0.7228779607950179, 0.3600799761307466])
+    # pars = _decode_symmetric_hexarotor_to_RobotParameter(x)
 
-    # # Quad
-    # pars = PredefinedConfigParameter('quad')
+    # Quad
+    pars = PredefinedConfigParameter('quad')
 
     # # Hex
     # pars = PredefinedConfigParameter('hex')
 
     # plot_airframe_design(pars, target=[np.array(el) for el in target_list])
 
-    _, poses = target_lqr_objective_function(pars, target_list[0])
-    f = loss_function(poses, target_list[0])
+    _, poses = target_lqr_objective_function(pars, target_list)
+    f = loss_function(poses, target_list)
 
     print("--------------------------")
     print("f(x) = ", f)
     [print(f"g_{i}(x) = ", el) for i,el in  enumerate(constraint_check(pars))]
     print("--------------------------")
 
-    animate_airframe(pars, poses, target_list[0])
+    animate_airframe(pars, poses, target_list)
 
 
 

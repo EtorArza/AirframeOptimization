@@ -15,7 +15,7 @@ from torch.utils.data import DataLoader, TensorDataset
 from sklearn.model_selection import train_test_split
 import torch.nn.functional
 
-feasible_and_unfeasible_sample_size = int(5e5)
+feasible_and_unfeasible_sample_size = int(1e6)
 
 
 classifier_epochs = 100
@@ -26,7 +26,7 @@ classifier_learning_log = "classifier_training.log"
 
 encoder_epochs = int(5e5)
 encoder_leraning_rate = 0.00025
-encoder_batch_size = 3200
+encoder_batch_size = 6400
 batch_size_distances_mantained = 120
 feasible_refs_sample_size_for_loss = 120
 encoder_learning_log = "encoder_training.log"
@@ -50,6 +50,7 @@ def check_gpu():
 class nn_classifier(nn.Module):
     def __init__(self, prob, seed):
         super(nn_classifier, self).__init__()
+        assert prob.dim >= 8, "the NN architecture in the classifier only makes sense for dim>8. For smaller dimensions, layer 7 should probably be removed."
         self.prob = prob
         self.model_path = f'cache/classifier_{prob.problem_name}_{seed}.pth'
         self.rs = np.random.RandomState(seed)
@@ -61,7 +62,11 @@ class nn_classifier(nn.Module):
         self.dropout3 = nn.Dropout(p=0.5)
         self.fc4 = nn.Linear(prob.dim*2, prob.dim)
         self.dropout4 = nn.Dropout(p=0.5)
-        self.fc5 = nn.Linear(prob.dim, 1)
+        self.fc5 = nn.Linear(prob.dim, prob.dim // 2)
+        self.dropout5 = nn.Dropout(p=0.5)
+        self.fc6 = nn.Linear(prob.dim // 2, prob.dim // 4)
+        self.dropout6 = nn.Dropout(p=0.5)
+        self.fc7 = nn.Linear(prob.dim // 4, 1)
         self.sigmoid = nn.Sigmoid()
         self.training = False
 
@@ -78,7 +83,13 @@ class nn_classifier(nn.Module):
         x = torch.relu(self.fc4(x))
         if self.training:
             x = self.dropout4(x)
-        x = self.sigmoid(self.fc5(x))
+        x = torch.relu(self.fc5(x))
+        if self.training:
+            x = self.dropout5(x)
+        x = torch.relu(self.fc6(x))
+        if self.training:
+            x = self.dropout6(x)
+        x = self.sigmoid(self.fc7(x))
         return x
 
     def create_dataset(self, feasible_samples, unfeasible_samples):
@@ -133,7 +144,7 @@ class nn_classifier(nn.Module):
                     correct += (predicted == labels).sum().item()
                     total += labels.size(0)
             if val_loss < best_loss:
-                best_loss = val_loss
+                best_loss = val_loss/len(val_dataloader)
                 self.save_model_to_cache_folder()
             self.training = True
             validation_error = 1 - correct / total
@@ -141,7 +152,7 @@ class nn_classifier(nn.Module):
                 print(f"Epoch {epoch+1}/{epochs}, Training Loss: {running_loss/len(train_dataloader):.3f}, Validation Loss: {val_loss/len(val_dataloader):.3f}, Validation Error: {validation_error*100.0:.3f}%, Best loss: {best_loss}", file=file)
         self.training = False
         print("Finished training.")
-        torch.save
+
 
     def save_model_to_cache_folder(self):
         torch.save(self.state_dict(), self.model_path)
@@ -343,7 +354,7 @@ class nn_encoding(nn.Module):
             inputs = torch.rand((batch_size, self.problem_dim))
             encoding_outputs = self(inputs)
             classifier_outputs = classifier_model(encoding_outputs)
-            loss = torch.mean(classifier_outputs) + self.loss_coverage(encoding_outputs) + # self.loss_distances_mantained(inputs, encoding_outputs)
+            loss = torch.mean(classifier_outputs) + self.loss_coverage(encoding_outputs) # + self.loss_distances_mantained(inputs, encoding_outputs)
             optimizer_encoding.zero_grad()
             loss.backward()
             optimizer_encoding.step()
@@ -397,6 +408,8 @@ class solution_space_encoder:
                 print(f"Training classifier from scratch. {prob.problem_name} {seed}", file=file)
             x_train, y_train = self.classifier_model.create_dataset(self.encoding_model.feasible_solutions, self.encoding_model.unfeasible_solutions)
             self.classifier_model.train_model(x_train, y_train, classifier_epochs, classifier_batch_size)
+            self.classifier_model.load_model_from_cache_folder() # Load model with best validation error
+
 
         try:
             self.encoding_model.load_model_from_cache_folder()
@@ -407,6 +420,8 @@ class solution_space_encoder:
                 print(f"Training encoder from scratch. {prob.problem_name} {seed}", file=file)
             print("Training encoding from scratch.")
             self.encoding_model.train_model(self.encoding_model, encoder_epochs, encoder_batch_size)
+            self.encoding_model.load_model_from_cache_folder() # Load model with best validation error
+
 
     def encode(self, input):
         assert input.shape == (self.classifier_model.prob.dim,)
