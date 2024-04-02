@@ -108,7 +108,7 @@ def constraint_check(x: numpy.typing.ArrayLike):
             k = k + 1
 
     # constraint 0: distance between every two turbines minimum 200 m
-    min_distance = 200.0
+    min_distance = 300.0
     check_0 = np.inf
     for i_1 in range(N_TURBINES):
         for i_2 in range(N_TURBINES):
@@ -130,10 +130,14 @@ def constraint_check(x: numpy.typing.ArrayLike):
             q_count[3] += 1
     check_1 = N_TURBINES * 0.333333333 - max(q_count)
 
-    # constraint 2: part of the terrain is not valid. None of the solutions can be placed in a circle of radius 1300m arround [1350, 750].
-    center_non_valid_terrain = np.array([1350.0, 750.0])
-    diameter_non_valid_terrain = 1300
-    check_2 = np.linalg.norm(x_pos[i] - center_non_valid_terrain) - diameter_non_valid_terrain
+    # constraint 2: Certain parts of the terrain are not valid. None of the solutions can be placed there.
+    hole_centers = np.array([[708.8905828911846, 1260.4771639928265], [989.3119875121884, 660.7845491117623], [1987.104282428962, 305.0923824053107], [929.1961117086416, 1395.3453795609323], [307.03362602397857, 1563.8444852857797], [1417.7499940372359, 621.6371831490444], [564.8454935706593, 849.5591424031293], [1359.7356592197577, 606.894587154017], [249.21741910436057, 1852.908347601767], [997.8899037977513, 735.7795317462887], [1432.1922070653075, 730.3002772617315], [1406.8871687624742, 1525.401811750595], [1291.7086773075002, 519.8698443219552], [1056.7478073369641, 913.2615384103344], [1104.8969457872658, 337.9687180510689], [1794.4047180743548, 367.3240213120086]])
+    diameter_holes = 400
+    check_2 = 1e8
+    for center_non_valid_terrain in hole_centers:
+        center_non_valid_terrain = np.array([1350.0, 750.0])
+        check_2 = min(np.min(np.linalg.norm(x_pos - center_non_valid_terrain, axis=1)) - diameter_holes, check_2)
+
 
     return (check_0, check_1, check_2)
 

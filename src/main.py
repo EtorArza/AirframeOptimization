@@ -12,7 +12,7 @@ if __name__ == "__main__":
         import plot_src
         problem_name = sys.argv[2]
         n_montecarlo = 5000
-        prob = problem(problem_name, 100, 'ignore', 2)
+        prob = problem(problem_name, 100, 'ignore', 2, True)
         set_list = [set() for _ in range(prob.n_constraints)]
         for i in tqdm(range(n_montecarlo)):
             x_random = np.random.random(prob.dim)

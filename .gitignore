@@ -40,3 +40,4 @@ cache/*
 !cache/.gitkeep
 global_log.txt
 *.log
+animations.zip
