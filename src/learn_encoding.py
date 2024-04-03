@@ -139,17 +139,17 @@ class nn_classifier(nn.Module):
                 for inputs, labels in val_dataloader:
                     outputs = self(inputs)
                     loss = criterion(outputs, labels)
-                    val_loss += loss.item()
+                    val_loss += loss.item()/len(val_dataloader)
                     predicted = torch.round(outputs)  # Assuming threshold at 0.5
                     correct += (predicted == labels).sum().item()
                     total += labels.size(0)
             if val_loss < best_loss:
-                best_loss = val_loss/len(val_dataloader)
+                best_loss = val_loss
                 self.save_model_to_cache_folder()
             self.training = True
             validation_error = 1 - correct / total
             with open(classifier_learning_log, "a") as file:
-                print(f"Epoch {epoch+1}/{epochs}, Training Loss: {running_loss/len(train_dataloader):.3f}, Validation Loss: {val_loss/len(val_dataloader):.3f}, Validation Error: {validation_error*100.0:.3f}%, Best loss: {best_loss}", file=file)
+                print(f"Epoch {epoch+1}/{epochs}, Training Loss: {running_loss/len(train_dataloader):.3f}, Validation Loss: {val_loss:.3f}, Validation Error: {validation_error*100.0:.3f}%, Best loss: {best_loss}", file=file)
         self.training = False
         print("Finished training.")
 
