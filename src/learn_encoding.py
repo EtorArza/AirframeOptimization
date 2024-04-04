@@ -18,7 +18,7 @@ import torch.nn.functional
 feasible_and_unfeasible_sample_size = int(1e6)
 
 
-classifier_epochs = 100
+classifier_epochs = 150
 classifier_batch_size = 3200
 classfier_learning_rate = 0.00025
 classifier_learning_log = "classifier_training.log"

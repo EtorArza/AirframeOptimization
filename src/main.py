@@ -37,7 +37,7 @@ if __name__ == "__main__":
     elif sys.argv[1] == "--all-local-solve":
         sys.argv.pop()
         reuse_encoding = True
-        budget = 500
+        budget = 200
         global_log_path = "global_log.log"
         if os.path.exists(global_log_path):
             os.remove(global_log_path)
