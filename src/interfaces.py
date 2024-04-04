@@ -29,6 +29,7 @@ class problem:
         self.n_f_evals = 0
         self.n_constraint_evals = 0
         self.n_unfeasible_on_ask = 0
+        self.n_f_calls_without_evaluation = 0
         self.x0 = None
         self.x0_f = None
         self.rs = np.random.RandomState(seed=seed+128428)
@@ -66,31 +67,37 @@ class problem:
     def f(self, x:numpy.typing.NDArray[np.float_]):
         assert type(x) == np.ndarray
 
-        return_value = None
-        value_on_unfeasible = np.inf
-        if self.constraint_method == 'ignore' or self.constraint_method =='algo_specific':
+        if self.constraint_method in  ('ignore','algo_specific'):
             return_value = 'f'
         elif self.constraint_method == 'nan_on_unfeasible':
             return_value = 'f' if np.all(np.array(self.constraint_check(x)) > 0) else np.nan
         elif self.constraint_method == 'constant_penalty_no_evaluation':
-            return_value = 'f' if np.all(np.array(self.constraint_check(x)) > 0) else value_on_unfeasible
+            return_value = 'f' if np.all(np.array(self.constraint_check(x)) > 0) else np.inf
         elif self.constraint_method == 'nn_encoding':
-            x_encoded = self.encoder.encode(x)
-            if np.all(np.array(self.constraint_check(x)) > 0):
-                self.n_f_evals += 1
-                return self._f(x_encoded)
-            else:
-                self.n_unfeasible_on_ask += 1
-                return value_on_unfeasible
+            return_value = 'f' if np.all(np.array(self.constraint_check(x)) > 0) else np.inf # encode() applied directly in self.constraint_check()
         else:
             raise ValueError("Constraint method "+str(self.constraint_method)+" not recognized.")
 
-        if return_value=='f':
-            return_value = self._f(x)
-            self.n_f_evals+=1
-        
+        # This check is just to measure n_unfeasible_on_ask for plotting purposes, and has nothing to do with 
+        # optimization (that is why we do not count the n_constraint_evals).
+        # Need to do the extra check because 'ignore' and 'algo specific' might evaluate unfeasible solutions.
+        self.n_constraint_evals -= 1  
         if not np.all(np.array(self.constraint_check(x)) > 0):
             self.n_unfeasible_on_ask += 1
+
+        if return_value=='f':
+            if self.constraint_method == 'nn_encoding':
+                x_encoded = self.encoder.encode(x)
+            else:
+                x_encoded = x
+
+            return_value = self._f(x_encoded)
+            self.n_f_evals+=1
+            self.n_f_calls_without_evaluation = 0
+        else:
+            self.n_f_calls_without_evaluation += 1
+            if self.n_f_calls_without_evaluation > 2000:
+                self.n_f_evals += 1
         return return_value
 
     def constraint_check(self, x:numpy.typing.NDArray[np.float_]) -> tuple:
