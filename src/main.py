@@ -25,7 +25,7 @@ if __name__ == "__main__":
         sys.argv.pop()
         problem_name = "airframes"
         algorithm_name = "nevergrad"
-        constraint_method = "algo_specific" # 'ignore','nan_on_unfeasible','constant_penalty_no_evaluation','algo_specific', 'nn_encoding'
+        constraint_method = "ignore" # 'ignore','nan_on_unfeasible','constant_penalty_no_evaluation','algo_specific', 'nn_encoding'
         reuse_encoding = True
         seed = 4
         budget = 2000

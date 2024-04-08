@@ -17,6 +17,7 @@ import torch.nn.functional
 
 feasible_and_unfeasible_sample_size = int(1e6)
 
+print("Unfortunatelly, this idea was already explored in Evolutionary algorithms, homomorphous mappings, and constrained parameter optimization. Perhaps making an efficient implementation of this would be interesting?")
 
 classifier_epochs = 150
 classifier_batch_size = 3200

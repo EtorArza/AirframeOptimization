@@ -26,6 +26,7 @@ case "$1" in
         ;;
     all)
         find cache/ -type f ! -regex '.*\('$exclude'\).*' -delete
+        find cache/airframes_animationdata -type f ! -regex '.*\('$exclude'\).*' -delete
         find results/data/ -type f ! -regex '.*\('$exclude'\).*' -delete
         find results/figures/ -type f ! -regex '.*\('$exclude'\).*' -delete
         find . -type f -name '*.log' ! -regex '.*\('$exclude'\).*' -delete
