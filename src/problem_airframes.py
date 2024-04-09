@@ -295,7 +295,9 @@ def plot_airframe_interactive_single_rotor():
 
 def animate_airframe(pars:RobotParameter, pose_list, target_list):
 
-    max_frames = 2400
+    max_time = 24
+    dt = 0.01
+    desired_fps = 24
 
     assert len(pose_list) == len(target_list)
 
@@ -307,7 +309,8 @@ def animate_airframe(pars:RobotParameter, pose_list, target_list):
     ax.set_zlabel('z',size=18)
 
     def animate(i):
-        pose = pose_list[i]
+        frm_idx = int(i / dt / desired_fps)
+        pose = pose_list[frm_idx]
         ax.clear()
         translation = pose[0:3]
         rotation_matrix = Rotation.from_euler("xyz", pose[3:6], degrees=False).as_matrix()
@@ -316,9 +319,9 @@ def animate_airframe(pars:RobotParameter, pose_list, target_list):
         ax.set_xlabel(f'x={pose[0]:.2f}',size=14)
         ax.set_ylabel(f'y={pose[1]:.2f}',size=14)
         ax.set_zlabel(f'z={pose[2]:.2f}',size=14)
-        ax.plot(*target_list[i], color="pink", marker="o", linestyle="")
-    print("Generating animation (takes a long time)...", end="")
-    ani = FuncAnimation(fig, animate, frames=max_frames-1, interval=10, repeat=False)
+        ax.plot(*target_list[frm_idx], color="pink", marker="o", linestyle="")
+    print("Generating animation (takes a long time)...", end="",flush=True)
+    ani = FuncAnimation(fig, animate, frames=max_time*desired_fps-1, interval=1.0 / 24.0 *1000.0, repeat=False)
     plt.close()
     ani.save("test.gif", dpi=300)
     print("done.")
