@@ -68,7 +68,7 @@ def from_0_1_to_RobotParameter(x: numpy.typing.NDArray[np.float_]):
     #pars.sensor_orientations = [[0,0,0],[0,-20,0]]
     #pars.sensor_translations = [[0,0.5,0.1],[0,0,-0.1]]
 
-    pars.max_u = 20
+    pars.max_u = 100
     pars.min_u = 0
 
     return pars
@@ -115,11 +115,11 @@ def _decode_symmetric_hexarotor_to_RobotParameter(x: numpy.typing.NDArray[np.flo
             x_decoded[prop_i*2+1, 5] = 1.0 - x[prop_i*5 +4]                  # euler_z inverse
     return from_0_1_to_RobotParameter(x_decoded)
 
-def f_symmetric_hexarotor_0_1(x: numpy.typing.NDArray[np.float_]):
+def f_symmetric_hexarotor_0_1(x: numpy.typing.NDArray[np.float_], seed: int):
 
     assert x.shape == (15,) or x.shape== (10,)
     pars = _decode_symmetric_hexarotor_to_RobotParameter(x)
-    target_list, pose_list, mean_reward = motor_rl_objective_function(pars)
+    target_list, pose_list, mean_reward = motor_rl_objective_function(pars, seed)
 
     return target_list, pose_list, mean_reward
 
@@ -298,6 +298,8 @@ def animate_airframe(pars:RobotParameter, pose_list, target_list):
     max_time = 24
     dt = 0.01
     desired_fps = 24
+    time_between_frames = 1.0 / 24.0
+
 
     assert len(pose_list) == len(target_list)
 
@@ -319,9 +321,10 @@ def animate_airframe(pars:RobotParameter, pose_list, target_list):
         ax.set_xlabel(f'x={pose[0]:.2f}',size=14)
         ax.set_ylabel(f'y={pose[1]:.2f}',size=14)
         ax.set_zlabel(f'z={pose[2]:.2f}',size=14)
+        ax.set_title(f"{i*time_between_frames:.2f}s")
         ax.plot(*target_list[frm_idx], color="pink", marker="o", linestyle="")
     print("Generating animation (takes a long time)...", end="",flush=True)
-    ani = FuncAnimation(fig, animate, frames=max_time*desired_fps-1, interval=1.0 / 24.0 *1000.0, repeat=False)
+    ani = FuncAnimation(fig, animate, frames=max_time*desired_fps-1, interval= time_between_frames*1000.0, repeat=False)
     plt.close()
     ani.save("test.gif", dpi=300)
     print("done.")
@@ -389,28 +392,28 @@ if __name__ == "__main__":
     # Analyze solutions
 
 
-    # Best solution
-    x = np.array([0.1228544961036947, 0.9982283145502553, 0.9024397297354876, 0.7979211682637068, 0.6115735924097334, 0.9872687078269343, 0.7905176028819857, 0.06344653348252605, 0.7945435678142414, 0.9338233899843429, 0.2039474716318228, 0.9859121371916246, 0.5212570056291592, 0.685491579264556, 0.9586007238600096])
-    pars = _decode_symmetric_hexarotor_to_RobotParameter(x)
+    # # Best solution
+    # x = np.array([0.0032307636983755677, 0.9612916339500057, 0.9515385248879107, 0.7192463087572768, 0.3852874208418353, 0.9799639076574, 0.7113809870013609, 0.07518557770693757, 0.9477854842681859, 0.7701342797234194, 0.2728560375948174, 0.959957975299033, 0.2727550705097558, 0.7060113630413436, 0.8010233395710095])
+    # pars = _decode_symmetric_hexarotor_to_RobotParameter(x)
 
     # # Quad
-    # pars = PredefinedConfigParameter('quad')
+    pars = PredefinedConfigParameter('quad')
 
-    # # Hex
+    # Hex
     # pars = PredefinedConfigParameter('hex')
 
-    # plot_airframe_design(pars, target=[np.array(el) for el in target_list])
+    # plot_airframe_design(pars)
 
-
+    seed = 6
     # # target_list, pose_list, mean_reward = target_lqr_objective_function(pars, target_list_LQR)
-    # target_list, pose_list, mean_reward = motor_rl_objective_function(pars)
+    target_list, pose_list, mean_reward = motor_rl_objective_function(pars, seed)
 
 
 
-    # print("--------------------------")
-    # print("f(x) = ", mean_reward)
-    # [print(f"g_{i}(x) = ", el) for i,el in  enumerate(constraint_check(pars))]
-    # print("--------------------------")
+    print("--------------------------")
+    print("f(x) = ", mean_reward)
+    [print(f"g_{i}(x) = ", el) for i,el in  enumerate(constraint_check(pars))]
+    print("--------------------------")
 
     animate_animationdata_from_cache(pars)
     exit(0)

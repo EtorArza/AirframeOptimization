@@ -172,21 +172,21 @@ def _motor_position_enjoy(seed):
     return res
 
 
-def _motor_position_train():
+def _motor_position_train(seed):
     from datetime import datetime
     current_time = datetime.now()
     subprocess.run("rm train_dir/ -rf", shell=True)
-    cmd_str = 'python3 -m sf_examples.gen_aerial_robot_population.train_individual --env=gen_aerial_robot'
+    cmd_str = f'python3 -m sf_examples.gen_aerial_robot_population.train_individual --env=gen_aerial_robot --seed={seed}'
     print(f">> run shell on {current_time.strftime('%Y-%m-%d %H:%M:%S')}\n{cmd_str}")
     output = subprocess.check_output(cmd_str, shell=True, text=True)
     print(output)
 
 
-def motor_rl_objective_function(pars):
+def motor_rl_objective_function(pars, seed):
     save_robot_pars_to_file(pars)
     import torch
     import pytorch3d.transforms as p3d_transforms
-    cmd_str = f"python src/airframes_objective_functions.py --motor_RL_control"
+    cmd_str = f"python src/airframes_objective_functions.py --motor_RL_control {seed}"
     from datetime import datetime
     current_time = datetime.now()
     print(f">> run shell on {current_time.strftime('%Y-%m-%d %H:%M:%S')}\n{cmd_str}")
@@ -236,8 +236,10 @@ if __name__ == '__main__':
 
     if sys.argv[1] == "--motor_RL_control":
         sys.argv[1] = "--env=gen_aerial_robot"
-        _motor_position_train()
-        res = _motor_position_enjoy(2)
+        seed = int(sys.argv[2])
+        sys.argv.remove(sys.argv[2])
+        _motor_position_train(seed)
+        res = _motor_position_enjoy(seed)
         print("result:")
         print(res)
         exit(0)

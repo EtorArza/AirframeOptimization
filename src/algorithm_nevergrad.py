@@ -14,11 +14,11 @@ class ng_optimizer:
         self.prob = prob
         self.rs = np.random.RandomState(seed+78)
         x0 = self.prob.random_initial_sol()
-        param = ng.p.Instrumentation(ng.p.Array(lower=0.0, upper=1.0, init=x0))
+        param = ng.p.Instrumentation(ng.p.Array(lower=0.0, upper=1.0, init=x0), seed=seed)
         param.random_state = self.rs
         self.budget = budget
         self.parallel_threads = parallel_threads
-        self.optimizer = ng.optimizers.NGOpt16(parametrization=param, budget=budget, num_workers=parallel_threads)
+        self.optimizer = ng.optimizers.CMAbounded(parametrization=param, budget=budget, num_workers=parallel_threads)
 
 
 

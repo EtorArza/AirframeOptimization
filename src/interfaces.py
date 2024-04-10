@@ -38,7 +38,7 @@ class problem:
             import problem_airframes
             self.dim = 15
             self._constraint_check = problem_airframes.constraint_check_hexarotor_0_1
-            self._f = lambda x: problem_airframes.f_symmetric_hexarotor_0_1(x)[2]
+            self._f = lambda x: problem_airframes.f_symmetric_hexarotor_0_1(x, self.rs.randint(1e8))[2]
             self.plot_solution = lambda x: problem_airframes.plot_airframe_design(problem_airframes._decode_symmetric_hexarotor_to_RobotParameter(x))
 
         if problem_name == "windflo":
