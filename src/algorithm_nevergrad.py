@@ -14,7 +14,7 @@ class ng_optimizer:
         self.prob = prob
         self.rs = np.random.RandomState(seed+78)
         x0 = self.prob.random_initial_sol()
-        param = ng.p.Instrumentation(ng.p.Array(lower=0.0, upper=1.0, init=x0), seed=seed)
+        param = ng.p.Instrumentation(ng.p.Array(lower=0.0, upper=1.0, shape=x0.shape), seed=seed)
         param.random_state = self.rs
         self.budget = budget
         self.parallel_threads = parallel_threads
@@ -23,19 +23,21 @@ class ng_optimizer:
 
 
     def ask(self):
-        # with warnings.catch_warnings(record=True) as wrngs:
-        #     warnings.simplefilter("always")  # Set warning mode to always to catch warnings
-        #     self.prev_sol = self.optimizer.ask()
-        #     while len(wrngs) > 0:
-        #         warning = wrngs.pop()
-        #         if ' has already converged' in str(warning.message):
-        #                 if self.budget - self.n_f_evals > 10:
-        #                     print(f"Reinitializing nevergrad with budget {self.budget - self.n_f_evals} left, as it already converged.")
-        #                     x0 = self.prob.random_initial_sol()
-        #                     param = ng.p.Instrumentation(ng.p.Array(lower=0.0, upper=1.0, init=x0))
-        #                     self.optimizer = ng.optimizers.NGOpt(parametrization=param, budget=self.budget - self.n_f_evals, num_workers=self.parallel_threads,)
-        #         else:
-        #             print(warning.message)
+        with warnings.catch_warnings(record=True) as wrngs:
+            warnings.simplefilter("always")  # Set warning mode to always to catch warnings
+            self.prev_sol = self.optimizer.ask()
+            while len(wrngs) > 0:
+                warning = wrngs.pop()
+                if ' has already converged' in str(warning.message):
+                    print(warning)
+                    exit(1)
+                        # if self.budget - self.n_f_evals > 10:
+                        #     print(f"Reinitializing nevergrad with budget {self.budget - self.n_f_evals} left, as it already converged.")
+                        #     x0 = self.prob.random_initial_sol()
+                        #     param = ng.p.Instrumentation(ng.p.Array(lower=0.0, upper=1.0, init=x0))
+                        #     self.optimizer = ng.optimizers.NGOpt(parametrization=param, budget=self.budget - self.n_f_evals, num_workers=self.parallel_threads,)
+                else:
+                    print(warning.message)
 
         self.prev_sol = self.optimizer.ask()
 
