@@ -28,7 +28,7 @@ class ng_optimizer:
             self.prev_sol = self.optimizer.ask()
             while len(wrngs) > 0:
                 warning = wrngs.pop()
-                if ' has already converged' in str(warning.message):
+                if ' has already converged' in str(warning.message) or 'random' in str(warning.message):
                     print(warning)
                     exit(1)
                         # if self.budget - self.n_f_evals > 10:
