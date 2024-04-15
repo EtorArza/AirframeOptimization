@@ -147,6 +147,20 @@ def compare_different_constraint_methods(problem, algorithm, constraint_method_l
     plt.tight_layout()
 
 
+def sidebyside_boxplots(samples1, samples2):
+
+    from matplotlib import pyplot as plt
+    boxplot = plt.boxplot([samples1, samples2], showmeans=True)
+
+    # Add legend handles and labels
+    legend_handles = [boxplot["medians"][0], boxplot["means"][0]]
+    legend_labels = ["Median", "Mean"]
+    plt.legend(legend_handles, legend_labels)
+    plt.tight_layout()
+    # plt.savefig(figpath)
+    plt.show()
+    plt.close()
+
 if __name__ == '__main__':
     # plot_progress_one('results/data/airframes_pyopt_4.csv')
     # plot_feasability(*_get_feasability_data_airframes_one_run('results/data/airframes_pyopt_4.csv.log'),'results/data/airframes_pyopt_4.csv.log')

@@ -24,6 +24,12 @@ import pickle
 targets_LQR = [[2.0,6.0,1.0],[6.0,1.0,2.0],[1.0,1.0,4.0]]
 steps_per_target_LQR = 300
 target_list_LQR = [targets_LQR[i//steps_per_target_LQR] for i in range(steps_per_target_LQR*len(targets_LQR))]
+# Quad
+quad_pars = PredefinedConfigParameter('quad')
+
+# Hex
+hex_pars = PredefinedConfigParameter('hex')
+
 
 
 def from_0_1_to_RobotParameter(x: numpy.typing.NDArray[np.float_]):
@@ -119,7 +125,7 @@ def f_symmetric_hexarotor_0_1(x: numpy.typing.NDArray[np.float_], seed: int):
 
     assert x.shape == (15,) or x.shape== (10,)
     pars = _decode_symmetric_hexarotor_to_RobotParameter(x)
-    target_list, pose_list, mean_reward = motor_rl_objective_function(pars, seed)
+    target_list, pose_list, mean_reward = motor_rl_objective_function(pars, seed, seed)
 
     return target_list, pose_list, mean_reward
 
@@ -182,15 +188,16 @@ def _plot_airframe_into_ax(ax, pars:RobotParameter, translation, rotation_matrix
             [[t_vec[0],t_vec[0]-R[0,:]@e1*frame_scale_plane],[t_vec[1],t_vec[1]-R[1,:]@e1*frame_scale_plane],[t_vec[2],t_vec[2]-R[2,:]@e1*frame_scale_plane]],
             [[t_vec[0],t_vec[0]-R[0,:]@e2*frame_scale_plane],[t_vec[1],t_vec[1]-R[1,:]@e2*frame_scale_plane],[t_vec[2],t_vec[2]-R[2,:]@e2*frame_scale_plane]],
             [[t_vec[0],t_vec[0]+R[0,:]@e3*frame_scale_normal],[t_vec[1],t_vec[1]+R[1,:]@e3*frame_scale_normal],[t_vec[2],t_vec[2]+R[2,:]@e3*frame_scale_normal]],
+            [[0,0],[0,0],[0,3]],
         ]
 
-        color_list = ["gray"] + [color]*4 + ['g']
+        color_list = ["gray"] + [color]*4 + ['g'] + ["black"]
         for line, color in zip(line_list, color_list):
             start = np.array([line[0][0], line[1][0], line[2][0]])
             end = np.array([line[0][1], line[1][1], line[2][1]])
             start = apply_transformation(start, translation, rotation_matrix)
             end = apply_transformation(end, translation, rotation_matrix)
-            ax.add_line(Line3D([start[0],end[0]],[start[1],end[1]],[start[2],end[2]], color=color))
+            ax.add_line(Line3D([start[0],end[0]],[start[1],end[1]],[start[2],end[2]], color=color, linestyle="--" if color=="black" else "-"))
 
 def _plot_airframe_design_interactive(ax, params):
 
@@ -388,32 +395,23 @@ if __name__ == "__main__":
     # rewards, poses = target_LQR_control(model, target)
     # animate_airframe(pars, poses, target)
 
-  
-    # Analyze solutions
-
-
-    # # Best solution
-    # x = np.array([0.0032307636983755677, 0.9612916339500057, 0.9515385248879107, 0.7192463087572768, 0.3852874208418353, 0.9799639076574, 0.7113809870013609, 0.07518557770693757, 0.9477854842681859, 0.7701342797234194, 0.2728560375948174, 0.959957975299033, 0.2727550705097558, 0.7060113630413436, 0.8010233395710095])
+    # Best solution
+    # x = np.array([0.5257216887792109, 0.33372337933504803, 0.03895330029230918, 0.20431481247970418, 0.5125585968113009, 0.547399793122272, 0.8334830266790677, 0.7699247013851338, 0.6553434730944832, 0.5286660806792921, 0.4096095006749719, 0.6648206929437249, 0.47300086180162826, 0.3775194639794588, 0.5225088897118048])
     # pars = _decode_symmetric_hexarotor_to_RobotParameter(x)
 
-    # # Quad
-    pars = PredefinedConfigParameter('quad')
-
-    # Hex
-    # pars = PredefinedConfigParameter('hex')
+    pars = quad_pars
 
     # plot_airframe_design(pars)
 
-    seed = 6
-    # # target_list, pose_list, mean_reward = target_lqr_objective_function(pars, target_list_LQR)
-    target_list, pose_list, mean_reward = motor_rl_objective_function(pars, seed)
-
-
-
-    print("--------------------------")
-    print("f(x) = ", mean_reward)
-    [print(f"g_{i}(x) = ", el) for i,el in  enumerate(constraint_check(pars))]
-    print("--------------------------")
+    ignore_cache = True
+    if ignore_cache:
+        seed = 6
+        # # target_list, pose_list, mean_reward = target_lqr_objective_function(pars, target_list_LQR)
+        target_list, pose_list, mean_reward = motor_rl_objective_function(pars, seed, seed)
+        print("--------------------------")
+        print("f(x) = ", mean_reward)
+        [print(f"g_{i}(x) = ", el) for i,el in  enumerate(constraint_check(pars))]
+        print("--------------------------")
 
     animate_animationdata_from_cache(pars)
     exit(0)

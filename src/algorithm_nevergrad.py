@@ -10,16 +10,20 @@ import warnings
 
 class ng_optimizer:
 
-    def __init__(self, prob:problem, seed: int, parallel_threads: int, budget: int):
+    def __init__(self, prob:problem, seed: int, parallel_threads: int, total_budget: int):
+        budget_per_reinitialization = 50
         self.prob = prob
         self.rs = np.random.RandomState(seed+78)
-        x0 = self.prob.random_initial_sol()
-        param = ng.p.Instrumentation(ng.p.Array(lower=0.0, upper=1.0, shape=x0.shape), seed=seed)
-        param.random_state = self.rs
-        self.budget = budget
+        self.total_budget = total_budget
+        self.buget_per_reininitialization = budget_per_reinitialization
         self.parallel_threads = parallel_threads
-        self.optimizer = ng.optimizers.CMAbounded(parametrization=param, budget=budget, num_workers=parallel_threads)
 
+
+    def reinitialize(self):
+        x0 = self.prob.random_initial_sol()
+        param = ng.p.Instrumentation(ng.p.Array(lower=0.0, upper=1.0, init=x0), seed=self.rs.randint(1e8))
+        param.random_state = self.rs
+        self.optimizer = ng.optimizers.NelderMead(parametrization=param, budget=self.buget_per_reininitialization, num_workers=self.parallel_threads)
 
 
     def ask(self):

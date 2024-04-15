@@ -43,7 +43,6 @@ cache/airframes_animationdata/*
 !cache/airframes_animationdata/.gitkeep
 global_log.txt
 *.log
-animations.zip
 train_dir
 debuglog.txt
-animations_before_hexspin_fix.zip
+/*.zip

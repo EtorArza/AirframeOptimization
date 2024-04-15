@@ -23,7 +23,7 @@ if __name__ == "__main__":
     # Directly solve problem locally, with f function that returns np.nan on infeasible solutions.
     elif sys.argv[1] == "--local-solve":
         sys.argv.pop()
-        problem_name = "airframes"
+        problem_name = "toy"
         algorithm_name = "nevergrad"
         constraint_method = "ignore" # 'ignore','nan_on_unfeasible','constant_penalty_no_evaluation','algo_specific', 'nn_encoding'
         reuse_encoding = True
@@ -37,14 +37,14 @@ if __name__ == "__main__":
     elif sys.argv[1] == "--all-local-solve":
         sys.argv.pop()
         reuse_encoding = True
-        budget = 200
+        budget = 50
         global_log_path = "global_log.log"
         if os.path.exists(global_log_path):
             os.remove(global_log_path)
 
         algorithm_name_list = ["nevergrad",] #"snobfit", "cobyqa", "pyopt"]:
-        constraint_method_list = ["algo_specific", "nn_encoding", 'constant_penalty_no_evaluation']
-        problem_name_list = ['windflo', 'toy']
+        constraint_method_list = ["ignore"]# ["algo_specific", "nn_encoding", 'constant_penalty_no_evaluation']
+        problem_name_list = ['airframes']#['windflo', 'toy']
         seed_list = list(range(2,102))
 
         pb = tqdm(total = len(algorithm_name_list)*len(constraint_method_list)*len(problem_name_list)*len(seed_list))
@@ -71,6 +71,32 @@ if __name__ == "__main__":
         plt.xlabel("x 1000 evaluations")
         plt.title("Snobfit: time per 1000 evaluations")
         plt.show()
+
+    elif sys.argv[1] == "--airframes-f-variance":
+        from airframes_objective_functions import motor_position_train, motor_position_enjoy, save_robot_pars_to_file
+        from problem_airframes import quad_pars, hex_pars
+
+        for pars, resfilename in zip([quad_pars, hex_pars],["results/data/quad_f_variance.csv", "results/data/hex_f_variance.csv"]):
+            save_robot_pars_to_file(pars)
+            with open(resfilename, 'a') as f:
+                print("seed_train;seed_enjoy;f",  file=f)
+
+            for seed_train in range(2,32):
+                motor_position_train(seed_train)
+                for seed_enjoy in range(42,72):
+                    _, _, f = motor_position_enjoy(seed_enjoy)
+                    with open(resfilename, 'a') as file:
+                        print(f"{seed_train};{seed_enjoy};{f}",  file=file)
+
+    elif sys.argv[1] == "--airframes-f-variance-plot":
+        import pandas as pd
+        import plot_src
+
+        df1 = pd.read_csv("results/data/quad_f_variance_2e4.csv", sep=";", index_col=None)
+        df2 = pd.read_csv("results/data/quad_f_variance_1e3.csv", sep=";")
+        samples_1 = df1.query("seed_train == 2")["f"]
+        samples_2 = df1.query("seed_train == 2")["f"]
+        plot_src.sidebyside_boxplots(samples1=samples_1, samples2=samples_2)
 
     else:
         print("sys.argv[1]=",sys.argv[1],"not recognized.", sep=" ")
