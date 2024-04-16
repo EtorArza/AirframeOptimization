@@ -23,13 +23,12 @@ if __name__ == "__main__":
     # Directly solve problem locally, with f function that returns np.nan on infeasible solutions.
     elif sys.argv[1] == "--local-solve":
         sys.argv.pop()
-        problem_name = "toy"
-        algorithm_name = "nevergrad"
+        problem_name = "airframes"
+        algorithm_name = "scipy"
         constraint_method = "ignore" # 'ignore','nan_on_unfeasible','constant_penalty_no_evaluation','algo_specific', 'nn_encoding'
         reuse_encoding = True
         seed = 4
         budget = 2000
-
         local_solve(problem_name, algorithm_name, constraint_method, seed, budget, reuse_encoding, log_every=1)
 
 
@@ -81,9 +80,9 @@ if __name__ == "__main__":
             with open(resfilename, 'a') as f:
                 print("seed_train;seed_enjoy;f",  file=f)
 
-            for seed_train in range(2,32):
+            for seed_train in range(2,22):
                 motor_position_train(seed_train)
-                for seed_enjoy in range(42,72):
+                for seed_enjoy in range(42,62):
                     _, _, f = motor_position_enjoy(seed_enjoy)
                     with open(resfilename, 'a') as file:
                         print(f"{seed_train};{seed_enjoy};{f}",  file=file)

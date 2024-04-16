@@ -5,7 +5,7 @@ import time
 from tqdm import tqdm as tqdm
 
 problem_name_list = ["airframes", "windflo", "toy"]
-algorithm_name_list = ["snobfit", "cobyqa", "pyopt", "nevergrad"]
+algorithm_name_list = ["snobfit", "cobyqa", "pyopt", "nevergrad", "scipy"]
 constraint_method_list = ['ignore','nan_on_unfeasible','constant_penalty_no_evaluation','algo_specific', 'nn_encoding']
 
 class problem:
@@ -154,6 +154,9 @@ class optimization_algorithm:
         elif algorithm_name == "nevergrad":
             import algorithm_nevergrad
             self.algo = algorithm_nevergrad.ng_optimizer(problem, seed, parallel_threads=1, total_budget=self.problem.budget)
+        elif algorithm_name == "scipy":
+            import algorithm_scipy
+            self.algo = algorithm_scipy.scipy_optimizer(problem, seed)
         else:
             print("Algorithm name", algorithm_name, "not recognized.")
 
