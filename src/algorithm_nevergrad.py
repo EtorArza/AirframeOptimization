@@ -11,19 +11,17 @@ import warnings
 class ng_optimizer:
 
     def __init__(self, prob:problem, seed: int, parallel_threads: int, total_budget: int):
-        budget_per_reinitialization = 50
         self.prob = prob
         self.rs = np.random.RandomState(seed+78)
         self.total_budget = total_budget
-        self.buget_per_reininitialization = budget_per_reinitialization
         self.parallel_threads = parallel_threads
-
+        self.reinitialize()
 
     def reinitialize(self):
         x0 = self.prob.random_initial_sol()
         param = ng.p.Instrumentation(ng.p.Array(lower=0.0, upper=1.0, init=x0), seed=self.rs.randint(1e8))
         param.random_state = self.rs
-        self.optimizer = ng.optimizers.NelderMead(parametrization=param, budget=self.buget_per_reininitialization, num_workers=self.parallel_threads)
+        self.optimizer = ng.optimizers.NelderMead(parametrization=param,budget=self.total_budget, num_workers=self.parallel_threads)
 
 
     def ask(self):
@@ -33,8 +31,9 @@ class ng_optimizer:
             while len(wrngs) > 0:
                 warning = wrngs.pop()
                 if ' has already converged' in str(warning.message) or 'random' in str(warning.message):
-                    print(warning)
-                    exit(1)
+                    print(f"Reinitializing nevergrad on {self.prob.n_f_evals} evaluations.")
+                    self.reinitialize()
+                    self.prev_sol = self.optimizer.ask()
                         # if self.budget - self.n_f_evals > 10:
                         #     print(f"Reinitializing nevergrad with budget {self.budget - self.n_f_evals} left, as it already converged.")
                         #     x0 = self.prob.random_initial_sol()
@@ -43,7 +42,6 @@ class ng_optimizer:
                 else:
                     print(warning.message)
 
-        self.prev_sol = self.optimizer.ask()
 
         return self.prev_sol[0][0].value
 
