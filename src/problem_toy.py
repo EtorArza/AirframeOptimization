@@ -7,8 +7,8 @@ import math
 
 def f(x: numpy.typing.ArrayLike):
     '''Evaluating the performance of a single solution.'''
-    offset = np.random.RandomState(2).random(x.shape[0]) / 2.0
-    return np.linalg.norm(x - offset)
+    offset = np.abs(np.random.RandomState(2).random(x.shape[0]) / 2.0)
+    return np.linalg.norm(x - offset) + np.random.normal(0, np.sqrt(0.1))
 
 
 def constraint_check(x: numpy.typing.ArrayLike):
