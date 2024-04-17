@@ -75,27 +75,36 @@ if __name__ == "__main__":
         from airframes_objective_functions import motor_position_train, motor_position_enjoy, save_robot_pars_to_file
         from problem_airframes import quad_pars, hex_pars
 
-        for pars, resfilename in zip([quad_pars, hex_pars],["results/data/quad_f_variance.csv", "results/data/hex_f_variance.csv"]):
+        train_for_seconds_list = [90] + [90, 180, 360, 720, 1440]
+        pars_list = [quad_pars] + [hex_pars for i in range(1, len(train_for_seconds_list))]
+        resfilename_list = ["results/data/quad_f_variance_90s.csv"] + [f"results/data/hex_f_variance_{seconds}s.csv" for seconds in train_for_seconds_list[1:]]
+
+        assert len(train_for_seconds_list) == len(pars_list) == len(resfilename_list)
+        for pars, train_for_seconds, resfilename,  in zip(pars_list, train_for_seconds_list, resfilename_list):
+
+            if train_for_seconds <= 90:
+                continue
+
             save_robot_pars_to_file(pars)
             with open(resfilename, 'a') as f:
                 print("seed_train;seed_enjoy;f",  file=f)
-
             for seed_train in range(2,22):
-                motor_position_train(seed_train)
+                motor_position_train(seed_train, train_for_seconds=train_for_seconds)
                 for seed_enjoy in range(42,62):
                     _, _, f = motor_position_enjoy(seed_enjoy)
                     with open(resfilename, 'a') as file:
                         print(f"{seed_train};{seed_enjoy};{f}",  file=file)
 
     elif sys.argv[1] == "--airframes-f-variance-plot":
-        import pandas as pd
         import plot_src
-
-        df1 = pd.read_csv("results/data/quad_f_variance_2e4.csv", sep=";", index_col=None)
-        df2 = pd.read_csv("results/data/quad_f_variance_1e3.csv", sep=";")
-        samples_1 = df1.query("seed_train == 2")["f"]
-        samples_2 = df1.query("seed_train == 2")["f"]
-        plot_src.sidebyside_boxplots(samples1=samples_1, samples2=samples_2)
+        plot_src.sidebyside_boxplots([
+            "results/data/hex_f_variance_90s.csv",
+            "results/data/hex_f_variance_180s.csv",
+            "results/data/hex_f_variance_360s.csv",
+            "results/data/hex_f_variance_720s.csv",
+            "results/data/hex_f_variance_1440s.csv",
+            "results/data/quad_f_variance_90s.csv",
+        ])
 
     else:
         print("sys.argv[1]=",sys.argv[1],"not recognized.", sep=" ")

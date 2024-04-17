@@ -146,20 +146,59 @@ def compare_different_constraint_methods(problem, algorithm, constraint_method_l
     plt.legend(loc='lower left', bbox_to_anchor=(0.0, 1.05), shadow=False, ncol=1)
     plt.tight_layout()
 
+from typing import Iterable
+def sidebyside_boxplots(file_list: Iterable[str]):
+    import pandas as pd
 
-def sidebyside_boxplots(samples1, samples2):
+    # Read data
+    df_dict = dict()
+    for file in file_list:
+        key = file.split("/")[-1]
+        key = key.replace("s.csv","")
+        key = key.replace("_f_variance","")
+        key = (key.split("_")[0], int(key.split("_")[1]))
+        df_dict[key] = pd.read_csv(file, sep=";")
 
+
+    # Plot one boxplot per train seed, to see both the train and test variances together
     from matplotlib import pyplot as plt
-    boxplot = plt.boxplot([samples1, samples2], showmeans=True)
+    for key in [("quad",90), ("hex",90), ("hex", 720)]:
+        boxplot = plt.boxplot([df_dict[key].query(f"seed_train == {seed}")["f"] for seed in range(2, 22)], showmeans=True)
+        legend_handles = [boxplot["medians"][0], boxplot["means"][0]]
+        legend_labels = ["Median", "Mean"]
+        plt.legend(legend_handles, legend_labels)
+        plt.title(str(key))
+        plt.tight_layout()
+        plt.savefig(f"results/figures/quad_hex_f_variance/train_and_test_variance_{key[0]}_{key[1]}.pdf")
+        plt.close()
 
-    # Add legend handles and labels
-    legend_handles = [boxplot["medians"][0], boxplot["means"][0]]
-    legend_labels = ["Median", "Mean"]
-    plt.legend(legend_handles, legend_labels)
+    # Boxplot of variance on hex train
+    f_list = []
+    label_list = []
+    sorted_keys = sorted(df_dict.keys(), key=lambda x: -10000 + x[1] if "quad" in x[0] else x[1])
+    for key in sorted_keys:
+        if "quad" in key:
+            continue
+        f_list.append(df_dict[key].groupby('seed_train')['f'].mean().values)
+        label_list.append(str(key[1]))
+
+    # Print variance
+    for key, f_array in zip(sorted_keys, f_list):
+        print(key, " train variance =", np.var(f_array), "| test variance =", np.mean(df_dict[key].groupby('seed_train')['f'].var().values))
+
+
+
+    plt.figure(figsize=(4,2.5))
+    boxplot = plt.boxplot(f_list, showmeans=True)
+    plt.xticks(list(range(1, len(f_list)+1)), label_list)
+    plt.xlabel("Traininig time (s)")
+    plt.ylabel("Mean reward")
+    plt.title("Hex different train seeds")
     plt.tight_layout()
-    # plt.savefig(figpath)
-    plt.show()
+    plt.savefig("results/figures/quad_hex_f_variance/train_variance_hex.pdf")
     plt.close()
+
+
 
 if __name__ == '__main__':
     # plot_progress_one('results/data/airframes_pyopt_4.csv')
