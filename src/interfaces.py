@@ -168,6 +168,9 @@ class optimization_algorithm:
         x = self.algo.ask()
         self.algo.n_f_evals = self.problem.n_f_evals
         assert type(x) == np.ndarray
+        assert max(x) <= 1.0 and min(x) >= 0.0, f"x = {x} out of bounds [0,1]"
+        x += self.problem.rs.normal(0, 1e-9, size=self.problem.dim)
+        x = np.clip(x, a_min=0.0, a_max=1.0)
         return x
 
     def tell(self, f) -> None:
