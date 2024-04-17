@@ -125,7 +125,7 @@ def f_symmetric_hexarotor_0_1(x: numpy.typing.NDArray[np.float_], seed: int):
 
     assert x.shape == (15,) or x.shape== (10,)
     pars = _decode_symmetric_hexarotor_to_RobotParameter(x)
-    target_list, pose_list, mean_reward = motor_rl_objective_function(pars, seed, seed)
+    target_list, pose_list, mean_reward = motor_rl_objective_function(pars, seed, seed, 90)
 
     return target_list, pose_list, mean_reward
 
@@ -407,7 +407,7 @@ if __name__ == "__main__":
     if ignore_cache:
         seed = 6
         # # target_list, pose_list, mean_reward = target_lqr_objective_function(pars, target_list_LQR)
-        target_list, pose_list, mean_reward = motor_rl_objective_function(pars, seed, seed)
+        target_list, pose_list, mean_reward = motor_rl_objective_function(pars, seed, seed, 200)
         print("--------------------------")
         print("f(x) = ", mean_reward)
         [print(f"g_{i}(x) = ", el) for i,el in  enumerate(constraint_check(pars))]

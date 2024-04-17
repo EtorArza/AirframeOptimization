@@ -210,26 +210,26 @@ def _motor_position_enjoy(seed_enjoy):
     return res
 
 
-def motor_position_train(seed_train):
-    cmd_str = f"python src/airframes_objective_functions.py --motor_RL_control_train {seed_train}"
+def motor_position_train(seed_train, train_for_seconds):
+    cmd_str = f"python src/airframes_objective_functions.py --motor_RL_control_train --seed={seed_train} --train_for_seconds={train_for_seconds}"
     from datetime import datetime
     current_time = datetime.now()
     print(f">> run shell on {current_time.strftime('%Y-%m-%d %H:%M:%S')}\n{cmd_str}")
     output = subprocess.check_output(cmd_str, shell=True, text=True)
 
-def _motor_position_train(seed_train):
+def _motor_position_train(cmdl_args):
     from datetime import datetime
     current_time = datetime.now()
     subprocess.run("rm train_dir/ -rf", shell=True)
-    cmd_str = f'python3 -m sf_examples.gen_aerial_robot_population.train_individual --env=gen_aerial_robot --seed={seed_train}'
+    cmd_str = f'python3 -m sf_examples.gen_aerial_robot_population.train_individual --env=gen_aerial_robot {cmdl_args}'
     print(f">> run shell on {current_time.strftime('%Y-%m-%d %H:%M:%S')}\n{cmd_str}")
     output = subprocess.check_output(cmd_str, shell=True, text=True)
     print(output)
 
 
-def motor_rl_objective_function(pars, seed_train, seed_enjoy):
+def motor_rl_objective_function(pars, seed_train, seed_enjoy, train_for_seconds):
     save_robot_pars_to_file(pars)
-    motor_position_train(seed_train)
+    motor_position_train(seed_train, train_for_seconds)
     target_list, pose_list, mean_reward = motor_position_enjoy(seed_enjoy)
     with open(f'cache/airframes_animationdata/{hash(pars)}_ariframeanimationdata.wb', 'wb') as f:
         res = {"pars":pars, "target_list":[el.tolist() for el in target_list], "pose_list":[el.tolist() for el in pose_list], "mean_reward":mean_reward}
@@ -258,11 +258,11 @@ if __name__ == '__main__':
     # Call objective function from subprocess. Assumes robotConfigFile.txt has been previously written.
     import sys
     if sys.argv[1] == "--motor_RL_control_train":
-        assert len(sys.argv) == 3
+        assert len(sys.argv) == 4
+        assert "seed" in sys.argv[2]
+        assert "train_for_seconds" in sys.argv[3]
         sys.argv[1] = "--env=gen_aerial_robot"
-        seed_train = int(sys.argv[2])
-        sys.argv.remove(sys.argv[2])
-        _motor_position_train(seed_train)
+        _motor_position_train(sys.argv[2] + " " + sys.argv[3])
         exit(0)
 
     if sys.argv[1] == "--motor_RL_control_enjoy":
