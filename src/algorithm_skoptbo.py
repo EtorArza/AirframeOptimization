@@ -25,7 +25,7 @@ class skoptbo_optimizer:
         def minimize():
                 gp_minimize(func=fun, 
                             dimensions=[(0.0,1.0)]*self.prob.dim, 
-                            n_initial_points=100,
+                            n_initial_points=40,
                             n_calls=99999,
                             random_state=self.rs,
                             noise=0.1,
