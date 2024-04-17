@@ -206,15 +206,10 @@ def _resume_previous_local_solve(prob: problem, algo:optimization_algorithm, opt
 
     f_best = 1e10
     x_best = None
-    for i in range(len(x_list)): # Repeat optimization algorithm with values from from cache.
+    for i in tqdm(range(len(x_list))): # Repeat optimization algorithm with values from from cache.
         x = algo.ask()
 
 
-        print("-")
-        print(i)
-        print(x_list[i])
-        print(x)
-        print("-")
 
         assert np.all(x == x_list[i]), f"cached solution {x_list[i]} and algorithm solution {x} at index {i} differ and should be exactly the same, the euclidean distance between them is {np.linalg.norm(x - x_list[i])}"
         f = f_list[i]
