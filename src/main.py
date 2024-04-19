@@ -75,15 +75,12 @@ if __name__ == "__main__":
         from airframes_objective_functions import motor_position_train, motor_position_enjoy, save_robot_pars_to_file
         from problem_airframes import quad_pars, hex_pars
 
-        train_for_seconds_list = [90] + [90, 180, 360, 720, 1440]
+        train_for_seconds_list = [720] + [90, 180, 360, 720, 1440, 2880]
         pars_list = [quad_pars] + [hex_pars for i in range(1, len(train_for_seconds_list))]
-        resfilename_list = ["results/data/quad_f_variance_90s.csv"] + [f"results/data/hex_f_variance_{seconds}s.csv" for seconds in train_for_seconds_list[1:]]
+        resfilename_list = [f"results/data/quad_f_variance_{train_for_seconds_list[0]}s.csv"] + [f"results/data/hex_f_variance_{seconds}s.csv" for seconds in train_for_seconds_list[1:]]
 
         assert len(train_for_seconds_list) == len(pars_list) == len(resfilename_list)
         for pars, train_for_seconds, resfilename,  in zip(pars_list, train_for_seconds_list, resfilename_list):
-
-            if train_for_seconds <= 90:
-                continue
 
             save_robot_pars_to_file(pars)
             with open(resfilename, 'a') as f:
@@ -98,12 +95,13 @@ if __name__ == "__main__":
     elif sys.argv[1] == "--airframes-f-variance-plot":
         import plot_src
         plot_src.sidebyside_boxplots([
+            "results/data/quad_f_variance_720s.csv",
             "results/data/hex_f_variance_90s.csv",
             "results/data/hex_f_variance_180s.csv",
             "results/data/hex_f_variance_360s.csv",
             "results/data/hex_f_variance_720s.csv",
             "results/data/hex_f_variance_1440s.csv",
-            "results/data/quad_f_variance_90s.csv",
+            "results/data/hex_f_variance_2880s.csv",
         ])
 
     else:
