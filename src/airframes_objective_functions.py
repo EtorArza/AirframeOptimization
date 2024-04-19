@@ -232,7 +232,12 @@ def motor_rl_objective_function(pars, seed_train, seed_enjoy, train_for_seconds)
     motor_position_train(seed_train, train_for_seconds)
     target_list, pose_list, mean_reward = motor_position_enjoy(seed_enjoy)
     with open(f'cache/airframes_animationdata/{hash(pars)}_ariframeanimationdata.wb', 'wb') as f:
-        res = {"pars":pars, "target_list":[el.tolist() for el in target_list], "pose_list":[el.tolist() for el in pose_list], "mean_reward":mean_reward}
+        res = {"pars":pars, 
+               "target_list":[el.tolist() for el in target_list], 
+               "pose_list":[el.tolist() for el in pose_list], 
+               "mean_reward":mean_reward, 
+               "seed_train":seed_train, 
+               "seed_enjoy": seed_enjoy}
         pickle.dump(res, f)
     return target_list, pose_list, mean_reward
 

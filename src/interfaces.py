@@ -38,7 +38,7 @@ class problem:
             import problem_airframes
             self.dim = 15
             self._constraint_check = lambda x: (1.0, 1.0) #problem_airframes.constraint_check_hexarotor_0_1
-            self._f = lambda x: problem_airframes.f_symmetric_hexarotor_0_1(x, self.rs.randint(1e8))[2]
+            self._f = lambda x: problem_airframes.f_symmetric_hexarotor_0_1(x, self.rs.randint(1e8), self.rs.randint(1e8))[2]
             self.plot_solution = lambda x: problem_airframes.plot_airframe_design(problem_airframes._decode_symmetric_hexarotor_to_RobotParameter(x))
 
         if problem_name == "windflo":
@@ -172,8 +172,6 @@ class optimization_algorithm:
         self.algo.n_f_evals = self.problem.n_f_evals
         assert type(x) == np.ndarray
         assert max(x) <= 1.0 and min(x) >= 0.0, f"x = {x} out of bounds [0,1]"
-        x += self.problem.rs.normal(0, 1e-9, size=self.problem.dim)
-        x = np.clip(x, a_min=0.0, a_max=1.0)
         return x
 
     def tell(self, f) -> None:
@@ -211,7 +209,7 @@ def _resume_previous_local_solve(prob: problem, algo:optimization_algorithm, opt
 
 
 
-        assert np.all(x == x_list[i]), f"cached solution {x_list[i]} and algorithm solution {x} at index {i} differ and should be exactly the same, the euclidean distance between them is {np.linalg.norm(x - x_list[i])}"
+        assert np.all(x == x_list[i]), f"cached solution {x_list[i]} and algorithm solution {x} at index {i} differ and should be exactly the same, the euclidean distance between them is {np.linalg.norm(x - x_list[i]):.3e}"
         f = f_list[i]
         algo.tell(f)
         if f < f_best and (prob.constraint_method == 'ignore' or np.all(np.array(prob.constraint_check(x)) > 0)):

@@ -121,11 +121,11 @@ def _decode_symmetric_hexarotor_to_RobotParameter(x: numpy.typing.NDArray[np.flo
             x_decoded[prop_i*2+1, 5] = 1.0 - x[prop_i*5 +4]                  # euler_z inverse
     return from_0_1_to_RobotParameter(x_decoded)
 
-def f_symmetric_hexarotor_0_1(x: numpy.typing.NDArray[np.float_], seed: int):
+def f_symmetric_hexarotor_0_1(x: numpy.typing.NDArray[np.float_], seed_train: int, seed_enjoy: int):
 
     assert x.shape == (15,) or x.shape== (10,)
     pars = _decode_symmetric_hexarotor_to_RobotParameter(x)
-    target_list, pose_list, mean_reward = motor_rl_objective_function(pars, seed, seed, 720)
+    target_list, pose_list, mean_reward = motor_rl_objective_function(pars, seed_train, seed_enjoy, 720)
     return target_list, pose_list, mean_reward
 
 def constraint_check_hexarotor_0_1(x: numpy.typing.NDArray[np.float_]):
@@ -395,32 +395,27 @@ if __name__ == "__main__":
     # animate_airframe(pars, poses, target)
 
     # Best solution
-    # x = np.array([0.5257216887792109, 0.33372337933504803, 0.03895330029230918, 0.20431481247970418, 0.5125585968113009, 0.547399793122272, 0.8334830266790677, 0.7699247013851338, 0.6553434730944832, 0.5286660806792921, 0.4096095006749719, 0.6648206929437249, 0.47300086180162826, 0.3775194639794588, 0.5225088897118048])
-    # pars = _decode_symmetric_hexarotor_to_RobotParameter(x)
+    x = np.array([0.3154549734602305, 0.8002135448015678, 0.3630578095450158, 0.12967369777964402, 0.8489796011775353, 0.1278530520543352, 0.7506825099681865, 0.5382113083327252, 0.7051237679489387, 0.12181244985903752, 0.9379363293399682, 0.09070592165593251, 0.5408685221622707, 0.4515059889487115, 0.3379753690512706])
+    pars = _decode_symmetric_hexarotor_to_RobotParameter(x)
 
-    pars = quad_pars
+    # # quad
+    # pars = quad_pars
+
+    # #hex
+    # pars = hex_pars
 
     # plot_airframe_design(pars)
 
-    ignore_cache = True
-    if ignore_cache:
-        seed = 6
+    train_and_enjoy = False
+    if train_and_enjoy:
         # # target_list, pose_list, mean_reward = target_lqr_objective_function(pars, target_list_LQR)
-        target_list, pose_list, mean_reward = motor_rl_objective_function(pars, seed, seed, 200)
+        seed_train = 68227667
+        seed_enjoy = 68227667
+        target_list, pose_list, mean_reward = motor_rl_objective_function(pars, seed_train, seed_enjoy, 200)
         print("--------------------------")
         print("f(x) = ", mean_reward)
         [print(f"g_{i}(x) = ", el) for i,el in  enumerate(constraint_check(pars))]
         print("--------------------------")
 
     animate_animationdata_from_cache(pars)
-    exit(0)
-    animate_airframe(pars, pose_list, target_list)
-
-
-
-    pass
-
-
-# cd /home/paran/Dropbox/NTNU/aerial_gym_dev/aerial_gym_dev/scripts
-# python3 example_control.py --task=gen_aerial_robot --num_envs=1
 
