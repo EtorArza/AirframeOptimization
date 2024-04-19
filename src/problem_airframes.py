@@ -332,7 +332,7 @@ def animate_airframe(pars:RobotParameter, pose_list, target_list):
     print("Generating animation (takes a long time)...", end="",flush=True)
     ani = FuncAnimation(fig, animate, frames=max_time*desired_fps-1, interval= time_between_frames*1000.0, repeat=False)
     plt.close()
-    ani.save("test.gif", dpi=300)
+    ani.save(filename="test.mp4", writer="ffmpeg", dpi=300)
     print("done.")
 
 def animate_animationdata_from_cache(pars: RobotParameter):
