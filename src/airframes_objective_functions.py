@@ -231,7 +231,7 @@ def motor_rl_objective_function(pars, seed_train, seed_enjoy, train_for_seconds)
     save_robot_pars_to_file(pars)
     motor_position_train(seed_train, train_for_seconds)
     target_list, pose_list, mean_reward = motor_position_enjoy(seed_enjoy)
-    with open(f'cache/airframes_animationdata/{hash(pars)}_ariframeanimationdata.wb', 'wb') as f:
+    with open(f'cache/airframes_animationdata/{hash(pars)}_airframeanimationdata.wb', 'wb') as f:
         res = {"pars":pars, 
                "target_list":[el.tolist() for el in target_list], 
                "pose_list":[el.tolist() for el in pose_list], 

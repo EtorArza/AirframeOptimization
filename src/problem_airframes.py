@@ -336,7 +336,7 @@ def animate_airframe(pars:RobotParameter, pose_list, target_list):
     print("done.")
 
 def animate_animationdata_from_cache(pars: RobotParameter):
-    with open(f'cache/airframes_animationdata/{hash(pars)}_ariframeanimationdata.wb', 'rb') as f:
+    with open(f'cache/airframes_animationdata/{hash(pars)}_airframeanimationdata.wb', 'rb') as f:
         animationdata: dict = pickle.load(f)
     # print("--pars comparison--")
     # print(pars)
