@@ -20,8 +20,9 @@ class ng_optimizer:
     def reinitialize(self):
         x0 = self.prob.random_initial_sol()
         param = ng.p.Instrumentation(ng.p.Array(lower=0.0, upper=1.0, init=x0), seed=self.rs.randint(1e8))
+        param.function.deterministic = False
         param.random_state = self.rs
-        self.optimizer = ng.optimizers.NelderMead(parametrization=param,budget=self.total_budget, num_workers=self.parallel_threads)
+        self.optimizer = ng.optimizers.NGOpt(parametrization=param,budget=self.total_budget, num_workers=self.parallel_threads, )
 
 
     def ask(self):
