@@ -162,7 +162,7 @@ def sidebyside_boxplots(file_list: Iterable[str]):
 
     # Plot one boxplot per train seed, to see both the train and test variances together
     from matplotlib import pyplot as plt
-    for key in [("quad",90), ("hex",90), ("hex", 720)]:
+    for key in [("quad",720), ("hex",90), ("hex", 2880)]:
         boxplot = plt.boxplot([df_dict[key].query(f"seed_train == {seed}")["f"] for seed in range(2, 22)], showmeans=True)
         legend_handles = [boxplot["medians"][0], boxplot["means"][0]]
         legend_labels = ["Median", "Mean"]
@@ -183,10 +183,11 @@ def sidebyside_boxplots(file_list: Iterable[str]):
         label_list.append(str(key[1]))
 
     # Print variance
-    for key, f_array in zip(sorted_keys, f_list):
+    for idx, key, f_array in zip(range(10000), sorted_keys, f_list):
+        plt.plot(np.ones_like(f_array)*idx + np.random.random(len(f_array)) / 8, f_array, label=key, linestyle="", marker=".")
         print(key, " train variance =", np.var(f_array), "| test variance =", np.mean(df_dict[key].groupby('seed_train')['f'].var().values))
-
-
+    plt.show()
+    plt.close()
 
     plt.figure(figsize=(4,2.5))
     boxplot = plt.boxplot(f_list, showmeans=True)
