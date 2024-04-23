@@ -5,7 +5,7 @@ import time
 from tqdm import tqdm as tqdm
 
 problem_name_list = ["airframes", "windflo", "toy"]
-algorithm_name_list = ["snobfit", "cobyqa", "pyopt", "nevergrad", "scipy", "skoptbo"]
+algorithm_name_list = ["snobfit", "cobyqa", "pyopt", "nevergrad", "scipySLSQP", "scipyDIRECT", "skoptbo"]
 constraint_method_list = ['ignore','nan_on_unfeasible','constant_penalty_no_evaluation','algo_specific', 'nn_encoding']
 
 class problem:
@@ -154,9 +154,12 @@ class optimization_algorithm:
         elif algorithm_name == "nevergrad":
             import algorithm_nevergrad
             self.algo = algorithm_nevergrad.ng_optimizer(problem, seed, parallel_threads=1, total_budget=self.problem.budget)
-        elif algorithm_name == "scipy":
-            import algorithm_scipy
-            self.algo = algorithm_scipy.scipy_optimizer(problem, seed)
+        elif algorithm_name == "scipySLSQP":
+            import algorithm_scipy_SLSQP
+            self.algo = algorithm_scipy_SLSQP.scipySLSQP_optimizer(problem, seed)
+        elif algorithm_name == "scipyDIRECT":
+            import algorithm_scipy_direct
+            self.algo = algorithm_scipy_direct.scipyDIRECT_optimizer(problem, seed)
         elif algorithm_name == "skoptbo":
             import algorithm_skoptbo
             self.algo = algorithm_skoptbo.skoptbo_optimizer(problem, seed)

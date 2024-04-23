@@ -5,7 +5,7 @@ from interfaces import *
 import threading
 import queue
 
-class scipy_optimizer:
+class scipySLSQP_optimizer:
 
     def __init__(self, prob:problem, seed: int):
         self.prob = prob
@@ -21,7 +21,7 @@ class scipy_optimizer:
         self.reinitialize()
 
     def reinitialize(self):
-        bd = Bounds(lb=0.0,ub=1.0)
+        bd = Bounds([0.0]*self.prob.dim,[1.0]*self.prob.dim)
 
         constraint_list = []
         if self.prob.constraint_method=="algo_specific":
@@ -34,7 +34,7 @@ class scipy_optimizer:
         def minimize():
             while True:
                 x0 = self.prob.random_initial_sol()
-                scipy.optimize.minimize(self.fun, x0, constraints=constraint_list, method='SLSQP', tol=0.01)
+                scipy.optimize.minimize(self.fun, x0, bounds=bd, constraints=constraint_list, method='SLSQP', tol=0.01)
                 print(f"Reinitializing scipy on {self.prob.n_f_evals} evaluations.")
 
 

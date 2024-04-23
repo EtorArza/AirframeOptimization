@@ -23,8 +23,8 @@ if __name__ == "__main__":
     # Directly solve problem locally, with f function that returns np.nan on infeasible solutions.
     elif sys.argv[1] == "--local-solve":
         sys.argv.pop()
-        problem_name = "airframes"
-        algorithm_name = "skoptbo"
+        problem_name = "toy"
+        algorithm_name = "scipyDIRECT"
         constraint_method = "ignore" # 'ignore','nan_on_unfeasible','constant_penalty_no_evaluation','algo_specific', 'nn_encoding'
         reuse_encoding = True
         seed = 4
