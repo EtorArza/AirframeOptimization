@@ -32,9 +32,9 @@ class scipyDIRECT_optimizer:
         self.f_queue = queue.Queue()
 
         def minimize():
-            while True:
-                scipy.optimize.direct(self.fun, bounds=bd, len_tol=0.001, vol_tol=(0.05)**self.prob.dim,  locally_biased=False)
-                print(f"Reinitializing scipy on {self.prob.n_f_evals} evaluations.")
+            scipy.optimize.direct(self.fun, bounds=bd, len_tol=0.0001, vol_tol=(0.01)**self.prob.dim,  locally_biased=False)
+            print(f"Direct terminated after {self.prob.n_f_evals} evaluations. Exiting:")
+            exit(1)
 
         thread = threading.Thread(target=minimize, args=[], daemon=True)
         thread.start()
