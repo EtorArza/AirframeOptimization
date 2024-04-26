@@ -17,14 +17,11 @@ from tqdm import tqdm as tqdm
 from math import sqrt
 from matplotlib.animation import FuncAnimation
 import subprocess
-from airframes_objective_functions import target_lqr_objective_function, motor_rl_objective_function
+from airframes_objective_functions import motor_rl_objective_function
 import pickle
 
 
-targets_LQR = [[2.0,6.0,1.0],[6.0,1.0,2.0],[1.0,1.0,4.0]]
-plotlims = [-6.5,6.5]
-steps_per_target_LQR = 300
-target_list_LQR = [targets_LQR[i//steps_per_target_LQR] for i in range(steps_per_target_LQR*len(targets_LQR))]
+plotlims = [-6.0, 6.0]
 # Quad
 quad_pars = PredefinedConfigParameter('quad')
 
@@ -379,20 +376,6 @@ if __name__ == "__main__":
     # print(output.split("result:")[-1])
 
  
-    # # Standard quad with LQR
-    # print("the length of the arms increases over time??")
-    # target = [2.3,0.75,1.5]
-    # pars_0_1 = np.array(
-    #     [[0.65 ,0.35,0.5,  0,0,0],
-    #      [0.35,0.35,0.5, 0,0,0],
-    #      [0.35,0.65 ,0.5,  0,0,0],
-    #      [0.65 ,0.65 ,0.5,  0,0,0],
-    #      [0.5 ,0.65 ,0.5,  0,0,0],
-    #      [0.35 ,0.5 ,0.5,  0,0,0],])
-    # pars:RobotParameter = from_0_1_to_RobotParameter(pars_0_1)
-    # model = RobotModel(pars)
-    # rewards, poses = target_LQR_control(model, target)
-    # animate_airframe(pars, poses, target)
 
     # # Best solution
     x = np.array([0.21113054015459082, 0.8163602651396991, 0.687588923818308, 0.8962354953316194, 0.8638009743986377, 0.8947517427556495, 0.09147142580466072, 0.037867640115246085, 0.9733700758836352, 0.8037889306665265, 0.13591477343697572, 0.0550185335937788, 0.7233358373654524, 0.9260820131451775, 0.44882706930243976])
@@ -406,12 +389,11 @@ if __name__ == "__main__":
 
     # plot_airframe_design(pars)
 
-    train_and_enjoy = False
+    train_and_enjoy = True
     if train_and_enjoy:
-        # # target_list, pose_list, mean_reward = target_lqr_objective_function(pars, target_list_LQR)
         seed_train = 92951260
         seed_enjoy = 19941743
-        target_list, pose_list, mean_reward = motor_rl_objective_function(pars, seed_train, seed_enjoy, 1440)
+        target_list, pose_list, mean_reward = motor_rl_objective_function(pars, seed_train, seed_enjoy, 20)
         print("--------------------------")
         print("f(x) = ", mean_reward)
         [print(f"g_{i}(x) = ", el) for i,el in  enumerate(constraint_check(pars))]
