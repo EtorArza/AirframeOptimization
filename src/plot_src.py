@@ -191,6 +191,9 @@ def sidebyside_boxplots(file_list: Iterable[str]):
 
     plt.figure(figsize=(4,2.5))
     boxplot = plt.boxplot(f_list, showmeans=True)
+    plt.hlines(-36.65, *plt.gca().get_xlim(),colors="blue", linestyles="--", label="best retrain 1440s")
+    plt.hlines(-36.45, *plt.gca().get_xlim(), colors="red", linestyles="-.", label="best 360s")
+    plt.legend()
     plt.xticks(list(range(1, len(f_list)+1)), label_list)
     plt.xlabel("Traininig time (s)")
     plt.ylabel("Mean reward")

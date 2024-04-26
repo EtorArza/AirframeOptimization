@@ -22,6 +22,7 @@ import pickle
 
 
 targets_LQR = [[2.0,6.0,1.0],[6.0,1.0,2.0],[1.0,1.0,4.0]]
+plotlims = [-6.5,6.5]
 steps_per_target_LQR = 300
 target_list_LQR = [targets_LQR[i//steps_per_target_LQR] for i in range(steps_per_target_LQR*len(targets_LQR))]
 # Quad
@@ -141,16 +142,15 @@ def plot_airframe_design(pars:RobotParameter, translation:numpy.typing.NDArray[n
 
 
     fig = plt.figure()
-    xlim = ylim = zlim = [-4.5,4.5]
+    xlim = ylim = zlim = plotlims
     ax = fig.add_subplot(projection='3d', xlim=xlim, ylim=ylim, zlim=zlim)
     ax.set_xlabel('x',size=18)
     ax.set_ylabel('y',size=18)
     ax.set_zlabel('z',size=18)
     
     _plot_airframe_into_ax(ax, pars, translation, rotation_matrix)
-    if not target_list_LQR is None:
-        for target in target_list_LQR:
-            ax.plot(*target, color='blue', marker='o')
+
+
     plt.show()
 
 def _plot_airframe_into_ax(ax, pars:RobotParameter, translation, rotation_matrix):
@@ -208,9 +208,6 @@ def _plot_airframe_design_interactive(ax, params):
     xlim = ylim = zlim = [-1.2,1.2]
     ax.set_xlim(xlim); ax.set_ylim(ylim); ax.set_zlim(zlim)
 
-    ax.set_xlabel('x',size=18)
-    ax.set_ylabel('y',size=18)
-    ax.set_zlabel('z',size=18)
     
     e1 = np.array([1,0,0])
     e2 = np.array([0,1,0])
@@ -283,7 +280,7 @@ def plot_airframe_interactive_single_rotor():
 
     for key, item in params.items():
         i += 1
-        axes_list.append(fig.add_axes([0.25, 0.5*(9-i)/9, 0.65, 0.03]))
+        axes_list.append(fig.add_axes([0.35, 0.3*(9-i)/9, 0.55, 0.01]))
         slider_list.append(Slider(
             ax=axes_list[i],
             label=key,
@@ -296,7 +293,7 @@ def plot_airframe_interactive_single_rotor():
         update_list.append(make_update(i))
         slider_list[-1].on_changed(update_list[-1])
 
-
+    plt.tight_layout()
     plt.show()
 
 def animate_airframe(pars:RobotParameter, pose_list, target_list):
@@ -310,7 +307,7 @@ def animate_airframe(pars:RobotParameter, pose_list, target_list):
     assert len(pose_list) == len(target_list)
 
     fig = plt.figure()
-    xlim = ylim = zlim = [-4.5,4.5]
+    xlim = ylim = zlim = plotlims
     ax = fig.add_subplot(projection='3d', xlim=xlim, ylim=ylim, zlim=zlim)
     ax.set_xlabel('x',size=18)
     ax.set_ylabel('y',size=18)
@@ -343,6 +340,9 @@ def animate_animationdata_from_cache(pars: RobotParameter):
     # print(animationdata['pars'])
     # print("----")
     assert hash(pars) == hash(animationdata['pars'])
+    print(animationdata["seed_train"])
+    print(animationdata["seed_enjoy"])
+    print(hash(animationdata['pars']))
     animate_airframe(pars, np.array(animationdata['pose_list']), np.array(animationdata['target_list']))
 
 
@@ -352,7 +352,7 @@ if __name__ == "__main__":
 
     # # Single rotor interactive plot
     # plot_airframe_interactive_single_rotor()
-
+    # exit(0)
 
 
     # # Plot hexarotor simmetric random drone, with 45 degree rotation and translation
@@ -394,8 +394,8 @@ if __name__ == "__main__":
     # rewards, poses = target_LQR_control(model, target)
     # animate_airframe(pars, poses, target)
 
-    # Best solution
-    x = np.array([0.3154549734602305, 0.8002135448015678, 0.3630578095450158, 0.12967369777964402, 0.8489796011775353, 0.1278530520543352, 0.7506825099681865, 0.5382113083327252, 0.7051237679489387, 0.12181244985903752, 0.9379363293399682, 0.09070592165593251, 0.5408685221622707, 0.4515059889487115, 0.3379753690512706])
+    # # Best solution
+    x = np.array([0.21113054015459082, 0.8163602651396991, 0.687588923818308, 0.8962354953316194, 0.8638009743986377, 0.8947517427556495, 0.09147142580466072, 0.037867640115246085, 0.9733700758836352, 0.8037889306665265, 0.13591477343697572, 0.0550185335937788, 0.7233358373654524, 0.9260820131451775, 0.44882706930243976])
     pars = _decode_symmetric_hexarotor_to_RobotParameter(x)
 
     # # quad
@@ -409,9 +409,9 @@ if __name__ == "__main__":
     train_and_enjoy = False
     if train_and_enjoy:
         # # target_list, pose_list, mean_reward = target_lqr_objective_function(pars, target_list_LQR)
-        seed_train = 68227667
-        seed_enjoy = 68227667
-        target_list, pose_list, mean_reward = motor_rl_objective_function(pars, seed_train, seed_enjoy, 200)
+        seed_train = 92951260
+        seed_enjoy = 19941743
+        target_list, pose_list, mean_reward = motor_rl_objective_function(pars, seed_train, seed_enjoy, 1440)
         print("--------------------------")
         print("f(x) = ", mean_reward)
         [print(f"g_{i}(x) = ", el) for i,el in  enumerate(constraint_check(pars))]
