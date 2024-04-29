@@ -393,7 +393,7 @@ if __name__ == "__main__":
     if train_and_enjoy:
         seed_train = 92951260
         seed_enjoy = 19941743
-        target_list, pose_list, mean_reward = motor_rl_objective_function(pars, seed_train, seed_enjoy, 20)
+        target_list, pose_list, mean_reward = motor_rl_objective_function(pars, seed_train, seed_enjoy, 45)
         print("--------------------------")
         print("f(x) = ", mean_reward)
         [print(f"g_{i}(x) = ", el) for i,el in  enumerate(constraint_check(pars))]

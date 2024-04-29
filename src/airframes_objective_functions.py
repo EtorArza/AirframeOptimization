@@ -6,20 +6,11 @@ import pickle
 
 
 def save_robot_pars_to_file(pars):
-    print("save parameters to robotConfigFile.txt")
-    with open('/home/paran/Dropbox/NTNU/11_constraints_encoding/code/robotConfigFile.txt','w') as f:
-        print('pars.cq=',pars.cq, file=f, flush=True)
-        print('pars.frame_mass=',pars.frame_mass, file=f)
-        print('pars.motor_masses=',pars.motor_masses, file=f)
+    print("save parameters to aerial_gym_dev/envs/base/tmp/config")
 
-        print('pars.motor_translations=',pars.motor_translations, file=f)
-        print('pars.motor_orientations=',pars.motor_orientations, file=f)
-        print('pars.motor_directions=',pars.motor_directions, file=f)
-
-
-
-        print('pars.max_u=',pars.max_u, file=f)
-        print('pars.min_u=',pars.min_u, file=f)
+    from aerial_gym_dev import AERIAL_GYM_ROOT_DIR
+    with open(AERIAL_GYM_ROOT_DIR + "/aerial_gym_dev/envs/base/tmp/config", "wb") as file:
+        pickle.dump(pars, file)
 
 
 def motor_position_enjoy(seed_enjoy):
@@ -106,6 +97,8 @@ def _motor_position_enjoy(seed_enjoy):
             action = nn_model.get_action(obs)
             obs, priviliged_obs, rewards, resets, extras = env.step(action)
 
+            if not args.headless:
+                env.render()
 
             target_list.append(env.goal_states[0:n_poses_return, 0:3].cpu().numpy())
             pose_list.append(obs['obs'][0:n_poses_return, 0:7].cpu().numpy())
@@ -147,7 +140,7 @@ def _motor_position_train(cmdl_args):
     from datetime import datetime
     current_time = datetime.now()
     subprocess.run("rm train_dir/ -rf", shell=True)
-    cmd_str = f'python3 -m sf_examples.gen_aerial_robot_population.train_individual --env=gen_aerial_robot {cmdl_args}'
+    cmd_str = f'python3 ../../sample-factory/sf_examples/gen_aerial_robot_population/train_individual.py --env=gen_aerial_robot {cmdl_args}'
     print(f">> run shell on {current_time.strftime('%Y-%m-%d %H:%M:%S')}\n{cmd_str}")
     output = subprocess.check_output(cmd_str, shell=True, text=True)
     print(output)
