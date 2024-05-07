@@ -21,7 +21,7 @@ from airframes_objective_functions import motor_rl_objective_function
 import pickle
 
 
-plotlims = [-6.0, 6.0]
+plotlims = [-0.60, 0.60]
 # Quad
 quad_pars = PredefinedConfigParameter('quad')
 
@@ -42,8 +42,9 @@ def from_0_1_to_RobotParameter(x: numpy.typing.NDArray[np.float_]):
 
     '''
 
-
-
+    max_arm_length = 0.035
+    mass = 0.027
+    proportion_mass_in_body = 0.75
 
     # A linear scalling to [0,1]^number_of_parameters
     assert type(x)==np.ndarray, "x = "+str(x)+" | type(x) = "+str(type(x))
@@ -53,8 +54,8 @@ def from_0_1_to_RobotParameter(x: numpy.typing.NDArray[np.float_]):
 
     
     pars.cq = 0.1
-    pars.frame_mass = 0.5
-    pars.motor_masses = [0.1] * n_rotors
+    pars.frame_mass = mass * proportion_mass_in_body
+    pars.motor_masses = [mass * (1.0 - proportion_mass_in_body) / n_rotors] * n_rotors
     
 
     pars.motor_directions = ([1,-1,-1,1]*6)[:n_rotors]
@@ -62,7 +63,7 @@ def from_0_1_to_RobotParameter(x: numpy.typing.NDArray[np.float_]):
     x_motor_translations = np.array([x[rotor_idx, i] for rotor_idx in range(n_rotors) for i in range(3)])
     x_motor_orientations = np.array([x[rotor_idx, i] for rotor_idx in range(n_rotors) for i in range(3,6)])
 
-    pars.motor_translations = x_motor_translations.reshape(-1,3) * 2.0 - 1.0
+    pars.motor_translations = (x_motor_translations.reshape(-1,3) * 2.0 - 1.0) * max_arm_length
     pars.motor_orientations = x_motor_orientations.reshape(-1, 3) * 360
 
     pars.motor_translations = pars.motor_translations.tolist()
@@ -72,7 +73,7 @@ def from_0_1_to_RobotParameter(x: numpy.typing.NDArray[np.float_]):
     #pars.sensor_orientations = [[0,0,0],[0,-20,0]]
     #pars.sensor_translations = [[0,0.5,0.1],[0,0,-0.1]]
 
-    pars.max_u = 100
+    pars.max_u = 3*mass*9.81 / n_rotors
     pars.min_u = 0
 
     return pars
@@ -155,8 +156,8 @@ def _plot_airframe_into_ax(ax, pars:RobotParameter, translation, rotation_matrix
     e2 = np.array([0,1,0])
     e3 = np.array([0,0,1])
 
-    frame_scale_plane = 0.16
-    frame_scale_normal = 0.26
+    frame_scale_plane = 0.016
+    frame_scale_normal = 0.026
 
     def apply_transformation(x, translation, rotation_matrix):
         assert x.shape == (3,)
@@ -343,6 +344,51 @@ def animate_animationdata_from_cache(pars: RobotParameter):
     animate_airframe(pars, np.array(animationdata['pose_list']), np.array(animationdata['target_list']))
 
 
+def plot_enjoy_report(pars: RobotParameter):
+    with open(f'cache/airframes_animationdata/{hash(pars)}_airframeanimationdata.wb', 'rb') as f:
+        animationdata: dict = pickle.load(f)
+    # print("--pars comparison--")
+    # print(pars)
+    # print(animationdata['pars'])
+    # print("----")
+    assert hash(pars) == hash(animationdata['pars'])
+
+    positions = np.array(animationdata["pose_list"])[:, :3]
+    quaternions = np.array(animationdata["pose_list"])[:, 3:]
+    target_positions = np.array(animationdata["target_list"])[:, :3]
+    position_error = []
+    rotation_error = []
+    for i in range(positions.shape[0]):
+        position_error.append(np.sqrt(np.sum((positions[i] - target_positions[i])**2)))
+    position_error = np.array(position_error)
+    rotation_error = np.array(rotation_error)
+
+    fig, axs = plt.subplots(2, 3)
+    axs[0,0].plot(np.array(animationdata["pose_list"])[:, :3])
+    axs[0,0].legend(["x", "y", "z"])
+    axs[0,0].set_title("Position")
+    axs[0,0].set_xlabel("Time")
+    axs[0,0].set_ylabel("Position")
+    axs[0,1].plot(np.array(animationdata["target_list"])[:,:3])
+    axs[0,1].legend(["x", "y", "z"])
+    axs[0,1].set_title("Target")
+    axs[0,1].set_xlabel("Time")
+    axs[0,1].set_yscale("log")
+    axs[0,1].set_ylabel("Position")
+    axs[1,0].plot(position_error)
+    axs[1,0].set_title("Position Error: {}".format(position_error.sum()))
+    axs[1,0].set_xlabel("Time")
+    axs[1,0].set_ylabel("Error")
+    axs[1,0].set_yscale("log")
+
+    axs[1,1].plot(rotation_error)
+    axs[1,1].set_title("Rotation Error: {}".format(rotation_error.sum()))
+    axs[1,1].set_xlabel("Time")
+    axs[1,1].set_ylabel("Error")
+    plt.savefig("test_control_report.pdf")
+    plt.close()
+
+
 
 if __name__ == "__main__":
 
@@ -377,12 +423,12 @@ if __name__ == "__main__":
 
  
 
-    # # Best solution
+    # # # Best solution
     x = np.array([0.21113054015459082, 0.8163602651396991, 0.687588923818308, 0.8962354953316194, 0.8638009743986377, 0.8947517427556495, 0.09147142580466072, 0.037867640115246085, 0.9733700758836352, 0.8037889306665265, 0.13591477343697572, 0.0550185335937788, 0.7233358373654524, 0.9260820131451775, 0.44882706930243976])
     pars = _decode_symmetric_hexarotor_to_RobotParameter(x)
 
-    # # quad
-    # pars = quad_pars
+    # quad
+    pars = quad_pars
 
     # #hex
     # pars = hex_pars
@@ -391,13 +437,14 @@ if __name__ == "__main__":
 
     train_and_enjoy = True
     if train_and_enjoy:
-        seed_train = 92951260
-        seed_enjoy = 19941743
-        target_list, pose_list, mean_reward = motor_rl_objective_function(pars, seed_train, seed_enjoy, 45)
+        seed_train = 82951261
+        seed_enjoy = 19941744
+        target_list, pose_list, mean_reward = motor_rl_objective_function(pars, seed_train, seed_enjoy, 360)
         print("--------------------------")
         print("f(x) = ", mean_reward)
         [print(f"g_{i}(x) = ", el) for i,el in  enumerate(constraint_check(pars))]
         print("--------------------------")
 
+    plot_enjoy_report(pars)
     animate_animationdata_from_cache(pars)
 

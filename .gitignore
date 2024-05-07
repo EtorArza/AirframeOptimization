@@ -51,3 +51,7 @@ train_dir
 debuglog.txt
 /*.zip
 /*.mp4
+test_control_report.pdf
+src/welf.zip
+code.code-workspace
+test_control_old.pdf
