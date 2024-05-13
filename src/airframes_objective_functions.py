@@ -4,7 +4,6 @@ from matplotlib import pyplot as plt
 from tqdm import tqdm as tqdm
 import pickle
 
-
 def save_robot_pars_to_file(pars):
     print("save parameters to aerial_gym_dev/envs/base/tmp/config")
 
@@ -16,26 +15,13 @@ def save_robot_pars_to_file(pars):
 def motor_position_enjoy(seed_enjoy):
     cmd_str = f"python src/airframes_objective_functions.py --motor_RL_control_enjoy {seed_enjoy}"
     from datetime import datetime
+    import torch
     current_time = datetime.now()
     print(f">> run shell on {current_time.strftime('%Y-%m-%d %H:%M:%S')}\n{cmd_str}")
     output = subprocess.check_output(cmd_str, shell=True, text=True)
-    res = eval(output.split("result:\n")[-1].strip("\n"))
-    target_list = [np.array(el) for el in res['target_list']]
-    pose_list = [np.array(el) for el in res['pose_list']]
-    mean_reward = res['mean_reward']
-
-
-    import torch
-    import pytorch3d.transforms as p3d_transforms
-
-    for i in range(len(pose_list)):
-        xyzw_quaternion = torch.asarray(pose_list[i][3:])
-        quaternion = xyzw_quaternion[[3,0,1,2]]
-        rotation = p3d_transforms.quaternion_to_matrix(quaternion)
-        euler_angles = p3d_transforms.matrix_to_euler_angles(rotation, "XYZ")
-        pose_list[i] = np.concatenate([pose_list[i][:3], euler_angles.cpu().numpy()])
-
-    return target_list, pose_list, mean_reward
+    info_dict = torch.load("info_dict.pt")
+    return info_dict
+    
 
 def _motor_position_enjoy(seed_enjoy):
     from aerial_gym_dev import AERIAL_GYM_ROOT_DIR
@@ -81,13 +67,8 @@ def _motor_position_enjoy(seed_enjoy):
         # random_action = torch.asarray(nn_model.action_space.sample(), device=env.device)
         # obs, _,_,_,_ = env.step(random_action.detach())
 
-        max_steps = 1*int(env.max_episode_length) 
-
-        pose_list = []
-        target_list = []
-        reward_list = []
-
-        n_poses_return = 4
+        max_steps = 1*int(env.max_episode_length)
+        env.record_info_during_reward(2, max_steps, env.action_input.shape[1], torch.device(torch.cuda.current_device()))
 
 
         for i in tqdm(range(max_steps)):
@@ -96,24 +77,19 @@ def _motor_position_enjoy(seed_enjoy):
             counter += 1
             action = nn_model.get_action(obs)
             obs, priviliged_obs, rewards, resets, extras = env.step(action)
-
             if not args.headless:
                 env.render()
-
-            target_list.append(env.goal_states[0:n_poses_return, 0:3].cpu().numpy())
-            pose_list.append(obs['obs'][0:n_poses_return, 0:7].cpu().numpy())
-            reward_list.append(rewards.cpu().numpy().tolist())
-
             if counter % reset_every == 0:
                 torch.random.manual_seed(rs.randint(int(1e8)))
                 obs, _ = env.reset()
 
-        reward_list = np.array(reward_list).T
+        info_dict = env.infoTensordict
 
-        pose_list = np.vstack([np.array(pose_list)[:, i, :] for i in range(np.array(pose_list).shape[1])])
-        target_list = np.vstack([np.array(target_list)[:, i, :] for i in range(np.array(target_list).shape[1])])
+        # reward_list = np.array(reward_list).T
+        # pose_list = np.vstack([np.array(pose_list)[:, i, :] for i in range(np.array(pose_list).shape[1])])
+        # target_list = np.vstack([np.array(target_list)[:, i, :] for i in range(np.array(target_list).shape[1])])
 
-        return target_list, pose_list, float(np.mean(np.mean(reward_list)))
+        return info_dict
 
 
     EXPORT_POLICY = True
@@ -121,12 +97,9 @@ def _motor_position_enjoy(seed_enjoy):
     MOVE_CAMERA = False
     args = get_args()
     args.task = "gen_aerial_robot"
-    target_list, pose_list, mean_reward = play(args)
-    mean_reward = -mean_reward # Our direct search framework assumes minimization.
-
-    res = {"target_list":[el.tolist() for el in target_list], "pose_list":[el.tolist() for el in pose_list], "mean_reward":mean_reward}
-
-    return res
+    info_dict = play(args)
+    with open("info_dict.pt", "wb") as f:
+        torch.save(info_dict,f) 
 
 
 def motor_position_train(seed_train, train_for_seconds):
@@ -149,17 +122,16 @@ def _motor_position_train(cmdl_args):
 def motor_rl_objective_function(pars, seed_train, seed_enjoy, train_for_seconds):
     save_robot_pars_to_file(pars)
     motor_position_train(seed_train, train_for_seconds)
-    target_list, pose_list, mean_reward = motor_position_enjoy(seed_enjoy)
-    with open(f'cache/airframes_animationdata/{hash(pars)}_airframeanimationdata.wb', 'wb') as f:
-        res = {"pars":pars, 
-               "target_list":[el.tolist() for el in target_list], 
-               "pose_list":[el.tolist() for el in pose_list], 
-               "mean_reward":mean_reward, 
-               "seed_train":seed_train, 
-               "seed_enjoy": seed_enjoy}
-        pickle.dump(res, f)
-    return target_list, pose_list, mean_reward
+    info = motor_position_enjoy(seed_enjoy)
 
+    with open(f'cache/airframes_animationdata/{hash(pars)}_airframeanimationdata.wb', 'wb') as f:
+        res = {"pars":pars,
+               "seed_train":seed_train, 
+               "seed_enjoy": seed_enjoy,
+               **info,
+        }
+        pickle.dump(res, f)
+    return info
 
 if __name__ == '__main__':
     # Call objective function from subprocess. Assumes robotConfigFile.txt has been previously written.
@@ -177,9 +149,7 @@ if __name__ == '__main__':
         sys.argv[1] = "--env=gen_aerial_robot"
         seed_enjoy = int(sys.argv[2])
         sys.argv.remove(sys.argv[2])
-        res = _motor_position_enjoy(seed_enjoy)
-        print("result:")
-        print(res)
+        _motor_position_enjoy(seed_enjoy)
         exit(0)
 
     

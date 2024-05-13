@@ -19,6 +19,10 @@ from matplotlib.animation import FuncAnimation
 import subprocess
 from airframes_objective_functions import motor_rl_objective_function
 import pickle
+import torch
+import pytorch3d.transforms as p3d_transforms
+
+
 
 
 plotlims = [-0.60, 0.60]
@@ -341,7 +345,8 @@ def animate_animationdata_from_cache(pars: RobotParameter):
     print(animationdata["seed_train"])
     print(animationdata["seed_enjoy"])
     print(hash(animationdata['pars']))
-    animate_airframe(pars, np.array(animationdata['pose_list']), np.array(animationdata['target_list']))
+    positions = np.array(animationdata["poses"].reshape(-1,6).tolist())
+    animate_airframe(pars, positions, np.zeros_like(positions))
 
 
 def plot_enjoy_report(pars: RobotParameter):
@@ -353,38 +358,53 @@ def plot_enjoy_report(pars: RobotParameter):
     # print("----")
     assert hash(pars) == hash(animationdata['pars'])
 
-    positions = np.array(animationdata["pose_list"])[:, :3]
-    quaternions = np.array(animationdata["pose_list"])[:, 3:]
-    target_positions = np.array(animationdata["target_list"])[:, :3]
-    position_error = []
-    rotation_error = []
-    for i in range(positions.shape[0]):
-        position_error.append(np.sqrt(np.sum((positions[i] - target_positions[i])**2)))
-    position_error = np.array(position_error)
-    rotation_error = np.array(rotation_error)
+    print(list(animationdata.keys()))
+    
 
-    fig, axs = plt.subplots(2, 3)
-    axs[0,0].plot(np.array(animationdata["pose_list"])[:, :3])
+    fig, axs = plt.subplots(3, 3)
+    axs[0,0].plot(animationdata["poses"][:,:,:3].reshape(-1,3).tolist(), linewidth=0.5)
     axs[0,0].legend(["x", "y", "z"])
     axs[0,0].set_title("Position")
-    axs[0,0].set_xlabel("Time")
-    axs[0,0].set_ylabel("Position")
-    axs[0,1].plot(np.array(animationdata["target_list"])[:,:3])
-    axs[0,1].legend(["x", "y", "z"])
-    axs[0,1].set_title("Target")
-    axs[0,1].set_xlabel("Time")
-    axs[0,1].set_yscale("log")
-    axs[0,1].set_ylabel("Position")
-    axs[1,0].plot(position_error)
-    axs[1,0].set_title("Position Error: {}".format(position_error.sum()))
-    axs[1,0].set_xlabel("Time")
-    axs[1,0].set_ylabel("Error")
-    axs[1,0].set_yscale("log")
+    
+    axs[0,1].plot(animationdata["initial_state"][:,:,:3].reshape(-1,3).tolist(), linewidth=0.5)
+    axs[0,1].set_title("Initial Position")
 
-    axs[1,1].plot(rotation_error)
-    axs[1,1].set_title("Rotation Error: {}".format(rotation_error.sum()))
-    axs[1,1].set_xlabel("Time")
-    axs[1,1].set_ylabel("Error")
+    axs[0,2].plot(animationdata["action_delta"].reshape(-1).tolist(), linewidth=0.5)
+    axs[0,2].set_title("Action Delta")
+
+    axs[1,2].plot(animationdata["action"].reshape(-1,animationdata["action"].shape[2]).tolist(), linewidth=0.5)
+    axs[1,2].set_title("Actions")
+
+    axs[1,0].plot(animationdata["angvels"].reshape(-1).tolist(), linewidth=0.5)
+    axs[1,0].set_title("Angelvel")
+
+    axs[1,1].plot(animationdata["reward"].reshape(-1).tolist(), linewidth=0.5)
+    axs[1,1].set_title("Reward")
+    
+    from itertools import cycle
+    markers = cycle(['o', 'v', 's', 'p', '*', 'h', '+', 'x'])
+
+    axs[2,2].plot(animationdata["rewardcomponent_crs"].reshape(-1).tolist(), label= "bonus_survive",  linewidth=0.5, marker=next(markers), markevery=0.33, alpha=0.51)
+    axs[2,2].plot(animationdata["rewardcomponent_dist_cost"].reshape(-1).tolist(), label= "dist_cost",  linewidth=0.5, marker=next(markers), markevery=0.33, alpha=0.51)
+    axs[2,2].plot(animationdata["rewardcomponent_tiltage_cost"].reshape(-1).tolist(), label= "tiltage_cost",  linewidth=0.5, marker=next(markers), markevery=0.33, alpha=0.51)
+    axs[2,2].plot(animationdata["rewardcomponent_velocity_cost"].reshape(-1).tolist(), label= "velocity_cost",  linewidth=0.5, marker=next(markers), markevery=0.33, alpha=0.51)
+    axs[2,2].plot(animationdata["rewardcomponent_angularvel_cost"].reshape(-1).tolist(),  label= "angularvel_cost",  linewidth=0.5, marker=next(markers), markevery=0.33, alpha=0.51)
+    axs[2,2].plot(animationdata["rewardcomponent_action_cost"].reshape(-1).tolist(), label= "action_cost",  linewidth=0.5, marker=next(markers), markevery=0.33, alpha=0.51)
+    axs[2,2].plot(animationdata["rewardcomponent_action_change_cost"].reshape(-1).tolist(), label= "action_change_cost",  linewidth=0.5, marker=next(markers), markevery=0.33, alpha=0.51)
+    axs[2,2].plot(animationdata["rewardcomponent_bonus_reward_completed_task"].reshape(-1).tolist(), label= "bonus_reward_completed_task",  linewidth=0.5, marker=next(markers), markevery=0.33, alpha=0.51)
+    axs[2,2].set_title("Reward")
+    axs[2,2].legend(loc='upper center', bbox_to_anchor=(0.5, -0.05), fancybox=True, shadow=True, ncol=2, prop={'size': 6})
+
+
+
+    axs[2,1].plot(animationdata["completedrewardcomponent_pos"].reshape(-1).tolist(), label= "pos",  linewidth=0.5, marker=next(markers), markevery=0.33, alpha=0.51)
+    axs[2,1].plot(animationdata["completedrewardcomponent_vels"].reshape(-1).tolist(), label= "vels",  linewidth=0.5, marker=next(markers), markevery=0.33, alpha=0.51)
+    axs[2,1].set_title("Completed reward")
+    axs[2,1].legend(loc='upper center', bbox_to_anchor=(0.5, -0.05), fancybox=True, shadow=True, ncol=2, prop={'size': 6})
+
+
+    plt.show()
+    plt.tight_layout()
     plt.savefig("test_control_report.pdf")
     plt.close()
 
@@ -439,11 +459,11 @@ if __name__ == "__main__":
     if train_and_enjoy:
         seed_train = 82951261
         seed_enjoy = 19941744
-        target_list, pose_list, mean_reward = motor_rl_objective_function(pars, seed_train, seed_enjoy, 360)
-        print("--------------------------")
-        print("f(x) = ", mean_reward)
-        [print(f"g_{i}(x) = ", el) for i,el in  enumerate(constraint_check(pars))]
-        print("--------------------------")
+        info = motor_rl_objective_function(pars, seed_train, seed_enjoy, 360)
+        # print("--------------------------")
+        # print("f(x) = ", mean_reward)
+        # [print(f"g_{i}(x) = ", el) for i,el in  enumerate(constraint_check(pars))]
+        # print("--------------------------")
 
     plot_enjoy_report(pars)
     animate_animationdata_from_cache(pars)
