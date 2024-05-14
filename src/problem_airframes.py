@@ -365,7 +365,12 @@ def plot_enjoy_report(pars: RobotParameter):
     axs[0,0].plot(animationdata["poses"][:,:,:3].reshape(-1,3).tolist(), linewidth=0.5)
     axs[0,0].legend(["x", "y", "z"])
     axs[0,0].set_title("Position")
-    
+
+    axs[1,0].plot(torch.norm(animationdata["poses"][:,:,:3], dim=2).reshape(-1).tolist(), linewidth=0.5)
+    axs[1,0].set_yscale("log")
+    axs[1,0].set_title("Postion error")
+
+
     axs[0,1].plot(animationdata["initial_state"][:,:,:3].reshape(-1,3).tolist(), linewidth=0.5)
     axs[0,1].set_title("Initial Position")
 
@@ -375,8 +380,8 @@ def plot_enjoy_report(pars: RobotParameter):
     axs[1,2].plot(animationdata["action"].reshape(-1,animationdata["action"].shape[2]).tolist(), linewidth=0.5)
     axs[1,2].set_title("Actions")
 
-    axs[1,0].plot(animationdata["angvels"].reshape(-1).tolist(), linewidth=0.5)
-    axs[1,0].set_title("Angelvel")
+    axs[2,0].plot(animationdata["angvels"].reshape(-1).tolist(), linewidth=0.5)
+    axs[2,0].set_title("Angelvel")
 
     axs[1,1].plot(animationdata["reward"].reshape(-1).tolist(), linewidth=0.5)
     axs[1,1].set_title("Reward")
@@ -403,7 +408,6 @@ def plot_enjoy_report(pars: RobotParameter):
     axs[2,1].legend(loc='upper center', bbox_to_anchor=(0.5, -0.05), fancybox=True, shadow=True, ncol=2, prop={'size': 6})
 
 
-    plt.show()
     plt.tight_layout()
     plt.savefig("test_control_report.pdf")
     plt.close()
@@ -447,11 +451,11 @@ if __name__ == "__main__":
     x = np.array([0.21113054015459082, 0.8163602651396991, 0.687588923818308, 0.8962354953316194, 0.8638009743986377, 0.8947517427556495, 0.09147142580466072, 0.037867640115246085, 0.9733700758836352, 0.8037889306665265, 0.13591477343697572, 0.0550185335937788, 0.7233358373654524, 0.9260820131451775, 0.44882706930243976])
     pars = _decode_symmetric_hexarotor_to_RobotParameter(x)
 
-    # quad
-    pars = quad_pars
+    # # quad
+    # pars = quad_pars
 
-    # #hex
-    # pars = hex_pars
+    #hex
+    pars = hex_pars
 
     # plot_airframe_design(pars)
 

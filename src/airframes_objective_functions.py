@@ -41,11 +41,12 @@ def _motor_position_enjoy(seed_enjoy):
     def play(args):
 
         args.headless = True
-        num_airframes_parallel = int(2e4)
+        num_airframes_parallel = int(1e2)
 
         args.num_envs = num_airframes_parallel
         cfg = parse_aerialgym_cfg(evaluation=True)
         cfg.num_agents = num_airframes_parallel
+        cfg.eval_deterministic = True
         cfg.train_dir = "./train_dir"
         nn_model = NN_Inference_ROS(cfg)
         print("CFG is:", cfg)

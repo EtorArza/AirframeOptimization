@@ -56,4 +56,4 @@ src/welf.zip
 code.code-workspace
 test_control_old.pdf
 info_dict.pt
-test_control_report_prev.pdf
+test_*.pdf
