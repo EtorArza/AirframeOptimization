@@ -46,9 +46,6 @@ def from_0_1_to_RobotParameter(x: numpy.typing.NDArray[np.float_]):
 
     '''
 
-    max_arm_length = 0.035
-    mass = 0.027
-    proportion_mass_in_body = 0.75
 
     # A linear scalling to [0,1]^number_of_parameters
     assert type(x)==np.ndarray, "x = "+str(x)+" | type(x) = "+str(type(x))
@@ -56,6 +53,11 @@ def from_0_1_to_RobotParameter(x: numpy.typing.NDArray[np.float_]):
     n_rotors = x.shape[0]
     pars = RobotParameter()
 
+    
+    mass = 0.250
+    proportion_mass_in_body = 0.9
+    max_width = 0.26 / 2.0
+    
     
     pars.cq = 0.1
     pars.frame_mass = mass * proportion_mass_in_body
@@ -67,7 +69,7 @@ def from_0_1_to_RobotParameter(x: numpy.typing.NDArray[np.float_]):
     x_motor_translations = np.array([x[rotor_idx, i] for rotor_idx in range(n_rotors) for i in range(3)])
     x_motor_orientations = np.array([x[rotor_idx, i] for rotor_idx in range(n_rotors) for i in range(3,6)])
 
-    pars.motor_translations = (x_motor_translations.reshape(-1,3) * 2.0 - 1.0) * max_arm_length
+    pars.motor_translations = (x_motor_translations.reshape(-1,3) * 2.0 - 1.0) * max_width
     pars.motor_orientations = x_motor_orientations.reshape(-1, 3) * 360
 
     pars.motor_translations = pars.motor_translations.tolist()
@@ -181,7 +183,6 @@ def _plot_airframe_into_ax(ax, pars:RobotParameter, translation, rotation_matrix
             color = "orange"
         else:
             raise ValueError("Direction should be either 1 or -1. Instead, pars.motor_directions[i]=", pars.motor_directions[i])
-
         line_list = [
             [[0,t_vec[0]],[0,t_vec[1]],[0,t_vec[2]]],
             [[t_vec[0],t_vec[0]+R[0,:]@e1*frame_scale_plane],[t_vec[1],t_vec[1]+R[1,:]@e1*frame_scale_plane],[t_vec[2],t_vec[2]+R[2,:]@e1*frame_scale_plane]],
@@ -189,16 +190,17 @@ def _plot_airframe_into_ax(ax, pars:RobotParameter, translation, rotation_matrix
             [[t_vec[0],t_vec[0]-R[0,:]@e1*frame_scale_plane],[t_vec[1],t_vec[1]-R[1,:]@e1*frame_scale_plane],[t_vec[2],t_vec[2]-R[2,:]@e1*frame_scale_plane]],
             [[t_vec[0],t_vec[0]-R[0,:]@e2*frame_scale_plane],[t_vec[1],t_vec[1]-R[1,:]@e2*frame_scale_plane],[t_vec[2],t_vec[2]-R[2,:]@e2*frame_scale_plane]],
             [[t_vec[0],t_vec[0]+R[0,:]@e3*frame_scale_normal],[t_vec[1],t_vec[1]+R[1,:]@e3*frame_scale_normal],[t_vec[2],t_vec[2]+R[2,:]@e3*frame_scale_normal]],
-            [[0,0],[0,0],[0,3]],
+            [[0,0.8],[0,0],[0,0]],
+            [[0,0],[0,0.8],[0,0]],
+            [[0,0],[0,0],[0,0.8]],
         ]
-
-        color_list = ["gray"] + [color]*4 + ['g'] + ["black"]
+        color_list = ["gray"] + [color]*4 + ['g'] + ["red","green","blue"]
         for line, color in zip(line_list, color_list):
             start = np.array([line[0][0], line[1][0], line[2][0]])
             end = np.array([line[0][1], line[1][1], line[2][1]])
             start = apply_transformation(start, translation, rotation_matrix)
             end = apply_transformation(end, translation, rotation_matrix)
-            ax.add_line(Line3D([start[0],end[0]],[start[1],end[1]],[start[2],end[2]], color=color, linestyle="--" if color=="black" else "-"))
+            ax.add_line(Line3D([start[0],end[0]],[start[1],end[1]],[start[2],end[2]], color=color, linestyle=":" if color in ["red","green","blue"] else "-"))
 
 def _plot_airframe_design_interactive(ax, params):
 
@@ -346,7 +348,7 @@ def animate_animationdata_from_cache(pars: RobotParameter):
     print(animationdata["seed_enjoy"])
     print(hash(animationdata['pars']))
     positions = np.array(animationdata["poses"].reshape(-1,6).tolist())
-    animate_airframe(pars, positions, np.zeros_like(positions))
+    animate_airframe(pars, positions, animationdata["goal_poses"].reshape(-1,6)[:,:3].cpu().numpy())
 
 
 def plot_enjoy_report(pars: RobotParameter):
@@ -447,15 +449,15 @@ if __name__ == "__main__":
 
  
 
-    # # # Best solution
+    # # Best solution
     x = np.array([0.21113054015459082, 0.8163602651396991, 0.687588923818308, 0.8962354953316194, 0.8638009743986377, 0.8947517427556495, 0.09147142580466072, 0.037867640115246085, 0.9733700758836352, 0.8037889306665265, 0.13591477343697572, 0.0550185335937788, 0.7233358373654524, 0.9260820131451775, 0.44882706930243976])
     pars = _decode_symmetric_hexarotor_to_RobotParameter(x)
 
     # # quad
     # pars = quad_pars
 
-    #hex
-    pars = hex_pars
+    # # hex
+    # pars = hex_pars
 
     # plot_airframe_design(pars)
 
