@@ -310,6 +310,14 @@ def animate_airframe(pars:RobotParameter, pose_list, target_list):
 
     assert len(pose_list) == len(target_list)
 
+    start_position_list = [pose_list[0]]
+    for i in range(len(pose_list)-1):
+
+        if np.all(target_list[i] == target_list[i+1]):
+            start_position_list.append(start_position_list[-1])
+        else:
+            start_position_list.append(pose_list[i+1])
+
     fig = plt.figure()
     xlim = ylim = zlim = plotlims
     ax = fig.add_subplot(projection='3d', xlim=xlim, ylim=ylim, zlim=zlim)
@@ -324,7 +332,29 @@ def animate_airframe(pars:RobotParameter, pose_list, target_list):
         translation = pose[0:3]
         rotation_matrix = Rotation.from_euler("xyz", pose[3:6], degrees=False).as_matrix()
         _plot_airframe_into_ax(ax, pars, translation, rotation_matrix)
-        ax.set_xlim(xlim); ax.set_ylim(ylim); ax.set_zlim(zlim)
+
+        # default_frame_size = 1.0
+        # actual_frame_size = default_frame_size + max(abs(np.array(pose_list)[frm_idx+1][:3] - np.array(pose_list)[frm_idx][:3]))
+        # ax.set_xlim((translation[0] - actual_frame_size/2, translation[0] + actual_frame_size/2)); 
+        # ax.set_ylim((translation[1] - actual_frame_size/2, translation[1] + actual_frame_size/2)); 
+        # ax.set_zlim((translation[2] - actual_frame_size/2, translation[2] + actual_frame_size/2))
+
+
+        margin = 0.25
+        
+        xlim_lower = min(min(start_position_list[frm_idx][:3]), min(target_list[frm_idx]))
+        xlim_upper = max(max(start_position_list[frm_idx][:3]), max(target_list[frm_idx]))
+        
+        xlim = (xlim_lower - margin, xlim_upper + margin)
+        ylim = xlim
+        zlim = xlim
+
+        ax.set_xlim(xlim) 
+        ax.set_ylim(ylim) 
+        ax.set_zlim(zlim)
+
+
+
         ax.set_xlabel(f'x={pose[0]:.2f}',size=14)
         ax.set_ylabel(f'y={pose[1]:.2f}',size=14)
         ax.set_zlabel(f'z={pose[2]:.2f}',size=14)
