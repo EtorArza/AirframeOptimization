@@ -368,13 +368,13 @@ def plot_enjoy_report(pars: RobotParameter):
     axs[0,0].legend(["x", "y", "z"])
     axs[0,0].set_title("Position")
 
-    axs[1,0].plot(torch.norm(animationdata["poses"][:,:,:3], dim=2).reshape(-1).tolist(), linewidth=0.5)
+    axs[1,0].plot(torch.norm(animationdata["poses"][:,:,:3] - animationdata["goal_poses"][:,:,:3], dim=2).reshape(-1).tolist(), linewidth=0.5)
     axs[1,0].set_yscale("log")
     axs[1,0].set_title("Postion error")
 
 
-    axs[0,1].plot(animationdata["initial_state"][:,:,:3].reshape(-1,3).tolist(), linewidth=0.5)
-    axs[0,1].set_title("Initial Position")
+    axs[0,1].plot(animationdata["goal_poses"][:,:,:3].reshape(-1,3).tolist(), linewidth=0.5)
+    axs[0,1].set_title("Goal Position")
 
     axs[0,2].plot(animationdata["action_delta"].reshape(-1).tolist(), linewidth=0.5)
     axs[0,2].set_title("Action Delta")
@@ -404,8 +404,10 @@ def plot_enjoy_report(pars: RobotParameter):
 
 
 
-    axs[2,1].plot(animationdata["completedrewardcomponent_pos"].reshape(-1).tolist(), label= "pos",  linewidth=0.5, marker=next(markers), markevery=0.33, alpha=0.51)
-    axs[2,1].plot(animationdata["completedrewardcomponent_vels"].reshape(-1).tolist(), label= "vels",  linewidth=0.5, marker=next(markers), markevery=0.33, alpha=0.51)
+    axs[2,1].plot(animationdata["completedrewardcomponent_pos_completed_reward"].reshape(-1).tolist(), label= "pos",  linewidth=0.5, marker=next(markers), markevery=0.33, alpha=0.51)
+    axs[2,1].plot(animationdata["completedrewardcomponent_linvels_completed_reward"].reshape(-1).tolist(), label= "linvels",  linewidth=0.5, marker=next(markers), markevery=0.33, alpha=0.51)
+    axs[2,1].plot(animationdata["completedrewardcomponent_angvels_completed_reward"].reshape(-1).tolist(), label= "angvels",  linewidth=0.5, marker=next(markers), markevery=0.33, alpha=0.51)
+    axs[2,1].plot(animationdata["completedrewardcomponent_action_reward"].reshape(-1).tolist(), label= "actions",  linewidth=0.5, marker=next(markers), markevery=0.33, alpha=0.51)
     axs[2,1].set_title("Completed reward")
     axs[2,1].legend(loc='upper center', bbox_to_anchor=(0.5, -0.05), fancybox=True, shadow=True, ncol=2, prop={'size': 6})
 
@@ -465,7 +467,7 @@ if __name__ == "__main__":
     if train_and_enjoy:
         seed_train = 82951261
         seed_enjoy = 19941744
-        info = motor_rl_objective_function(pars, seed_train, seed_enjoy, 360)
+        info = motor_rl_objective_function(pars, seed_train, seed_enjoy, 720)
         # print("--------------------------")
         # print("f(x) = ", mean_reward)
         # [print(f"g_{i}(x) = ", el) for i,el in  enumerate(constraint_check(pars))]
