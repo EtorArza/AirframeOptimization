@@ -61,7 +61,7 @@ def _motor_position_enjoy(seed_enjoy):
         env, _ = task_registry.make_env(name=args.task, args=args, env_cfg=env_cfg)
         rs = np.random.RandomState(seed_enjoy)
         counter = 0
-        reset_every = 500
+        reset_every = 750
 
         torch.random.manual_seed(rs.randint(int(1e8)))
         obs, _ = env.reset()

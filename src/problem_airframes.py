@@ -55,7 +55,7 @@ def from_0_1_to_RobotParameter(x: numpy.typing.NDArray[np.float_]):
 
     
     mass = 0.250
-    proportion_mass_in_body = 0.9
+    proportion_mass_in_body = 0.7
     max_width = 0.26 / 2.0
     
     
@@ -485,8 +485,8 @@ if __name__ == "__main__":
     x = np.array([0.21113054015459082, 0.8163602651396991, 0.687588923818308, 0.8962354953316194, 0.8638009743986377, 0.8947517427556495, 0.09147142580466072, 0.037867640115246085, 0.9733700758836352, 0.8037889306665265, 0.13591477343697572, 0.0550185335937788, 0.7233358373654524, 0.9260820131451775, 0.44882706930243976])
     pars = _decode_symmetric_hexarotor_to_RobotParameter(x)
 
-    # # quad
-    # pars = quad_pars
+    # quad
+    pars = quad_pars
 
     # # hex
     # pars = hex_pars
