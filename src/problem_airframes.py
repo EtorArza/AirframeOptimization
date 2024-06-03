@@ -130,8 +130,8 @@ def f_symmetric_hexarotor_0_1(x: numpy.typing.NDArray[np.float_], seed_train: in
 
     assert x.shape == (15,) or x.shape== (10,)
     pars = _decode_symmetric_hexarotor_to_RobotParameter(x)
-    target_list, pose_list, mean_reward = motor_rl_objective_function(pars, seed_train, seed_enjoy, 360)
-    return target_list, pose_list, mean_reward
+    info_dict = motor_rl_objective_function(pars, seed_train, seed_enjoy, 360)
+    return -(info_dict["nWaypointsReached"][0] / info_dict["nResets"][0]).cpu().item()
 
 def constraint_check_hexarotor_0_1(x: numpy.typing.NDArray[np.float_]):
     pars = _decode_symmetric_hexarotor_to_RobotParameter(x)
@@ -342,12 +342,14 @@ def animate_airframe(pars:RobotParameter, pose_list, target_list):
 
         margin = 0.25
         
-        xlim_lower = min(min(start_position_list[frm_idx][:3]), min(target_list[frm_idx]))
-        xlim_upper = max(max(start_position_list[frm_idx][:3]), max(target_list[frm_idx]))
-        
-        xlim = (xlim_lower - margin, xlim_upper + margin)
-        ylim = xlim
-        zlim = xlim
+        # xlim_lower = min(min(start_position_list[frm_idx][:3]), min(target_list[frm_idx]))
+        # xlim_upper = max(max(start_position_list[frm_idx][:3]), max(target_list[frm_idx]))
+
+
+
+        xlim = (translation[0] - margin, translation[0]+ margin)
+        ylim = (translation[1] - margin, translation[1]+ margin)
+        zlim = (translation[2] - margin, translation[2]+ margin)
 
         ax.set_xlim(xlim) 
         ax.set_ylim(ylim) 
@@ -497,9 +499,10 @@ if __name__ == "__main__":
     if train_and_enjoy:
         seed_train = 82951261
         seed_enjoy = 19941744
-        info = motor_rl_objective_function(pars, seed_train, seed_enjoy, 360)
-        # print("--------------------------")
-        # print("f(x) = ", mean_reward)
+        # info = motor_rl_objective_function(pars, seed_train, seed_enjoy, 360)
+        f = f_symmetric_hexarotor_0_1(x, seed_train, seed_enjoy)
+        print("--------------------------")
+        print("f(x) = ", f)
         # [print(f"g_{i}(x) = ", el) for i,el in  enumerate(constraint_check(pars))]
         # print("--------------------------")
 
