@@ -24,7 +24,7 @@ if __name__ == "__main__":
     elif sys.argv[1] == "--local-solve":
         sys.argv.pop()
         problem_name = "airframes"
-        algorithm_name = "nevergrad"
+        algorithm_name = "ax"
         constraint_method = "ignore" # 'ignore','nan_on_unfeasible','constant_penalty_no_evaluation','algo_specific', 'nn_encoding'
         reuse_encoding = True
         seed = 4

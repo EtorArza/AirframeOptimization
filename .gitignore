@@ -57,3 +57,6 @@ code.code-workspace
 test_control_old.pdf
 info_dict.pt
 test_*.pdf
+manually_evaluated_best_found.pdf
+manually_evaluated_trash.pdf
+manually_evaluated.txt

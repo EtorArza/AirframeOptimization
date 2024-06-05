@@ -5,7 +5,7 @@ import time
 from tqdm import tqdm as tqdm
 
 problem_name_list = ["airframes", "windflo", "toy"]
-algorithm_name_list = ["snobfit", "cobyqa", "pyopt", "nevergrad", "scipySLSQP", "scipyDIRECT", "skoptbo"]
+algorithm_name_list = ["snobfit", "cobyqa", "pyopt", "nevergrad", "scipySLSQP", "scipyDIRECT", "skoptbo", "ax"]
 constraint_method_list = ['ignore','nan_on_unfeasible','constant_penalty_no_evaluation','algo_specific', 'nn_encoding']
 
 class problem:
@@ -36,9 +36,20 @@ class problem:
 
         if problem_name == "airframes":
             import problem_airframes
+            import subprocess
+
+            def f_function_airframes(x):
+                for _ in range(3):  # Try evaluating up to three times
+                    try:
+                        res = problem_airframes.f_symmetric_hexarotor_0_1(x, self.rs.randint(1e8), self.rs.randint(1e8))
+                        return res
+                    except subprocess.CalledProcessError:
+                        continue
+                return 11.0
+                                
             self.dim = 15
-            self._constraint_check = lambda x: (1.0, 1.0) #problem_airframes.constraint_check_hexarotor_0_1
-            self._f = lambda x: problem_airframes.f_symmetric_hexarotor_0_1(x, self.rs.randint(1e8), self.rs.randint(1e8))
+            self._constraint_check = problem_airframes.constraint_check_hexarotor_0_1
+            self._f = f_function_airframes
             self.plot_solution = lambda x: problem_airframes.plot_airframe_design(problem_airframes._decode_symmetric_hexarotor_to_RobotParameter(x))
 
         if problem_name == "windflo":
@@ -163,6 +174,9 @@ class optimization_algorithm:
         elif algorithm_name == "skoptbo":
             import algorithm_skoptbo
             self.algo = algorithm_skoptbo.skoptbo_optimizer(problem, seed)
+        elif algorithm_name == "ax":
+            import algorithm_ax
+            self.algo = algorithm_ax.ax_optimizer(problem, seed, total_budget=self.problem.budget)
         else:
             print("Algorithm name", algorithm_name, "not recognized.")
 
