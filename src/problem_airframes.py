@@ -178,7 +178,7 @@ def _plot_airframe_into_ax(ax, pars:RobotParameter, translation, rotation_matrix
         t_vec = pars.motor_translations[i]
         R = Rotation.from_euler("xyz", pars.motor_orientations[i], degrees=True).as_matrix()
         if pars.motor_directions[i] == -1:
-            color = "blue"
+            color = "b"
         elif pars.motor_directions[i] == 1:
             color = "orange"
         else:
@@ -483,28 +483,29 @@ if __name__ == "__main__":
 
  
 
-    # # Best solution
-    x = np.array([0.21113054015459082, 0.8163602651396991, 0.687588923818308, 0.8962354953316194, 0.8638009743986377, 0.8947517427556495, 0.09147142580466072, 0.037867640115246085, 0.9733700758836352, 0.8037889306665265, 0.13591477343697572, 0.0550185335937788, 0.7233358373654524, 0.9260820131451775, 0.44882706930243976])
+    # # # Best solution
+    x = np.array([0.32987799444634164, 0.810774547353179, 0.3410532418544066, 0.16339297630897062, 0.7481333785009029, 0.902614797627005, 0.8538627440612996, 0.743753137438739, 0.7091604002153686, 0.15343380850423463, 0.2135936398405003, 0.9189839268817475, 0.3373501482351435, 0.36676372638410404, 0.11315205632910735])
     pars = _decode_symmetric_hexarotor_to_RobotParameter(x)
 
-    # # quad
+    # # # quad
     # pars = quad_pars
 
     # # hex
     # pars = hex_pars
 
-    # plot_airframe_design(pars)
+    plot_airframe_design(pars)
 
-    train_and_enjoy = True
+    train_and_enjoy = False
     if train_and_enjoy:
         seed_train = 82951261
         seed_enjoy = 19941744
-        # info = motor_rl_objective_function(pars, seed_train, seed_enjoy, 360)
-        f = f_symmetric_hexarotor_0_1(x, seed_train, seed_enjoy)
+        info_dict = motor_rl_objective_function(pars, seed_train, seed_enjoy, 360)
+        f =-(info_dict["nWaypointsReached"][0] / info_dict["nResets"][0]).cpu().item()
         print("--------------------------")
         print("f(x) = ", f)
-        # [print(f"g_{i}(x) = ", el) for i,el in  enumerate(constraint_check(pars))]
-        # print("--------------------------")
+        if 'x' in locals():
+            [print(f"g_{i}(x) = ", el) for i,el in  enumerate(constraint_check(pars))]
+        print("--------------------------")
 
     plot_enjoy_report(pars)
     animate_animationdata_from_cache(pars)
