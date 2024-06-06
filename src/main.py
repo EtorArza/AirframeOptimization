@@ -75,7 +75,7 @@ if __name__ == "__main__":
         from airframes_objective_functions import motor_position_train, motor_position_enjoy, save_robot_pars_to_file
         from problem_airframes import quad_pars, hex_pars
 
-        train_for_seconds_list = [720] + [90, 180, 360, 720, 1440, 2880]
+        train_for_seconds_list = [720] + [360, 720, 1440]
         pars_list = [quad_pars] + [hex_pars for i in range(1, len(train_for_seconds_list))]
         resfilename_list = [f"results/data/quad_f_variance_{train_for_seconds_list[0]}s.csv"] + [f"results/data/hex_f_variance_{seconds}s.csv" for seconds in train_for_seconds_list[1:]]
 
@@ -87,8 +87,9 @@ if __name__ == "__main__":
                 print("seed_train;seed_enjoy;f",  file=f)
             for seed_train in range(2,22):
                 motor_position_train(seed_train, train_for_seconds=train_for_seconds)
-                for seed_enjoy in range(42,62):
-                    _, _, f = motor_position_enjoy(seed_enjoy)
+                for seed_enjoy in range(42,47):
+                    info_dict = motor_position_enjoy(seed_enjoy)
+                    f = (info_dict["nWaypointsReached"][0] / info_dict["nResets"][0]).cpu().item()
                     with open(resfilename, 'a') as file:
                         print(f"{seed_train};{seed_enjoy};{f}",  file=file)
 
@@ -96,12 +97,9 @@ if __name__ == "__main__":
         import plot_src
         plot_src.sidebyside_boxplots([
             "results/data/quad_f_variance_720s.csv",
-            "results/data/hex_f_variance_90s.csv",
-            "results/data/hex_f_variance_180s.csv",
             "results/data/hex_f_variance_360s.csv",
             "results/data/hex_f_variance_720s.csv",
             "results/data/hex_f_variance_1440s.csv",
-            "results/data/hex_f_variance_2880s.csv",
         ])
 
     else:

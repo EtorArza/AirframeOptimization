@@ -162,7 +162,7 @@ def sidebyside_boxplots(file_list: Iterable[str]):
 
     # Plot one boxplot per train seed, to see both the train and test variances together
     from matplotlib import pyplot as plt
-    for key in [("quad",720), ("hex",90), ("hex", 2880)]:
+    for key in [("quad",720), ("hex",360), ("hex", 1440)]:
         boxplot = plt.boxplot([df_dict[key].query(f"seed_train == {seed}")["f"] for seed in range(2, 22)], showmeans=True)
         legend_handles = [boxplot["medians"][0], boxplot["means"][0]]
         legend_labels = ["Median", "Mean"]
@@ -191,8 +191,8 @@ def sidebyside_boxplots(file_list: Iterable[str]):
 
     plt.figure(figsize=(4,2.5))
     boxplot = plt.boxplot(f_list, showmeans=True)
-    plt.hlines(-36.65, *plt.gca().get_xlim(),colors="blue", linestyles="--", label="best retrain 1440s")
-    plt.hlines(-36.45, *plt.gca().get_xlim(), colors="red", linestyles="-.", label="best 360s")
+    plt.hlines(59.14, *plt.gca().get_xlim(),colors="blue", linestyles="--", label="best retrain 1440s")
+    plt.hlines(55.88, *plt.gca().get_xlim(), colors="red", linestyles="-.", label="best 360s")
     plt.legend()
     plt.xticks(list(range(1, len(f_list)+1)), label_list)
     plt.xlabel("Traininig time (s)")
