@@ -72,7 +72,7 @@ if __name__ == "__main__":
         plt.show()
 
     elif sys.argv[1] == "--airframes-f-variance":
-        from airframes_objective_functions import motor_position_train, motor_position_enjoy, save_robot_pars_to_file
+        from airframes_objective_functions import motor_position_train, motor_position_enjoy, save_robot_pars_to_file, loss_function
         from problem_airframes import quad_pars, hex_pars
 
         train_for_seconds_list = [720] + [360, 720, 1440]
@@ -89,7 +89,7 @@ if __name__ == "__main__":
                 motor_position_train(seed_train, train_for_seconds=train_for_seconds)
                 for seed_enjoy in range(42,47):
                     info_dict = motor_position_enjoy(seed_enjoy)
-                    f = (info_dict["nWaypointsReached"][0] / info_dict["nResets"][0]).cpu().item()
+                    f = loss_function(info_dict)
                     with open(resfilename, 'a') as file:
                         print(f"{seed_train};{seed_enjoy};{f}",  file=file)
 

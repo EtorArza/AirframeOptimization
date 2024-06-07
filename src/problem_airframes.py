@@ -24,8 +24,8 @@ import pytorch3d.transforms as p3d_transforms
 
 
 
-
-plotlims = [-0.60, 0.60]
+animation_camera = "static" # "static" or "follow_goal"
+plotlims = [-1.0, 1.0]
 # Quad
 quad_pars = PredefinedConfigParameter('quad')
 
@@ -50,7 +50,7 @@ def from_0_1_to_RobotParameter(x: numpy.typing.NDArray[np.float_]):
     # A linear scalling to [0,1]^number_of_parameters
     assert type(x)==np.ndarray, "x = "+str(x)+" | type(x) = "+str(type(x))
     assert len(x.shape)==2 and x.shape[1] == 6, "x = "+str(x)
-    n_rotors = x.shape[0]
+    n_motors = x.shape[0]
     pars = RobotParameter()
 
     
@@ -61,13 +61,13 @@ def from_0_1_to_RobotParameter(x: numpy.typing.NDArray[np.float_]):
     
     pars.cq = 0.1
     pars.frame_mass = mass * proportion_mass_in_body
-    pars.motor_masses = [mass * (1.0 - proportion_mass_in_body) / n_rotors] * n_rotors
+    pars.motor_masses = [mass * (1.0 - proportion_mass_in_body) / n_motors] * n_motors
     
 
-    pars.motor_directions = ([1,-1,-1,1]*6)[:n_rotors]
+    pars.motor_directions = ([1,-1,-1,1]*6)[:n_motors]
 
-    x_motor_translations = np.array([x[rotor_idx, i] for rotor_idx in range(n_rotors) for i in range(3)])
-    x_motor_orientations = np.array([x[rotor_idx, i] for rotor_idx in range(n_rotors) for i in range(3,6)])
+    x_motor_translations = np.array([x[rotor_idx, i] for rotor_idx in range(n_motors) for i in range(3)])
+    x_motor_orientations = np.array([x[rotor_idx, i] for rotor_idx in range(n_motors) for i in range(3,6)])
 
     pars.motor_translations = (x_motor_translations.reshape(-1,3) * 2.0 - 1.0) * max_width
     pars.motor_orientations = x_motor_orientations.reshape(-1, 3) * 360
@@ -79,8 +79,14 @@ def from_0_1_to_RobotParameter(x: numpy.typing.NDArray[np.float_]):
     #pars.sensor_orientations = [[0,0,0],[0,-20,0]]
     #pars.sensor_translations = [[0,0.5,0.1],[0,0,-0.1]]
 
-    pars.max_u = 3*mass*9.81 / n_rotors
-    pars.min_u = 0
+    pars.min_thrust = pars.min_u = 0
+    pars.max_thrust = pars.max_u = 3*mass*9.81 / n_motors
+    pars.max_thrust_rate = 100.0
+    
+    
+    pars.motor_time_constant_min = 0.01
+    pars.motor_time_constant_max = 0.03
+
 
     return pars
 
@@ -126,12 +132,17 @@ def _decode_symmetric_hexarotor_to_RobotParameter(x: numpy.typing.NDArray[np.flo
             x_decoded[prop_i*2+1, 5] = 1.0 - x[prop_i*5 +4]                  # euler_z inverse
     return from_0_1_to_RobotParameter(x_decoded)
 
+def loss_function(info_dict):
+    -(info_dict["f_nWaypointsReached"][0] / info_dict["f_nResets"][0]).cpu().item()
+
+
+
 def f_symmetric_hexarotor_0_1(x: numpy.typing.NDArray[np.float_], seed_train: int, seed_enjoy: int):
 
     assert x.shape == (15,) or x.shape== (10,)
     pars = _decode_symmetric_hexarotor_to_RobotParameter(x)
     info_dict = motor_rl_objective_function(pars, seed_train, seed_enjoy, 360)
-    return -(info_dict["nWaypointsReached"][0] / info_dict["nResets"][0]).cpu().item()
+    return 
 
 def constraint_check_hexarotor_0_1(x: numpy.typing.NDArray[np.float_]):
     pars = _decode_symmetric_hexarotor_to_RobotParameter(x)
@@ -346,10 +357,18 @@ def animate_airframe(pars:RobotParameter, pose_list, target_list):
         # xlim_upper = max(max(start_position_list[frm_idx][:3]), max(target_list[frm_idx]))
 
 
+        if animation_camera == ("static"):
+            xlim =  ylim = zlim = plotlims
 
-        xlim = (translation[0] - margin, translation[0]+ margin)
-        ylim = (translation[1] - margin, translation[1]+ margin)
-        zlim = (translation[2] - margin, translation[2]+ margin)
+
+        elif animation_camera == "follow_goal":
+
+            xlim = (translation[0] - margin, translation[0]+ margin)
+            ylim = (translation[1] - margin, translation[1]+ margin)
+            zlim = (translation[2] - margin, translation[2]+ margin)
+
+        else:
+            raise NotImplementedError()
 
         ax.set_xlim(xlim) 
         ax.set_ylim(ylim) 
@@ -499,8 +518,8 @@ if __name__ == "__main__":
     if train_and_enjoy:
         seed_train = 21
         seed_enjoy = 46
-        info_dict = motor_rl_objective_function(pars, seed_train, seed_enjoy, 720)
-        f =-(info_dict["nWaypointsReached"][0] / info_dict["nResets"][0]).cpu().item()
+        info_dict = motor_rl_objective_function(pars, seed_train, seed_enjoy, 360)
+        f = loss_function(info_dict)
         dump_animation_info_dict(pars, seed_train, seed_enjoy, info_dict)
         print("--------------------------")
         print("f(x) = ", f)
