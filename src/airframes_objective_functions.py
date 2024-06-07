@@ -119,19 +119,20 @@ def _motor_position_train(cmdl_args):
     output = subprocess.check_output(cmd_str, shell=True, text=True)
     print(output)
 
+def dump_animation_info_dict(pars, seed_train, seed_enjoy, info_dict):
+        with open(f'cache/airframes_animationdata/{hash(pars)}_airframeanimationdata.wb', 'wb') as f:
+            res = {"pars":pars,
+                "seed_train":seed_train, 
+                "seed_enjoy": seed_enjoy,
+                **info_dict,
+            }
+            pickle.dump(res, f)
 
 def motor_rl_objective_function(pars, seed_train, seed_enjoy, train_for_seconds):
     save_robot_pars_to_file(pars)
     motor_position_train(seed_train, train_for_seconds)
     info_dict = motor_position_enjoy(seed_enjoy)
-
-    with open(f'cache/airframes_animationdata/{hash(pars)}_airframeanimationdata.wb', 'wb') as f:
-        res = {"pars":pars,
-               "seed_train":seed_train, 
-               "seed_enjoy": seed_enjoy,
-               **info_dict,
-        }
-        pickle.dump(res, f)
+    dump_animation_info_dict(pars, seed_train, seed_enjoy, info_dict)
     return info_dict
 
 if __name__ == '__main__':

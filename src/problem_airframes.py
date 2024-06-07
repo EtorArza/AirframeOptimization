@@ -17,7 +17,7 @@ from tqdm import tqdm as tqdm
 from math import sqrt
 from matplotlib.animation import FuncAnimation
 import subprocess
-from airframes_objective_functions import motor_rl_objective_function
+from airframes_objective_functions import motor_rl_objective_function, dump_animation_info_dict
 import pickle
 import torch
 import pytorch3d.transforms as p3d_transforms
@@ -376,8 +376,8 @@ def animate_animationdata_from_cache(pars: RobotParameter):
     # print(animationdata['pars'])
     # print("----")
     assert hash(pars) == hash(animationdata['pars'])
-    print(animationdata["seed_train"])
-    print(animationdata["seed_enjoy"])
+    print("seed_train =",animationdata["seed_train"])
+    print("seed_enjoy =",animationdata["seed_enjoy"])
     print(hash(animationdata['pars']))
     positions = np.array(animationdata["poses"].reshape(-1,6).tolist())
     animate_airframe(pars, positions, animationdata["goal_poses"].reshape(-1,6)[:,:3].cpu().numpy())
@@ -483,24 +483,25 @@ if __name__ == "__main__":
 
  
 
-    # # # Best solution
-    x = np.array([0.32987799444634164, 0.810774547353179, 0.3410532418544066, 0.16339297630897062, 0.7481333785009029, 0.902614797627005, 0.8538627440612996, 0.743753137438739, 0.7091604002153686, 0.15343380850423463, 0.2135936398405003, 0.9189839268817475, 0.3373501482351435, 0.36676372638410404, 0.11315205632910735])
-    pars = _decode_symmetric_hexarotor_to_RobotParameter(x)
+    # # # # Best solution
+    # x = np.array([0.32987799444634164, 0.810774547353179, 0.3410532418544066, 0.16339297630897062, 0.7481333785009029, 0.902614797627005, 0.8538627440612996, 0.743753137438739, 0.7091604002153686, 0.15343380850423463, 0.2135936398405003, 0.9189839268817475, 0.3373501482351435, 0.36676372638410404, 0.11315205632910735])
+    # pars = _decode_symmetric_hexarotor_to_RobotParameter(x)
 
     # # # quad
     # pars = quad_pars
 
-    # # hex
-    # pars = hex_pars
+    # hex
+    pars = hex_pars
 
     plot_airframe_design(pars)
 
-    train_and_enjoy = False
+    train_and_enjoy = True
     if train_and_enjoy:
-        seed_train = 82951261
-        seed_enjoy = 19941744
-        info_dict = motor_rl_objective_function(pars, seed_train, seed_enjoy, 360)
+        seed_train = 21
+        seed_enjoy = 46
+        info_dict = motor_rl_objective_function(pars, seed_train, seed_enjoy, 720)
         f =-(info_dict["nWaypointsReached"][0] / info_dict["nResets"][0]).cpu().item()
+        dump_animation_info_dict(pars, seed_train, seed_enjoy, info_dict)
         print("--------------------------")
         print("f(x) = ", f)
         if 'x' in locals():
