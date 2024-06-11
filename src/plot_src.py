@@ -4,7 +4,7 @@ import pandas as pd
 import numpy as np
 import typing
 from tqdm import tqdm as tqdm
-
+import itertools
 
 marker_list = ["","o","x","s","d","2","^","*"]
 linestyle_list = ["-","--","-.", ":",(0, (3, 5, 1, 5, 1, 5)),(5, (10, 3)), (0, (3, 1, 1, 1))]
@@ -202,6 +202,49 @@ def sidebyside_boxplots(file_list: Iterable[str]):
     plt.savefig("results/figures/quad_hex_f_variance/train_variance_hex.pdf")
     plt.close()
 
+
+
+def multiobjective_scatter_by_train_time(details_every_evaluation_csv):
+
+    df = pd.read_csv(details_every_evaluation_csv, sep=";")
+    
+    df = df.groupby(['hash', 'seed_train', "train_for_seconds"]).agg({
+        'seed_enjoy': lambda x: -1 if len(x) > 1 else x.iloc[0],
+        'f': 'mean',
+        'nWaypointsReached/nResets': 'mean',
+        'total_energy': 'mean'
+    }).reset_index()
+
+    unique_train_seconds = df['train_for_seconds'].unique()
+    color_map = {value: color for value, color in zip(unique_train_seconds, plt.rcParams['axes.prop_cycle'].by_key()['color'])}
+    markers = itertools.cycle(('x', 's', 'v', '^', '<', '>', '8', 'p', '*', 'h', 'H', 'D', 'd'))
+
+    labels_map = {
+        361: "Hexarotor 30s",
+        720: "Hexarotor 720s",
+        360: "Optimized design 360"
+    }
+
+    plt.figure(figsize=(10, 6))
+    for train_value in unique_train_seconds:
+        subset = df[df['train_for_seconds'] == train_value]
+        plt.scatter(
+            x=subset['total_energy'],
+            y=subset['nWaypointsReached/nResets'],
+            label=labels_map.get(train_value, f'train_for_seconds = {train_value}'),
+            color=color_map[train_value],
+            marker=next(markers),
+            alpha=0.5
+        )
+    plt.xlabel('Total Energy')
+    plt.ylabel('nWaypointsReached/nResets')
+    plt.title('2D Scatter Plot of Total Energy vs nWaypointsReached/nResets')
+    plt.legend()
+    plt.grid(True)
+    plt.show()
+
+    print(df)
+    exit(0)
 
 
 if __name__ == '__main__':
