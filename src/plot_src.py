@@ -163,7 +163,7 @@ def sidebyside_boxplots(file_list: Iterable[str]):
     # Plot one boxplot per train seed, to see both the train and test variances together
     from matplotlib import pyplot as plt
     for key in [("quad",720), ("hex",360), ("hex", 1440)]:
-        boxplot = plt.boxplot([df_dict[key].query(f"seed_train == {seed}")["f"] for seed in range(2, 22)], showmeans=True)
+        boxplot = plt.boxplot([df_dict[key].query(f"seed_train == {seed}")["f_waypoints_reached_energy_adjusted"] for seed in range(2, 22)], showmeans=True)
         legend_handles = [boxplot["medians"][0], boxplot["means"][0]]
         legend_labels = ["Median", "Mean"]
         plt.legend(legend_handles, legend_labels)

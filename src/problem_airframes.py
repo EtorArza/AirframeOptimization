@@ -17,7 +17,7 @@ from tqdm import tqdm as tqdm
 from math import sqrt
 from matplotlib.animation import FuncAnimation
 import subprocess
-from airframes_objective_functions import motor_rl_objective_function, dump_animation_info_dict
+from airframes_objective_functions import motor_rl_objective_function, dump_animation_info_dict, loss_function
 import pickle
 import torch
 import pytorch3d.transforms as p3d_transforms
@@ -132,8 +132,6 @@ def _decode_symmetric_hexarotor_to_RobotParameter(x: numpy.typing.NDArray[np.flo
             x_decoded[prop_i*2+1, 5] = 1.0 - x[prop_i*5 +4]                  # euler_z inverse
     return from_0_1_to_RobotParameter(x_decoded)
 
-def loss_function(info_dict):
-    -(info_dict["f_nWaypointsReached"][0] / info_dict["f_nResets"][0]).cpu().item()
 
 
 
@@ -142,7 +140,7 @@ def f_symmetric_hexarotor_0_1(x: numpy.typing.NDArray[np.float_], seed_train: in
     assert x.shape == (15,) or x.shape== (10,)
     pars = _decode_symmetric_hexarotor_to_RobotParameter(x)
     info_dict = motor_rl_objective_function(pars, seed_train, seed_enjoy, 360)
-    return 
+    return loss_function(info_dict)
 
 def constraint_check_hexarotor_0_1(x: numpy.typing.NDArray[np.float_]):
     pars = _decode_symmetric_hexarotor_to_RobotParameter(x)
@@ -518,7 +516,7 @@ if __name__ == "__main__":
     if train_and_enjoy:
         seed_train = 21
         seed_enjoy = 46
-        info_dict = motor_rl_objective_function(pars, seed_train, seed_enjoy, 360)
+        info_dict = motor_rl_objective_function(pars, seed_train, seed_enjoy, 1440)
         f = loss_function(info_dict)
         dump_animation_info_dict(pars, seed_train, seed_enjoy, info_dict)
         print("--------------------------")

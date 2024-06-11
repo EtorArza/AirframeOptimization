@@ -3,6 +3,8 @@ import subprocess
 from matplotlib import pyplot as plt
 from tqdm import tqdm as tqdm
 import pickle
+import os
+
 
 def save_robot_pars_to_file(pars):
     print("save parameters to aerial_gym_dev/envs/base/tmp/config")
@@ -128,12 +130,27 @@ def dump_animation_info_dict(pars, seed_train, seed_enjoy, info_dict):
             }
             pickle.dump(res, f)
 
+def log_detailed_evaluation_results(pars, info_dict, seed_train, seed_enjoy, train_for_seconds):
+        logpath = "results/data/details_every_evaluation.csv"
+        header = "hash;train_for_seconds;seed_train;seed_enjoy;f;nWaypointsReached/nResets;total_energy\n"
+        if not os.path.exists(logpath) or os.path.getsize(logpath) == 0:
+            with open(logpath, 'w') as file:
+                file.write(header)
+        with open(logpath, 'a') as file:
+            print(f"{hash(pars)};{train_for_seconds};{seed_train};{seed_enjoy};{loss_function(info_dict)};{(info_dict['f_nWaypointsReached']/info_dict['f_nResets']).cpu().item()};{(info_dict['f_total_energy']).cpu().item()}",  file=file)
+
 def motor_rl_objective_function(pars, seed_train, seed_enjoy, train_for_seconds):
     save_robot_pars_to_file(pars)
     motor_position_train(seed_train, train_for_seconds)
     info_dict = motor_position_enjoy(seed_enjoy)
+    log_detailed_evaluation_results(pars, info_dict, seed_train, seed_enjoy, train_for_seconds)
     dump_animation_info_dict(pars, seed_train, seed_enjoy, info_dict)
     return info_dict
+
+def loss_function(info_dict):
+    return -(
+        (info_dict["f_waypoints_reached_energy_adjusted"][0]  / info_dict["f_nResets"][0])
+        ).cpu().item()
 
 if __name__ == '__main__':
     # Call objective function from subprocess. Assumes robotConfigFile.txt has been previously written.

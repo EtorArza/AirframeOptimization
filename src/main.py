@@ -27,8 +27,8 @@ if __name__ == "__main__":
         algorithm_name = "ax"
         constraint_method = "ignore" # 'ignore','nan_on_unfeasible','constant_penalty_no_evaluation','algo_specific', 'nn_encoding'
         reuse_encoding = True
-        seed = 4
-        budget = 2000
+        seed = 6
+        budget = 200
         local_solve(problem_name, algorithm_name, constraint_method, seed, budget, reuse_encoding, log_every=1)
 
 
@@ -72,12 +72,12 @@ if __name__ == "__main__":
         plt.show()
 
     elif sys.argv[1] == "--airframes-f-variance":
-        from airframes_objective_functions import motor_position_train, motor_position_enjoy, save_robot_pars_to_file, loss_function
-        from problem_airframes import quad_pars, hex_pars
+        from airframes_objective_functions import motor_position_train, motor_position_enjoy, save_robot_pars_to_file, log_detailed_evaluation_results
+        from problem_airframes import quad_pars, hex_pars, loss_function
 
-        train_for_seconds_list = [720] + [360, 720, 1440]
-        pars_list = [quad_pars] + [hex_pars for i in range(1, len(train_for_seconds_list))]
-        resfilename_list = [f"results/data/quad_f_variance_{train_for_seconds_list[0]}s.csv"] + [f"results/data/hex_f_variance_{seconds}s.csv" for seconds in train_for_seconds_list[1:]]
+        train_for_seconds_list = [361, 720]
+        pars_list = [hex_pars for i in range(len(train_for_seconds_list))]
+        resfilename_list = [f"results/data/hex_f_variance_{seconds}s.csv" for seconds in train_for_seconds_list]
 
         assert len(train_for_seconds_list) == len(pars_list) == len(resfilename_list)
         for pars, train_for_seconds, resfilename,  in zip(pars_list, train_for_seconds_list, resfilename_list):
@@ -90,16 +90,15 @@ if __name__ == "__main__":
                 for seed_enjoy in range(42,47):
                     info_dict = motor_position_enjoy(seed_enjoy)
                     f = loss_function(info_dict)
+                    log_detailed_evaluation_results(pars, info_dict, seed_train, seed_enjoy, train_for_seconds)
                     with open(resfilename, 'a') as file:
                         print(f"{seed_train};{seed_enjoy};{f}",  file=file)
 
     elif sys.argv[1] == "--airframes-f-variance-plot":
         import plot_src
         plot_src.sidebyside_boxplots([
-            "results/data/quad_f_variance_720s.csv",
             "results/data/hex_f_variance_360s.csv",
             "results/data/hex_f_variance_720s.csv",
-            "results/data/hex_f_variance_1440s.csv",
         ])
 
     else:
