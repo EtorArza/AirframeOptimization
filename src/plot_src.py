@@ -220,9 +220,8 @@ def multiobjective_scatter_by_train_time(details_every_evaluation_csv):
     markers = itertools.cycle(('x', 's', 'v', '^', '<', '>', '8', 'p', '*', 'h', 'H', 'D', 'd'))
 
     labels_map = {
-        361: "Hexarotor 30s",
-        720: "Hexarotor 720s",
-        360: "Optimized design 360"
+        721: "Hexarotor 720s",
+        720: "Optimized design 720s",
     }
 
     plt.figure(figsize=(10, 6))
@@ -241,11 +240,9 @@ def multiobjective_scatter_by_train_time(details_every_evaluation_csv):
     plt.title('2D Scatter Plot of Total Energy vs nWaypointsReached/nResets')
     plt.legend()
     plt.grid(True)
-    plt.show()
-
-    print(df)
-    exit(0)
-
+    plt.tight_layout()
+    plt.savefig("results/figures/quad_hex_f_variance/scatter_energy_vs_waypoints_MO.pdf")
+    return df
 
 if __name__ == '__main__':
     # plot_progress_one('results/data/airframes_pyopt_4.csv')

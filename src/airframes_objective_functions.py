@@ -117,7 +117,7 @@ def _motor_position_train(cmdl_args):
     current_time = datetime.now()
     subprocess.run("rm train_dir/ -rf", shell=True)
     cmd_str = f'python3 ../../sample-factory/sf_examples/gen_aerial_robot_population/train_individual.py --env=gen_aerial_robot {cmdl_args}'
-    print(f">> run shell on {current_time.strftime('%Y-%m-%d %H:%M:%S')}\n{cmd_str}")
+    print(f">> run shell on {current_time.strftime('%Y-%m-%d %H:%M:%S')}\n{cmd_str}", file=sys.stderr)
     output = subprocess.check_output(cmd_str, shell=True, text=True)
     print(output)
 

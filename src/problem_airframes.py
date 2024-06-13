@@ -90,10 +90,14 @@ def from_0_1_to_RobotParameter(x: numpy.typing.NDArray[np.float_]):
 
     return pars
 
-def constraint_check(pars: RobotParameter):
+def constraint_check_welf(pars: RobotParameter):
     robot = RobotModel(pars)
     check1, check2 = analyze_robot_config.analyze_robot_config(robot)
     return (check1, check2)
+
+
+def constraints_fabrication(pars: RobotParameter):
+    pass
 
 def _decode_symmetric_hexarotor_to_RobotParameter(x: numpy.typing.NDArray[np.float_]):
 
@@ -139,12 +143,12 @@ def f_symmetric_hexarotor_0_1(x: numpy.typing.NDArray[np.float_], seed_train: in
 
     assert x.shape == (15,) or x.shape== (10,)
     pars = _decode_symmetric_hexarotor_to_RobotParameter(x)
-    info_dict = motor_rl_objective_function(pars, seed_train, seed_enjoy, 360)
+    info_dict = motor_rl_objective_function(pars, seed_train, seed_enjoy, 720)
     return loss_function(info_dict)
 
-def constraint_check_hexarotor_0_1(x: numpy.typing.NDArray[np.float_]):
+def constraint_check_welf_hexarotor_0_1(x: numpy.typing.NDArray[np.float_]):
     pars = _decode_symmetric_hexarotor_to_RobotParameter(x)
-    return constraint_check(pars)
+    return constraint_check_welf(pars)
 
 def plot_airframe_design(pars:RobotParameter, translation:numpy.typing.NDArray[np.float_]=np.zeros(3), rotation_matrix: numpy.typing.NDArray[np.float_]=np.eye(3,3), target=None):
 
@@ -500,29 +504,29 @@ if __name__ == "__main__":
 
  
 
-    # # # # Best solution
-    # x = np.array([0.32987799444634164, 0.810774547353179, 0.3410532418544066, 0.16339297630897062, 0.7481333785009029, 0.902614797627005, 0.8538627440612996, 0.743753137438739, 0.7091604002153686, 0.15343380850423463, 0.2135936398405003, 0.9189839268817475, 0.3373501482351435, 0.36676372638410404, 0.11315205632910735])
-    # pars = _decode_symmetric_hexarotor_to_RobotParameter(x)
+    # # # Best solution
+    x = np.array([0.8932235851627506, 0.09535504539393651, 0.5979332540692033, 0.34184463391002057, 0.8311931421533316, 0.6050332299443291, 0.3000425167872989, 0.4913439917199939, 0.7050269533282791, 0.4605623502382138, 0.19432065769519077, 0.9691080602782862, 0.28750289347218105, 0.3897128715896106, 0.5831976740497231])
+    pars = _decode_symmetric_hexarotor_to_RobotParameter(x)
 
     # # # quad
     # pars = quad_pars
 
-    # hex
-    pars = hex_pars
+    # # hex
+    # pars = hex_pars
 
     plot_airframe_design(pars)
 
     train_and_enjoy = True
     if train_and_enjoy:
-        seed_train = 21
-        seed_enjoy = 46
-        info_dict = motor_rl_objective_function(pars, seed_train, seed_enjoy, 1440)
+        seed_train = 15794577
+        seed_enjoy = 7460264
+        info_dict = motor_rl_objective_function(pars, seed_train, seed_enjoy, 720)
         f = loss_function(info_dict)
         dump_animation_info_dict(pars, seed_train, seed_enjoy, info_dict)
         print("--------------------------")
         print("f(x) = ", f)
         if 'x' in locals():
-            [print(f"g_{i}(x) = ", el) for i,el in  enumerate(constraint_check(pars))]
+            [print(f"g_{i}(x) = ", el) for i,el in  enumerate(constraint_check_welf(pars))]
         print("--------------------------")
 
     plot_enjoy_report(pars)

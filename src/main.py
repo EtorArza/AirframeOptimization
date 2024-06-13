@@ -75,7 +75,7 @@ if __name__ == "__main__":
         from airframes_objective_functions import motor_position_train, motor_position_enjoy, save_robot_pars_to_file, log_detailed_evaluation_results
         from problem_airframes import quad_pars, hex_pars, loss_function
 
-        train_for_seconds_list = [361, 720]
+        train_for_seconds_list = [721]
         pars_list = [hex_pars for i in range(len(train_for_seconds_list))]
         resfilename_list = [f"results/data/hex_f_variance_{seconds}s.csv" for seconds in train_for_seconds_list]
 
@@ -87,7 +87,7 @@ if __name__ == "__main__":
                 print("seed_train;seed_enjoy;f",  file=f)
             for seed_train in range(2,22):
                 motor_position_train(seed_train, train_for_seconds=train_for_seconds)
-                for seed_enjoy in range(42,47):
+                for seed_enjoy in range(42,44):
                     info_dict = motor_position_enjoy(seed_enjoy)
                     f = loss_function(info_dict)
                     log_detailed_evaluation_results(pars, info_dict, seed_train, seed_enjoy, train_for_seconds)
