@@ -53,7 +53,7 @@ def _get_feasability_data_airframes_one_run(path):
                 f = float(line[line.find(' f: ')+len(' f: '):line.rfind(' t: ')] if ' f: ' in line and ' t: ' in line else None)
                 f_list.append(f)
                 x_list.append(x)
-                feasability_list.append(problem_airframes.constraint_check_hexarotor_0_1(np.array(x)))
+                feasability_list.append(problem_airframes.constraint_check_welf_hexarotor_0_1(np.array(x)))
 
     # df = pd.DataFrame({'f':f_list, 'g0':list(zip(*feasability_list))[0],  'g1':list(zip(*feasability_list))[1]}) 
     return f_list, feasability_list
@@ -204,16 +204,31 @@ def sidebyside_boxplots(file_list: Iterable[str]):
 
 
 
-def multiobjective_scatter_by_train_time(details_every_evaluation_csv):
-
+def _read_and_clean_data_every_evaluation_csv(details_every_evaluation_csv):
     df = pd.read_csv(details_every_evaluation_csv, sep=";")
+
+    chosen_rows = (df["nWaypointsReached/nResets"] > 1.0) & (df["total_energy/nWaypointsReached"] > 0.01) & (df["total_energy/nWaypointsReached"] < 5.0)
     
+    perc_rows = (1.0 - np.count_nonzero(chosen_rows) / df.shape[0]) * 100.0
+
+    print(f"{perc_rows:.1f}% of solutions were discarded as outliers.")
+
+    df = df[chosen_rows]
+
     df = df.groupby(['hash', 'seed_train', "train_for_seconds"]).agg({
-        'seed_enjoy': lambda x: -1 if len(x) > 1 else x.iloc[0],
+        'seed_enjoy': lambda x: x.iloc[0] if len(x) > 1 else x.iloc[0],
         'f': 'mean',
         'nWaypointsReached/nResets': 'mean',
+        'total_energy/nWaypointsReached': 'mean',
         'total_energy': 'mean'
     }).reset_index()
+
+    return df
+
+
+def multiobjective_scatter_by_train_time(details_every_evaluation_csv):
+
+    df = _read_and_clean_data_every_evaluation_csv(details_every_evaluation_csv)
 
     unique_train_seconds = df['train_for_seconds'].unique()
     color_map = {value: color for value, color in zip(unique_train_seconds, plt.rcParams['axes.prop_cycle'].by_key()['color'])}
@@ -228,21 +243,108 @@ def multiobjective_scatter_by_train_time(details_every_evaluation_csv):
     for train_value in unique_train_seconds:
         subset = df[df['train_for_seconds'] == train_value]
         plt.scatter(
-            x=subset['total_energy'],
+            x=subset['total_energy/nWaypointsReached'],
             y=subset['nWaypointsReached/nResets'],
             label=labels_map.get(train_value, f'train_for_seconds = {train_value}'),
             color=color_map[train_value],
             marker=next(markers),
             alpha=0.5
         )
-    plt.xlabel('Total Energy')
-    plt.ylabel('nWaypointsReached/nResets')
-    plt.title('2D Scatter Plot of Total Energy vs nWaypointsReached/nResets')
+    plt.xlabel('Energy per waypoint reached')
+    plt.ylabel('Waypoint reached per reset')
+    plt.title('Waypoints reached vs. energy use')
     plt.legend()
     plt.grid(True)
     plt.tight_layout()
     plt.savefig("results/figures/quad_hex_f_variance/scatter_energy_vs_waypoints_MO.pdf")
     return df
+
+
+def generate_bokeh_interactive_plot(details_every_evaluation_csv, task_name):
+
+    from bokeh.plotting import figure, output_file, show, ColumnDataSource
+    from bokeh.models import HoverTool
+    import pandas as pd
+    import problem_airframes
+    import pickle
+
+    df = _read_and_clean_data_every_evaluation_csv(details_every_evaluation_csv)
+    df = df
+
+    imgs =[]
+    x=[]
+    y=[]
+    desc=[]
+    colors = []
+    markers = []
+    legend_labels = []
+
+    for i in tqdm(range(df.shape[0])):
+        id = str(df["hash"][i])+ "_" + str(df["seed_train"][i])+ "_" + str(df["seed_enjoy"][i]) + "_" + task_name
+        pars_hash = df["hash"][i]
+        if pars_hash == 7527344585620001714:
+            colors.append("orange")
+            markers.append("square")
+            legend_labels.append("standard")
+        else:
+            colors.append("blue")
+            markers.append("x")
+            legend_labels.append("optimized")
+
+        data = pickle.load(open(f'cache/airframes_animationdata/{id}_airframeanimationdata.wb', 'rb'))
+        pars = data["pars"]
+        imagepath = f"cache/bokeh_interactive_plot/{id}.jpeg"
+        problem_airframes.plot_airframe_to_file(pars, imagepath)
+        desc.append(str(id))
+        imgs.append(imagepath)
+        x.append(df["total_energy/nWaypointsReached"][i])
+        y.append(df["nWaypointsReached/nResets"][i])
+
+    output_file("test_bokeh.html")
+
+    source = ColumnDataSource(
+        data=dict(
+            x=x,
+            y=y,
+            desc=desc,
+            imgs=imgs,
+            colors=colors,
+            legend_labels=legend_labels,
+            markers=markers
+        )
+    )
+
+    hover = HoverTool(
+        tooltips="""
+        <div>
+            <div>
+                <img
+                    src="@imgs" height="400" alt="@imgs" width="400"
+                    style="float: center; margin: 0px 15px 15px 0px;"
+                    border="2"
+                ></img>
+            </div>
+        </div>
+        """
+    )
+
+    p = figure(min_width=400, min_height=400, tools=[hover], title="Mouse over the dots")
+    p.scatter('x', 'y', size=10, source=source, fill_alpha=0, line_color='colors', marker="markers", legend_field='legend_labels')
+
+
+    p.xaxis.axis_label = 'Energy per waypoint reached'
+    p.yaxis.axis_label = 'Waypoint reached per reset'
+    p.title.text = f'Waypoints reached vs. energy use ({task_name})'
+
+
+    # p.legend.title = 'Hexarotor Type'
+    p.legend.location = 'top_right'
+    p.legend.click_policy = 'hide'
+
+    show(p)
+
+
+
 
 if __name__ == '__main__':
     # plot_progress_one('results/data/airframes_pyopt_4.csv')

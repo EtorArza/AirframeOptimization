@@ -122,8 +122,9 @@ def _motor_position_train(cmdl_args):
     print(output)
 
 def dump_animation_info_dict(pars, seed_train, seed_enjoy, info_dict):
-        with open(f'cache/airframes_animationdata/{hash(pars)}_airframeanimationdata.wb', 'wb') as f:
+        with open(f'cache/airframes_animationdata/{hash(pars)}_{seed_train}_{seed_enjoy}_{pars.task_info["task_name"]}_airframeanimationdata.wb', 'wb') as f:
             res = {"pars":pars,
+                "task_info": pars.task_info,
                 "seed_train":seed_train, 
                 "seed_enjoy": seed_enjoy,
                 **info_dict,
@@ -131,13 +132,15 @@ def dump_animation_info_dict(pars, seed_train, seed_enjoy, info_dict):
             pickle.dump(res, f)
 
 def log_detailed_evaluation_results(pars, info_dict, seed_train, seed_enjoy, train_for_seconds):
-        logpath = "results/data/details_every_evaluation.csv"
-        header = "hash;train_for_seconds;seed_train;seed_enjoy;f;nWaypointsReached/nResets;total_energy\n"
+        task_name = pars.task_info["task_name"]
+        logpath = f"results/data/details_every_evaluation_{task_name}.csv"
+        header = "hash;train_for_seconds;seed_train;seed_enjoy;f;nWaypointsReached;nResets;nWaypointsReached/nResets;total_energy/nWaypointsReached;total_energy\n"
+        import torch
         if not os.path.exists(logpath) or os.path.getsize(logpath) == 0:
             with open(logpath, 'w') as file:
                 file.write(header)
         with open(logpath, 'a') as file:
-            print(f"{hash(pars)};{train_for_seconds};{seed_train};{seed_enjoy};{loss_function(info_dict)};{(info_dict['f_nWaypointsReached']/info_dict['f_nResets']).cpu().item()};{(info_dict['f_total_energy']).cpu().item()}",  file=file)
+            print(f"{hash(pars)};{train_for_seconds};{seed_train};{seed_enjoy};{loss_function(info_dict)};{(info_dict['f_nWaypointsReached']).cpu().item()};{(info_dict['f_nResets']).cpu().item()};{(info_dict['f_nWaypointsReached']/info_dict['f_nResets']).cpu().item()};{(info_dict['f_total_energy']/torch.clamp(info_dict['f_nWaypointsReached'], min=1.0)).cpu().item()};{(info_dict['f_total_energy']).cpu().item()}", file=file)
 
 def motor_rl_objective_function(pars, seed_train, seed_enjoy, train_for_seconds):
     save_robot_pars_to_file(pars)

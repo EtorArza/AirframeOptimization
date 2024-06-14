@@ -10,7 +10,7 @@ constraint_method_list = ['ignore','nan_on_unfeasible','constant_penalty_no_eval
 
 class problem:
 
-    def __init__(self, problem_name:str, budget:int, constraint_method:str, seed:int, reuse_encoding:bool):
+    def __init__(self, problem_name:str, budget:int, constraint_method:str, seed:int, reuse_encoding:bool, task_info=None):
         '''
         Initializes the problem to be solved. All the problems are minimization of the objective 
         function f, and solutions are feasible as long as the constraints >= 0. This is the convention used 
@@ -37,18 +37,18 @@ class problem:
         if problem_name == "airframes":
             import problem_airframes
             import subprocess
-
+            assert not task_info is None
             def f_function_airframes(x):
-                for _ in range(3):  # Try evaluating up to three times
+                for _ in range(5):  # Try evaluating up to three times
                     try:
-                        res = problem_airframes.f_symmetric_hexarotor_0_1(x, self.rs.randint(1e8), self.rs.randint(1e8))
+                        res = problem_airframes.f_symmetric_hexarotor_0_1(x, self.rs.randint(1e8), self.rs.randint(1e8), task_info)
                         return res
                     except subprocess.CalledProcessError:
                         continue
-                return 11.0
-                                
+                raise subprocess.CalledProcessError(f"f_function_airframes crashed 5 times in a row. The solution x = {x} produced some errors consistently.")
+
             self.dim = 15
-            self._constraint_check = problem_airframes.constraint_check_hexarotor_0_1
+            self._constraint_check = problem_airframes.constraint_check_welf_hexarotor_0_1
             self._f = f_function_airframes
             self.plot_solution = lambda x: problem_airframes.plot_airframe_design(problem_airframes._decode_symmetric_hexarotor_to_RobotParameter(x))
 
@@ -238,12 +238,14 @@ def _resume_previous_local_solve(prob: problem, algo:optimization_algorithm, opt
 
 
 
-def local_solve(problem_name, algorithm_name, constraint_method, seed, budget, reuse_encoding, log_every=None):
+def local_solve(problem_name, algorithm_name, constraint_method, seed, budget, reuse_encoding, log_every=None, task_info=None):
 
-    optimization_cache_path_f = f'cache/{problem_name}_{algorithm_name}_{constraint_method}_{seed}_{budget}_f.npy'
-    optimization_cache_path_x = f'cache/{problem_name}_{algorithm_name}_{constraint_method}_{seed}_{budget}_x.npy'
-    prob_status_cache_path = f'cache/{problem_name}_{algorithm_name}_{constraint_method}_{seed}_{budget}_probstatus.txt'
-    result_file_path = f'results/data/{problem_name}_{algorithm_name}_{constraint_method}_{seed}.csv'
+    task_info_str = "" if task_info is None else task_info["task_name"]
+
+    optimization_cache_path_f = f'cache/{problem_name}_{task_info_str}_{algorithm_name}_{constraint_method}_{budget}_{seed}_f.npy'
+    optimization_cache_path_x = f'cache/{problem_name}_{task_info_str}_{algorithm_name}_{constraint_method}_{budget}_{seed}_x.npy'
+    prob_status_cache_path = f'cache/{problem_name}_{task_info_str}_{algorithm_name}_{constraint_method}_{budget}_{seed}_probstatus.txt'
+    result_file_path = f'results/data/{problem_name}_{task_info_str}_{algorithm_name}_{constraint_method}_{seed}.csv'
     np.random.seed(seed+28342348)
     import random
     random.seed(seed+28342348)
@@ -261,7 +263,7 @@ def local_solve(problem_name, algorithm_name, constraint_method, seed, budget, r
         return current_time.strftime('%Y-%m-%d %H:%M:%S')
 
 
-    prob = problem(problem_name, budget, constraint_method, seed, reuse_encoding)
+    prob = problem(problem_name, budget, constraint_method, seed, reuse_encoding, task_info)
     algo = optimization_algorithm(prob, algorithm_name, seed)
 
     # pb = tqdm(total=budget)

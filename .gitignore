@@ -45,6 +45,9 @@ cache/*
 !cache/airframes_animationdata/
 cache/airframes_animationdata/*
 !cache/airframes_animationdata/.gitkeep
+!cache/bokeh_interactive_plot/
+cache/bokeh_interactive_plot/*
+!cache/bokeh_interactive_plot/.gitkeep
 global_log.txt
 *.log
 train_dir
@@ -62,3 +65,4 @@ manually_evaluated_trash.pdf
 manually_evaluated.txt
 ax_best_waypoint_cone_control_report.pdf
 backup_old_results
+*.html

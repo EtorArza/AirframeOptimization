@@ -34,7 +34,7 @@ hex_pars = PredefinedConfigParameter('hex')
 
 
 
-def from_0_1_to_RobotParameter(x: numpy.typing.NDArray[np.float_]):
+def from_0_1_to_RobotParameter(x: numpy.typing.NDArray[np.float_], task_info=None):
 
     '''
     Every value in x is in the interval [0,1], where 0 represents lowest possible value, and 1 represents highest possible value.
@@ -87,6 +87,7 @@ def from_0_1_to_RobotParameter(x: numpy.typing.NDArray[np.float_]):
     pars.motor_time_constant_min = 0.01
     pars.motor_time_constant_max = 0.03
 
+    pars.task_info = task_info
 
     return pars
 
@@ -139,10 +140,10 @@ def _decode_symmetric_hexarotor_to_RobotParameter(x: numpy.typing.NDArray[np.flo
 
 
 
-def f_symmetric_hexarotor_0_1(x: numpy.typing.NDArray[np.float_], seed_train: int, seed_enjoy: int):
-
+def f_symmetric_hexarotor_0_1(x: numpy.typing.NDArray[np.float_], seed_train: int, seed_enjoy: int, task_info: dict):
     assert x.shape == (15,) or x.shape== (10,)
     pars = _decode_symmetric_hexarotor_to_RobotParameter(x)
+    pars.task_info = task_info
     info_dict = motor_rl_objective_function(pars, seed_train, seed_enjoy, 720)
     return loss_function(info_dict)
 
@@ -169,6 +170,21 @@ def plot_airframe_design(pars:RobotParameter, translation:numpy.typing.NDArray[n
 
 
     plt.show()
+
+
+def plot_airframe_to_file(pars:RobotParameter, filepath):
+    assert len(pars.motor_orientations) == len(pars.motor_translations)
+    fig = plt.figure()
+    xlim = ylim = zlim = (-0.3,0.3)
+    ax = fig.add_subplot(projection='3d', xlim=xlim, ylim=ylim, zlim=zlim)
+    # ax.set_xlabel('x',size=5)
+    # ax.set_ylabel('y',size=5)
+    # ax.set_zlabel('z',size=5)
+    _plot_airframe_into_ax(ax, pars,np.zeros(3), np.eye(3,3))
+    plt.tight_layout()
+    plt.savefig(filepath, dpi=200)
+    plt.close()
+
 
 def _plot_airframe_into_ax(ax, pars:RobotParameter, translation, rotation_matrix):
     e1 = np.array([1,0,0])
@@ -389,8 +405,8 @@ def animate_airframe(pars:RobotParameter, pose_list, target_list):
     ani.save(filename="test.mp4", writer="ffmpeg", dpi=300)
     print("done.")
 
-def animate_animationdata_from_cache(pars: RobotParameter):
-    with open(f'cache/airframes_animationdata/{hash(pars)}_airframeanimationdata.wb', 'rb') as f:
+def animate_animationdata_from_cache(pars: RobotParameter, seed_train, seed_enjoy):
+    with open(f'cache/airframes_animationdata/{hash(pars)}_{seed_train}_{seed_enjoy}_{pars.task_info["task_name"]}_airframeanimationdata.wb', 'rb') as f:
         animationdata: dict = pickle.load(f)
     # print("--pars comparison--")
     # print(pars)
@@ -399,13 +415,14 @@ def animate_animationdata_from_cache(pars: RobotParameter):
     assert hash(pars) == hash(animationdata['pars'])
     print("seed_train =",animationdata["seed_train"])
     print("seed_enjoy =",animationdata["seed_enjoy"])
+    print("task_info =", animationdata["pars"].task_info)
     print(hash(animationdata['pars']))
     positions = np.array(animationdata["poses"].reshape(-1,6).tolist())
     animate_airframe(pars, positions, animationdata["goal_poses"].reshape(-1,6)[:,:3].cpu().numpy())
 
 
-def plot_enjoy_report(pars: RobotParameter):
-    with open(f'cache/airframes_animationdata/{hash(pars)}_airframeanimationdata.wb', 'rb') as f:
+def plot_enjoy_report(pars: RobotParameter, seed_train, seed_enjoy):
+    with open(f'cache/airframes_animationdata/{hash(pars)}_{seed_train}_{seed_enjoy}_{pars.task_info["task_name"]}_airframeanimationdata.wb', 'rb') as f:
         animationdata: dict = pickle.load(f)
     # print("--pars comparison--")
     # print(pars)
@@ -505,7 +522,7 @@ if __name__ == "__main__":
  
 
     # # # Best solution
-    x = np.array([0.8932235851627506, 0.09535504539393651, 0.5979332540692033, 0.34184463391002057, 0.8311931421533316, 0.6050332299443291, 0.3000425167872989, 0.4913439917199939, 0.7050269533282791, 0.4605623502382138, 0.19432065769519077, 0.9691080602782862, 0.28750289347218105, 0.3897128715896106, 0.5831976740497231])
+    x = np.array([0.812831878188605, 0.7541766185236307, 0.44001577293301847, 0.28416197596075315, 0.17072506117811123, 0.40082142384356667, 0.7607302589382322, 0.44599367555068237, 0.758455111661179, 0.5729163603112377, 0.5316279602543038, 0.9463401018817116, 0.48546285370531017, 1.0, 0.22359908694914238])
     pars = _decode_symmetric_hexarotor_to_RobotParameter(x)
 
     # # # quad
@@ -514,13 +531,14 @@ if __name__ == "__main__":
     # # hex
     # pars = hex_pars
 
-    plot_airframe_design(pars)
+    pars.task_info = {"task_name":"sphere"}
 
+    # plot_airframe_design(pars)
+    seed_train = 15794577
+    seed_enjoy = 7460264
     train_and_enjoy = True
     if train_and_enjoy:
-        seed_train = 15794577
-        seed_enjoy = 7460264
-        info_dict = motor_rl_objective_function(pars, seed_train, seed_enjoy, 720)
+        info_dict = motor_rl_objective_function(pars, seed_train, seed_enjoy, 360)
         f = loss_function(info_dict)
         dump_animation_info_dict(pars, seed_train, seed_enjoy, info_dict)
         print("--------------------------")
@@ -529,6 +547,6 @@ if __name__ == "__main__":
             [print(f"g_{i}(x) = ", el) for i,el in  enumerate(constraint_check_welf(pars))]
         print("--------------------------")
 
-    plot_enjoy_report(pars)
+    plot_enjoy_report(pars, seed_train, seed_enjoy)
     animate_animationdata_from_cache(pars)
 
