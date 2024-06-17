@@ -24,7 +24,7 @@ if __name__ == "__main__":
     elif sys.argv[1] == "--local-solve":
         sys.argv.pop()
         problem_name = "airframes"
-        task_info = {"task_name": "sphere"}
+        task_info = {"task_name": "offsetcone"}
         algorithm_name = "ax"
         constraint_method = "ignore" # 'ignore','nan_on_unfeasible','constant_penalty_no_evaluation','algo_specific', 'nn_encoding'
         reuse_encoding = True
@@ -74,12 +74,15 @@ if __name__ == "__main__":
 
     elif sys.argv[1] == "--airframes-f-variance":
         from airframes_objective_functions import motor_position_train, motor_position_enjoy, save_robot_pars_to_file, log_detailed_evaluation_results
-        from problem_airframes import quad_pars, hex_pars, loss_function, dump_animation_info_dict
+        from problem_airframes import loss_function, dump_animation_info_dict, _decode_symmetric_hexarotor_to_RobotParameter_polar
 
-        task_info = {"task_name": "sphere"}
+        task_info = {"task_name": "offsetcone"}
         task_name = task_info["task_name"]
         train_for_seconds_list = [721]
         resfilename_list = [f"results/data/hex_f_variance_{seconds}s_{task_name}.csv" for seconds in train_for_seconds_list]
+        hex_pars = _decode_symmetric_hexarotor_to_RobotParameter_polar(np.array([
+            0.0, 0.5, 0.1667, 0.5, 0.5, 0.0, 0.5, 0.5000, 0.5, 0.5, 0.0, 0.5, 0.8333, 0.5, 0.5, 
+        ]))
         pars_list = [hex_pars for i in range(len(train_for_seconds_list))]
         for i in range(len(train_for_seconds_list)):
             pars_list[i].task_info = task_info 

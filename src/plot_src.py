@@ -294,7 +294,7 @@ def generate_bokeh_interactive_plot(details_every_evaluation_csv, task_name):
         data = pickle.load(open(f'cache/airframes_animationdata/{id}_airframeanimationdata.wb', 'rb'))
         pars = data["pars"]
         imagepath = f"cache/bokeh_interactive_plot/{id}.jpeg"
-        problem_airframes.plot_airframe_to_file(pars, imagepath)
+        problem_airframes.plot_airframe_to_file_isaacgym(pars, imagepath)
         desc.append(str(id))
         imgs.append(imagepath)
         x.append(df["total_energy/nWaypointsReached"][i])
