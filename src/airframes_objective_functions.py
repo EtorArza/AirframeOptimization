@@ -4,6 +4,175 @@ from matplotlib import pyplot as plt
 from tqdm import tqdm as tqdm
 import pickle
 import os
+import isaacgym
+from aerial_gym_dev.utils.robot_model import RobotParameter, RobotModel
+from aerial_gym_dev.utils import analyze_robot_config
+import fcl
+from pytorch3d.transforms import euler_angles_to_matrix, quaternion_to_matrix, matrix_to_euler_angles
+from aerial_gym_dev import AERIAL_GYM_ROOT_DIR
+from aerial_gym_dev.utils.urdf_creator import create_urdf_model_for_collision
+import torch
+import random
+
+def constraint_check_welf(pars: RobotParameter):
+    robot = RobotModel(pars)
+    check1, check2 = analyze_robot_config.analyze_robot_config(robot)
+    return (check1, check2)
+
+
+def repair_position_device(offset_position_tensor, offset_quat_tensor, og_p, og_euler_degrees):
+    new_position = offset_position_tensor + torch.tensor(og_p)
+    og_rot = euler_angles_to_matrix(torch.tensor(og_euler_degrees) / 360.0*(2.0*torch.pi), "XYZ")
+    repaired_rot = quaternion_to_matrix(offset_quat_tensor)@og_rot
+    repaired_angles_degree = matrix_to_euler_angles(repaired_rot, "XYZ") / (2.0*torch.pi) * 360.0
+    return new_position.tolist(), repaired_angles_degree.tolist()
+
+
+def deterministic_simulation(func):
+    def wrapper(*args, **kwargs):
+        # Save random states
+        python_random_state = random.getstate()
+        np_random_state = np.random.get_state()
+        torch_random_state = torch.get_rng_state()
+        if torch.cuda.is_available():
+            torch_cuda_random_state = torch.cuda.get_rng_state()
+        
+        # Set seeds
+        seed = 42
+        random.seed(seed)
+        np.random.seed(seed)
+        torch.manual_seed(seed)
+        if torch.cuda.is_available():
+            torch.cuda.manual_seed_all(seed)
+        
+        # Execute the function
+        result = func(*args, **kwargs)
+        
+        # Restore random states
+        random.setstate(python_random_state)
+        np.random.set_state(np_random_state)
+        torch.set_rng_state(torch_random_state)
+        if torch.cuda.is_available():
+            torch.cuda.set_rng_state(torch_cuda_random_state)
+        
+        return result
+    
+    return wrapper
+
+@deterministic_simulation
+def check_collision_and_repair_isaacgym(pars: RobotParameter):
+
+    from isaacgym import gymapi, gymtorch
+    import time
+    import copy
+
+    repaired_pars = copy.deepcopy(pars)
+    robot_model = RobotModel(pars)
+    open_visualization = False
+
+    urdf_path = AERIAL_GYM_ROOT_DIR + "/resources/robots/generalized_aerial_robot/generalized_model_constraints.urdf"
+
+
+    gym = gymapi.acquire_gym()
+    sim_params = gymapi.SimParams()
+    sim_params.up_axis = gymapi.UP_AXIS_Z
+    sim_params.dt = 1.0 / 3000.0
+    sim_params.substeps = 8
+    sim_params.gravity = gymapi.Vec3(0.0, 0.0, 0.0)
+
+    sim_params.physx.solver_type = 1
+    sim_params.physx.num_position_iterations = 8
+    sim_params.physx.num_velocity_iterations = 8
+
+
+    sim = gym.create_sim(0, 0, gymapi.SIM_PHYSX, sim_params)
+
+    if open_visualization:
+        viewer = gym.create_viewer(sim, gymapi.CameraProperties())
+
+    # plane_params = gymapi.PlaneParams()
+    # plane_params.normal = gymapi.Vec3(0, 0, 1)
+    # gym.add_ground(sim, plane_params)
+
+    asset_options = gymapi.AssetOptions()
+    asset_options.default_dof_drive_mode = int(gymapi.DOF_MODE_POS)  # Cast to int
+    asset_options.armature = 0.01
+    asset_options.linear_damping = 10000.0
+    asset_options.angular_damping = 10000.0
+    env = gym.create_env(sim, gymapi.Vec3(-1.0, -1.0, -1.0), gymapi.Vec3(2.0, 2.0, 2.0), 1)
+
+
+
+    handle_list = []
+    for i in range(0,7):
+        create_urdf_model_for_collision(RobotModel(pars), urdf_path, i, 0.045 + 0.005, 0.16)
+        if i > 0:
+            asset_options.fix_base_link = False
+        else:
+            asset_options.fix_base_link = True
+
+        component_asset = gym.load_asset(sim, "", urdf_path, asset_options)
+
+        pose = gymapi.Transform()
+        pose.p = gymapi.Vec3(0.0, 0.0, 0.0)
+        component_handle = gym.create_actor(env, component_asset, pose, f"component_{i}", 1, 0)
+        handle_list.append(component_handle)
+
+    if open_visualization:
+        # Adjust camera position and zoom out
+        cam_pos = gymapi.Vec3(1.0, 1.0, 1.0)  # Move the camera further out
+        cam_target = gymapi.Vec3(0.0, 0.0, 0.0)  # Target the origin
+        gym.viewer_camera_look_at(viewer, None, cam_pos, cam_target)
+
+
+    # # body_parts = gym.get_asset_rigid_body_shape_indices(robot_asset)
+    # properties = gym.get_asset_rigid_shape_properties(robot_asset)
+    # for i in range(len(properties)):
+    #     properties[i].filter = 0b0101
+    # gym.set_asset_rigid_shape_properties(robot_asset, properties)
+
+
+
+    # Add a delay to ensure the viewer has time to render
+    total_repair_translation_and_rotation = 0.0
+
+    # print("----------")
+    # for handle in handle_list:
+    #     print(gym.get_actor_rigid_body_states(env, handle, gymapi.STATE_POS)[0])
+
+
+    for step in range(100):
+        gym.simulate(sim)
+        gym.fetch_results(sim, True)
+        gym.refresh_net_contact_force_tensor(sim)
+    
+        for i in range(len(handle_list[1:])):
+            repaired_offset_state = gym.get_actor_rigid_body_states(env, handle_list[1:][i], gymapi.STATE_POS)[0][0]
+            offset_position_tensor = torch.tensor([repaired_offset_state[0]['x'], repaired_offset_state[0]['y'],repaired_offset_state[0]['z']])
+            offset_quat_tensor = torch.tensor([repaired_offset_state[1]["w"], repaired_offset_state[1]["x"], repaired_offset_state[1]["y"], repaired_offset_state[1]["z"]])
+
+
+            repaired_pars.motor_translations[i], repaired_pars.motor_orientations[i] = repair_position_device(offset_position_tensor, offset_quat_tensor, pars.motor_translations[i], pars.motor_orientations[i])
+            total_repair_translation_and_rotation += torch.sum(torch.abs(offset_position_tensor)) + torch.sum(torch.abs(offset_quat_tensor[:3]))
+        contact_forces = gym.acquire_net_contact_force_tensor(sim)
+        total_repair_translation_and_rotation += torch.sum(torch.abs(gymtorch.wrap_tensor(contact_forces)))
+
+    if open_visualization:
+        for k in range(100000):
+            time.sleep(0.03)
+            gym.step_graphics(sim)
+            gym.draw_viewer(viewer, sim, True)
+
+
+
+    if open_visualization:
+        gym.destroy_viewer(viewer)
+    
+    # gym.write_viewer_image_to_file(viewer, filepath)
+    # print("Image saved to", filepath)
+    gym.destroy_sim(sim)
+    return repaired_pars, total_repair_translation_and_rotation.item() > 1e-10
+
 
 
 def save_robot_pars_to_file(pars):

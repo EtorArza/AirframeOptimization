@@ -66,3 +66,6 @@ manually_evaluated.txt
 ax_best_waypoint_cone_control_report.pdf
 backup_old_results
 *.html
+demo_before.png
+demo_after.png
+demo_image.png

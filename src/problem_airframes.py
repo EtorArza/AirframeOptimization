@@ -4,21 +4,18 @@ import sys
 import isaacgym
 sys.path.append(aerial_gym_dev_path)
 from aerial_gym_dev.envs import *
-from aerial_gym_dev.utils import analyze_robot_config
 from matplotlib import pyplot as plt
 import numpy as np
 from mpl_toolkits.mplot3d import Axes3D
 from mpl_toolkits.mplot3d.art3d import Line3D, Patch3D, Poly3DCollection, Text3D
 from scipy.spatial.transform import Rotation
 from aerial_gym_dev.utils.robot_model import RobotParameter, RobotModel
-from aerial_gym_dev.utils.example_configs import PredefinedConfigParameter
 from aerial_gym_dev.utils.urdf_creator import create_urdf_from_model
 import numpy.typing
 from tqdm import tqdm as tqdm
 from math import sqrt
 from matplotlib.animation import FuncAnimation
-import subprocess
-from airframes_objective_functions import motor_rl_objective_function, dump_animation_info_dict, loss_function, save_robot_pars_to_file
+from airframes_objective_functions import motor_rl_objective_function, dump_animation_info_dict, loss_function, save_robot_pars_to_file, check_collision_and_repair_isaacgym
 import pickle
 import torch
 import pytorch3d.transforms as p3d_transforms
@@ -85,42 +82,11 @@ def from_minus1_one_to_RobotParameter(x: numpy.typing.NDArray[np.float_], task_i
     pars.motor_time_constant_min = 0.01
     pars.motor_time_constant_max = 0.03
 
+    pars = repair_pars_fabrication_constraints(pars)
     pars.task_info = task_info
 
     return pars
 
-def constraint_check_welf(pars: RobotParameter):
-    robot = RobotModel(pars)
-    check1, check2 = analyze_robot_config.analyze_robot_config(robot)
-    return (check1, check2)
-
-def _check_collision(x_a, dxa, x_b, dxb):
-    min_a = x_a - dxa / 2
-    max_a = x_a + dxa / 2
-    
-    min_b = x_b - dxb / 2
-    max_b = x_b + dxb / 2
-    
-    overlap_x = (min_a[0] <= max_b[0]) and (max_a[0] >= min_b[0])
-    overlap_y = (min_a[1] <= max_b[1]) and (max_a[1] >= min_b[1])
-    overlap_z = (min_a[2] <= max_b[2]) and (max_a[2] >= min_b[2])
-    
-    return overlap_x and overlap_y and overlap_z
-
-def constraints_fabrication(pars: RobotParameter):
-
-    motor_positions = np.array(pars.motor_translations)
-    motor_dimensions = np.array([9.0,9.0,3.5])
-
-    # check collisions among propellers
-    for i in range(motor_positions.shape[0]):
-        for j in range(motor_positions.shape[0]):
-            if i >= j:
-                continue
-            _check_collision(motor_positions[i], motor_dimensions, motor_positions[j], motor_dimensions)
-    print("yolo")
-    exit(0)
-    return
 
 def _decode_symmetric_hexarotor_to_RobotParameter_polar(x: numpy.typing.NDArray[np.float_]):
     
@@ -460,6 +426,11 @@ def plot_enjoy_report(pars: RobotParameter, seed_train, seed_enjoy):
     plt.savefig("test_control_report.pdf")
     plt.close()
 
+def repair_pars_fabrication_constraints(pars: RobotParameter) -> RobotParameter:
+    res = check_collision_and_repair_isaacgym(pars)[0]
+    assert type(res) == RobotParameter
+    return res
+
 
 
 if __name__ == "__main__":
@@ -509,14 +480,19 @@ if __name__ == "__main__":
     #               0.0, 0.5, 0.75, 0.5, 0.5, 
     #              ])
 
-    pars = _decode_symmetric_hexarotor_to_RobotParameter_polar(x)
 
-    # constraints_fabrication(pars)
+
+    og_pars = _decode_symmetric_hexarotor_to_RobotParameter_polar(x)
+    print(hash(og_pars))
+    # plot_airframe_to_file_isaacgym(og_pars, filepath="demo_before.png")
+    pars = repair_pars_fabrication_constraints(og_pars)
+    print(hash(pars))
 
 
     save_robot_pars_to_file(pars)
     pars.task_info = {"task_name":"sphere"}
-    plot_airframe_to_file_isaacgym(pars, filepath="demo_image.png")
+    # plot_airframe_to_file_isaacgym(pars, filepath="demo_image.png")
+
 
     seed_train = 76062013
     seed_enjoy = 20105689
