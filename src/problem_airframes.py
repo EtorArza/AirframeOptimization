@@ -469,8 +469,8 @@ if __name__ == "__main__":
 
  
 
-    # # Best solution
-    x = np.array([0.1, 0.7, 0.8, 0.2, 0.5, 0.1, 0.5470153951007214, 0.4768524045529139, 0.890230135936568, 0.6577187543727779, 0.1, 0.8299980835156734, 0.46409918557729773, 0.8464936317257903, 0.20756358474308836])
+    # # # Best solution
+    x = np.array([0.7572612755663618, 0.596329575691988, 0.5506765729282267, 0.7197883263173931, 0.4620398998418608, 0.9307036941968287, 0.5140101473102557, 0.737870301372989, 0.29778032648109015, 0.1707035876742718, 0.5889767604566782, 0.561405602945016, 0.015679888938903565, 0.9280162872574376, 0.1420116110886635])
 
     # # # hex       
     # x = np.array([0.0, 0.5, 0.1667, 0.5, 0.5, 
@@ -487,13 +487,13 @@ if __name__ == "__main__":
 
     og_pars = _decode_symmetric_hexarotor_to_RobotParameter_polar(x)
     print(hash(og_pars))
-    # plot_airframe_to_file_isaacgym(og_pars, filepath="demo_before.png")
+    plot_airframe_to_file_isaacgym(og_pars, filepath="test_airframe_render.png")
     pars = repair_pars_fabrication_constraints(og_pars)
     print(hash(pars))
 
 
     save_robot_pars_to_file(pars)
-    pars.task_info = {"task_name":"sphere"}
+    pars.task_info = {"task_name":"offsetcone"}
     # plot_airframe_to_file_isaacgym(pars, filepath="demo_image.png")
 
 
