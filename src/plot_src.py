@@ -207,7 +207,7 @@ def sidebyside_boxplots(file_list: Iterable[str]):
 def _read_and_clean_data_every_evaluation_csv(details_every_evaluation_csv):
     df = pd.read_csv(details_every_evaluation_csv, sep=";")
 
-    chosen_rows = (df["nWaypointsReached/nResets"] > 1.0) & (df["total_energy/nWaypointsReached"] > 0.01) & (df["total_energy/nWaypointsReached"] < 5.0)
+    chosen_rows = (df["nWaypointsReached/nResets"] > 0.1) & (df["total_energy/nWaypointsReached"] > 0.01) & (df["total_energy/nWaypointsReached"] < 5.0)
     
     perc_rows = (1.0 - np.count_nonzero(chosen_rows) / df.shape[0]) * 100.0
 
@@ -262,7 +262,7 @@ def multiobjective_scatter_by_train_time(details_every_evaluation_csv):
 
 def generate_bokeh_interactive_plot(details_every_evaluation_csv, task_name):
 
-    from bokeh.plotting import figure, output_file, show, ColumnDataSource
+    from bokeh.plotting import figure, output_file, show, save, ColumnDataSource
     from bokeh.models import HoverTool
     import pandas as pd
     import problem_airframes
@@ -293,7 +293,7 @@ def generate_bokeh_interactive_plot(details_every_evaluation_csv, task_name):
 
         data = pickle.load(open(f'cache/airframes_animationdata/{id}_airframeanimationdata.wb', 'rb'))
         pars = data["pars"]
-        imagepath = f"cache/bokeh_interactive_plot/{id}.jpeg"
+        imagepath = f"cache/bokeh_interactive_plot/{id}.png"
         problem_airframes.plot_airframe_to_file_isaacgym(pars, imagepath)
         desc.append(str(id))
         imgs.append(imagepath)
@@ -341,7 +341,43 @@ def generate_bokeh_interactive_plot(details_every_evaluation_csv, task_name):
     p.legend.location = 'top_right'
     p.legend.click_policy = 'hide'
 
-    show(p)
+    
+    save(p)
+
+    with open("test_bokeh.html", "r") as file:
+        html = file.read()
+    # Add CSS to center the plot vertically and horizontally
+    new_html = """
+    <!DOCTYPE html>
+    <html lang="en">
+      <head>
+        <meta charset="utf-8">
+        <title>Bokeh Plot</title>
+        <style>
+          html, body {
+            height: 100%;
+            margin: 0;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+          }
+          #plot-container {
+            padding-top: 4cm;
+            padding-bottom: 4cm;
+          }
+        </style>
+        <script type="text/javascript" src="https://cdn.bokeh.org/bokeh/release/bokeh-3.1.1.min.js"></script>
+        <script type="text/javascript">
+            Bokeh.set_log_level("info");
+        </script>
+      </head>
+      <body>
+        <div id="plot-container">
+    """ + html.split("<body>")[1]
+
+    with open("test_bokeh.html", "w") as file:
+        file.write(new_html)
+
 
 
 

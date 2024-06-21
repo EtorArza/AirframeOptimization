@@ -106,8 +106,8 @@ if __name__ == "__main__":
 
     elif sys.argv[1] == "--airframes-f-variance-plot":
         import plot_src
-        plot_src.multiobjective_scatter_by_train_time("results/data/details_every_evaluation_sphere.csv")
-        plot_src.generate_bokeh_interactive_plot("results/data/details_every_evaluation_sphere.csv", "sphere")
+        plot_src.multiobjective_scatter_by_train_time("results/data/details_every_evaluation_offsetcone.csv")
+        plot_src.generate_bokeh_interactive_plot("results/data/details_every_evaluation_offsetcone.csv", "offsetcone")
         exit(0)
         plot_src.sidebyside_boxplots([
             "results/data/hex_f_variance_360s.csv",

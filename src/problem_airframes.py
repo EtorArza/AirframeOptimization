@@ -171,7 +171,10 @@ def plot_airframe_to_file_isaacgym(pars: RobotParameter, filepath: str):
     sim_params.substeps = 2
 
     sim = gym.create_sim(0, 0, gymapi.SIM_PHYSX, sim_params)
-    viewer = gym.create_viewer(sim, gymapi.CameraProperties())
+    camera_params = gymapi.CameraProperties()
+    camera_params.width = 1024
+    camera_params.height = 1024
+    viewer = gym.create_viewer(sim, camera_params)
 
     plane_params = gymapi.PlaneParams()
     plane_params.normal = gymapi.Vec3(0, 0, 1)
