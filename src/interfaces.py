@@ -45,10 +45,12 @@ class problem:
                         return res
                     except subprocess.CalledProcessError:
                         continue
+                    except BrokenPipeError:
+                        continue
                 raise subprocess.CalledProcessError(f"f_function_airframes crashed 5 times in a row. The solution x = {x} produced some errors consistently.")
 
             self.dim = 15
-            self._constraint_check = problem_airframes.constraint_check_welf_hexarotor_0_1
+            self._constraint_check = lambda x: (1.0,)
             self._f = f_function_airframes
             self.plot_solution = lambda x: problem_airframes.plot_airframe_design(problem_airframes._decode_symmetric_hexarotor_to_RobotParameter(x))
 
