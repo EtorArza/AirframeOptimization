@@ -10,24 +10,47 @@ from aerial_gym_dev.utils import analyze_robot_config
 import fcl
 from pytorch3d.transforms import euler_angles_to_matrix, quaternion_to_matrix, matrix_to_euler_angles
 from aerial_gym_dev import AERIAL_GYM_ROOT_DIR
-from aerial_gym_dev.utils.urdf_creator import create_urdf_model_for_collision
+from aerial_gym_dev.utils.urdf_creator import create_urdf_from_model, create_urdf_model_for_collision
 import torch
 import random
-
-def constraint_check_welf(pars: RobotParameter):
-    robot = RobotModel(pars)
-    check1, check2 = analyze_robot_config.analyze_robot_config(robot)
-    return (check1, check2)
-
-
-def repair_position_device(offset_position_tensor, offset_quat_tensor, og_p, og_euler_degrees):
-    new_position = offset_position_tensor + torch.tensor(og_p)
-    og_rot = euler_angles_to_matrix(torch.tensor(og_euler_degrees) / 360.0*(2.0*torch.pi), "XYZ")
-    repaired_rot = quaternion_to_matrix(offset_quat_tensor)@og_rot
-    repaired_angles_degree = matrix_to_euler_angles(repaired_rot, "XYZ") / (2.0*torch.pi) * 360.0
-    return new_position.tolist(), repaired_angles_degree.tolist()
+import time
+import functools
+import subprocess
+import sys
+import tempfile
+import pickle
+import os
 
 
+# decorator
+def run_in_subprocess():
+    def decorator(func):
+        @functools.wraps(func)
+        def wrapper(*args, **kwargs):
+            script_name = func.__name__
+            
+            # Check if we are in a subprocess to avoid recursion
+            if len(sys.argv) > 1 and sys.argv[1] == f'--{script_name}':
+                return func(*args, **kwargs)
+            
+            # Serialize the arguments
+            with tempfile.NamedTemporaryFile(delete=False, suffix=".pkl") as temp_file:
+                pickle.dump((args, kwargs), temp_file)
+            temp_filename = temp_file.name
+            
+            # Generate the command string
+            command = f'python {os.path.abspath(__file__)} --{script_name} {temp_filename}'
+            
+            # Call the subprocess
+            subprocess.run(command, shell=True, check=True, stdout=sys.stdout, stderr=sys.stderr, text=True)
+            
+            # Clean up the temporary file
+            os.remove(temp_filename)
+        
+        return wrapper
+    return decorator
+
+# decorator
 def deterministic_simulation(func):
     def wrapper(*args, **kwargs):
         # Save random states
@@ -58,6 +81,22 @@ def deterministic_simulation(func):
         return result
     
     return wrapper
+
+
+
+
+def constraint_check_welf(pars: RobotParameter):
+    robot = RobotModel(pars)
+    check1, check2 = analyze_robot_config.analyze_robot_config(robot)
+    return (check1, check2)
+
+
+def repair_position_device(offset_position_tensor, offset_quat_tensor, og_p, og_euler_degrees):
+    new_position = offset_position_tensor + torch.tensor(og_p)
+    og_rot = euler_angles_to_matrix(torch.tensor(og_euler_degrees) / 360.0*(2.0*torch.pi), "XYZ")
+    repaired_rot = quaternion_to_matrix(offset_quat_tensor)@og_rot
+    repaired_angles_degree = matrix_to_euler_angles(repaired_rot, "XYZ") / (2.0*torch.pi) * 360.0
+    return new_position.tolist(), repaired_angles_degree.tolist()
 
 @deterministic_simulation
 def check_collision_and_repair_isaacgym(pars: RobotParameter):
@@ -324,6 +363,108 @@ def loss_function(info_dict):
         (info_dict["f_waypoints_reached_energy_adjusted"][0]  / info_dict["f_nResets"][0])
         ).cpu().item()
 
+
+
+@run_in_subprocess()
+def plot_airframe_to_file_isaacgym(pars: RobotParameter, filepath: str):
+
+    from isaacgym import gymapi, gymtorch
+    import time
+
+    save_robot_pars_to_file(pars)
+
+    urdf_path = AERIAL_GYM_ROOT_DIR + "/resources/robots/generalized_aerial_robot/generalized_model.urdf"
+    create_urdf_from_model(RobotModel(pars), urdf_path)
+
+
+
+    gym = gymapi.acquire_gym()
+    sim_params = gymapi.SimParams()
+    sim_params.up_axis = gymapi.UP_AXIS_Z
+    sim_params.dt = 1.0 / 60.0
+    sim_params.substeps = 2
+
+    sim = gym.create_sim(0, 0, gymapi.SIM_PHYSX, sim_params)
+    camera_params = gymapi.CameraProperties()
+    camera_params.width = 1024
+    camera_params.height = 1024
+    viewer = gym.create_viewer(sim, camera_params)
+
+    plane_params = gymapi.PlaneParams()
+    plane_params.normal = gymapi.Vec3(0, 0, 1)
+    gym.add_ground(sim, plane_params)
+
+    asset_options = gymapi.AssetOptions()
+    asset_options.fix_base_link = True
+    asset_options.default_dof_drive_mode = int(gymapi.DOF_MODE_POS)  # Cast to int
+    asset_options.armature = 0.01
+    robot_asset = gym.load_asset(sim, '', urdf_path, asset_options)
+
+    env = gym.create_env(sim, gymapi.Vec3(-2.0, -2.0, -2.0), gymapi.Vec3(2.0, 2.0, 2.0), 1)
+    pose = gymapi.Transform()
+    pose.p = gymapi.Vec3(0, 0, 0.5)
+    robot_handle = gym.create_actor(env, robot_asset, pose, "robot", 0, 1)
+
+    # Adjust camera position and zoom out
+    cam_pos = gymapi.Vec3(0.25, 0.25, 1.2)  # Move the camera further out
+    cam_target = gymapi.Vec3(0.0, 0.0, 0.5)  # Target the origin
+    gym.viewer_camera_look_at(viewer, None, cam_pos, cam_target)
+
+    axes_length = 1.0
+    ax_center = np.array([0,0,0.5])
+   # X-axis (Red)
+    x_points = np.array([[0, 0, 0], [axes_length, 0, 0]]+ax_center, dtype=np.float32)
+    x_colors = np.array([[1, 0, 0], [1, 0, 0]]+ax_center, dtype=np.float32)
+    gym.add_lines(viewer, env, 1, x_points, x_colors)
+
+    # Y-axis (Green)
+    y_points = np.array([[0, 0, 0], [0, axes_length, 0]]+ax_center, dtype=np.float32)
+    y_colors = np.array([[0, 1, 0], [0, 1, 0]]+ax_center, dtype=np.float32)
+    gym.add_lines(viewer, env, 1, y_points, y_colors)
+
+    # Z-axis (Blue)
+    z_points = np.array([[0, 0, 0], [0, 0, axes_length]]+ax_center, dtype=np.float32)
+    z_colors = np.array([[0, 0, 1], [0, 0, 1]]+ax_center, dtype=np.float32)
+    gym.add_lines(viewer, env, 1, z_points, z_colors)
+
+
+
+    # Add a delay to ensure the viewer has time to render
+    for _ in range(10):
+        gym.step_graphics(sim)
+        gym.draw_viewer(viewer, sim, True)
+        time.sleep(0.1)
+
+    gym.write_viewer_image_to_file(viewer, filepath)
+    # print("Image saved to", filepath)
+
+    gym.destroy_viewer(viewer)
+    gym.destroy_sim(sim)
+
+
+
+# This is just a hack such that the functions with the decorator @run_in_subprocess are executed in a subprocess automagically.
+if __name__ == "__main__":
+    if len(sys.argv) > 2 and sys.argv[1].startswith('--'):
+        func_name = sys.argv[1][2:]  # Remove the '--' prefix
+        temp_filename = sys.argv[2]
+        
+        func = globals().get(func_name)
+        if func is None:
+            print(f"Error: Function '{func_name}' not found.")
+            sys.exit(1)
+
+        with open(temp_filename, 'rb') as temp_file:
+            args, kwargs = pickle.load(temp_file)
+        
+        func(*args, **kwargs)
+        sys.exit(0)
+    else:
+        # Normal script execution
+        pass
+
+
+
 if __name__ == '__main__':
     # Call objective function from subprocess. Assumes robotConfigFile.txt has been previously written.
     import sys
@@ -343,7 +484,10 @@ if __name__ == '__main__':
         _motor_position_enjoy(seed_enjoy)
         exit(0)
 
-    
+
+
+
+
     else:
-        print("LQR has been deprecated.")
+        print(f"arv[1] = {sys.argv[1]} not recognized" )
         exit(0)

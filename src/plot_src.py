@@ -265,7 +265,7 @@ def generate_bokeh_interactive_plot(details_every_evaluation_csv, task_name):
     from bokeh.plotting import figure, output_file, show, save, ColumnDataSource
     from bokeh.models import HoverTool
     import pandas as pd
-    import problem_airframes
+    from airframes_objective_functions import plot_airframe_to_file_isaacgym
     import pickle
 
     df = _read_and_clean_data_every_evaluation_csv(details_every_evaluation_csv)
@@ -282,7 +282,7 @@ def generate_bokeh_interactive_plot(details_every_evaluation_csv, task_name):
     for i in tqdm(range(df.shape[0])):
         id = str(df["hash"][i])+ "_" + str(df["seed_train"][i])+ "_" + str(df["seed_enjoy"][i]) + "_" + task_name
         pars_hash = df["hash"][i]
-        if pars_hash == 7527344585620001714:
+        if pars_hash == 7399056118471101504:
             colors.append("orange")
             markers.append("square")
             legend_labels.append("standard")
@@ -294,7 +294,7 @@ def generate_bokeh_interactive_plot(details_every_evaluation_csv, task_name):
         data = pickle.load(open(f'cache/airframes_animationdata/{id}_airframeanimationdata.wb', 'rb'))
         pars = data["pars"]
         imagepath = f"cache/bokeh_interactive_plot/{id}.png"
-        problem_airframes.plot_airframe_to_file_isaacgym(pars, imagepath)
+        plot_airframe_to_file_isaacgym(pars, imagepath)
         desc.append(str(id))
         imgs.append(imagepath)
         x.append(df["total_energy/nWaypointsReached"][i])

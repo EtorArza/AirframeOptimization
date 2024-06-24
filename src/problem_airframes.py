@@ -10,7 +10,6 @@ from mpl_toolkits.mplot3d import Axes3D
 from mpl_toolkits.mplot3d.art3d import Line3D, Patch3D, Poly3DCollection, Text3D
 from scipy.spatial.transform import Rotation
 from aerial_gym_dev.utils.robot_model import RobotParameter, RobotModel
-from aerial_gym_dev.utils.urdf_creator import create_urdf_from_model
 import numpy.typing
 from tqdm import tqdm as tqdm
 from math import sqrt
@@ -20,7 +19,13 @@ import pickle
 import torch
 import pytorch3d.transforms as p3d_transforms
 from aerial_gym_dev import AERIAL_GYM_ROOT_DIR
-
+from isaacgym import gymapi
+import time
+import subprocess
+import pickle
+import os
+import tempfile
+import functools
 
 
 
@@ -150,80 +155,6 @@ def f_symmetric_hexarotor_0_1(x: numpy.typing.NDArray[np.float_], seed_train: in
     info_dict = motor_rl_objective_function(pars, seed_train, seed_enjoy, 720)
     return loss_function(info_dict)
 
-def plot_airframe_to_file_isaacgym(pars: RobotParameter, filepath: str):
-
-    from isaacgym import gymapi, gymtorch
-    import time
-
-    save_robot_pars_to_file(pars)
-
-    urdf_path = AERIAL_GYM_ROOT_DIR + "/resources/robots/generalized_aerial_robot/generalized_model.urdf"
-    create_urdf_from_model(RobotModel(pars), urdf_path)
-
-
-
-    gym = gymapi.acquire_gym()
-    sim_params = gymapi.SimParams()
-    sim_params.up_axis = gymapi.UP_AXIS_Z
-    sim_params.dt = 1.0 / 60.0
-    sim_params.substeps = 2
-
-    sim = gym.create_sim(0, 0, gymapi.SIM_PHYSX, sim_params)
-    camera_params = gymapi.CameraProperties()
-    camera_params.width = 1024
-    camera_params.height = 1024
-    viewer = gym.create_viewer(sim, camera_params)
-
-    plane_params = gymapi.PlaneParams()
-    plane_params.normal = gymapi.Vec3(0, 0, 1)
-    gym.add_ground(sim, plane_params)
-
-    asset_options = gymapi.AssetOptions()
-    asset_options.fix_base_link = True
-    asset_options.default_dof_drive_mode = int(gymapi.DOF_MODE_POS)  # Cast to int
-    asset_options.armature = 0.01
-    robot_asset = gym.load_asset(sim, '', urdf_path, asset_options)
-
-    env = gym.create_env(sim, gymapi.Vec3(-2.0, -2.0, -2.0), gymapi.Vec3(2.0, 2.0, 2.0), 1)
-    pose = gymapi.Transform()
-    pose.p = gymapi.Vec3(0, 0, 0.5)
-    robot_handle = gym.create_actor(env, robot_asset, pose, "robot", 0, 1)
-
-    # Adjust camera position and zoom out
-    cam_pos = gymapi.Vec3(0.25, 0.25, 1.2)  # Move the camera further out
-    cam_target = gymapi.Vec3(0.0, 0.0, 0.5)  # Target the origin
-    gym.viewer_camera_look_at(viewer, None, cam_pos, cam_target)
-
-    axes_length = 1.0
-    ax_center = np.array([0,0,0.5])
-   # X-axis (Red)
-    x_points = np.array([[0, 0, 0], [axes_length, 0, 0]]+ax_center, dtype=np.float32)
-    x_colors = np.array([[1, 0, 0], [1, 0, 0]]+ax_center, dtype=np.float32)
-    gym.add_lines(viewer, env, 1, x_points, x_colors)
-
-    # Y-axis (Green)
-    y_points = np.array([[0, 0, 0], [0, axes_length, 0]]+ax_center, dtype=np.float32)
-    y_colors = np.array([[0, 1, 0], [0, 1, 0]]+ax_center, dtype=np.float32)
-    gym.add_lines(viewer, env, 1, y_points, y_colors)
-
-    # Z-axis (Blue)
-    z_points = np.array([[0, 0, 0], [0, 0, axes_length]]+ax_center, dtype=np.float32)
-    z_colors = np.array([[0, 0, 1], [0, 0, 1]]+ax_center, dtype=np.float32)
-    gym.add_lines(viewer, env, 1, z_points, z_colors)
-
-
-
-    # Add a delay to ensure the viewer has time to render
-    for _ in range(10):
-        gym.step_graphics(sim)
-        gym.draw_viewer(viewer, sim, True)
-        time.sleep(0.1)
-
-    gym.write_viewer_image_to_file(viewer, filepath)
-    # print("Image saved to", filepath)
-
-    gym.destroy_viewer(viewer)
-    gym.destroy_sim(sim)
 
 
 def _plot_airframe_into_ax(ax, pars:RobotParameter, translation, rotation_matrix):
