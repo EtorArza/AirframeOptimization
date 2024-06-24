@@ -29,7 +29,7 @@ if __name__ == "__main__":
         constraint_method = "ignore" # 'ignore','nan_on_unfeasible','constant_penalty_no_evaluation','algo_specific', 'nn_encoding'
         reuse_encoding = True
         seed = 6
-        budget = 200
+        budget = 400
         local_solve(problem_name, algorithm_name, constraint_method, seed, budget, reuse_encoding, log_every=1, task_info=task_info)
 
 

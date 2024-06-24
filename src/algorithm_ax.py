@@ -7,8 +7,8 @@ from contextlib import contextmanager
 import random
 import numpy as np
 import torch
-
-
+from ax.modelbridge.generation_strategy import GenerationStep, GenerationStrategy
+from ax.modelbridge.registry import Models
 
 
 def restore_global_rs(old_state: dict):
@@ -50,6 +50,32 @@ class ax_optimizer:
         self.x_queue = queue.Queue()
         self.f_queue = queue.Queue()
 
+
+        gs = GenerationStrategy(
+            steps=[
+                # 1. Initialization step (does not require pre-existing data and is well-suited for
+                # initial sampling of the search space)
+                GenerationStep(
+                    model=Models.SOBOL,
+                    num_trials=100,  # How many trials should be produced from this generation step
+                    min_trials_observed=100,  # How many trials need to be completed to move to next model
+                    max_parallelism=1,  # Max parallelism for this step
+                    model_kwargs={"seed": seed},  # Any kwargs you want passed into the model
+                    model_gen_kwargs={},  # Any kwargs you want passed to `modelbridge.gen`
+                ),
+                # 2. Bayesian optimization step (requires data obtained from previous phase and learns
+                # from all data available at the time of each new candidate generation call)
+                GenerationStep(
+                    model=Models.GPEI,
+                    num_trials=-1,  # No limitation on how many trials should be produced from this step
+                    max_parallelism=1,  # Parallelism limit for this step, often lower than for Sobol
+                    # More on parallelism vs. required samples in BayesOpt:
+                    # https://ax.dev/docs/bayesopt.html#tradeoff-between-parallelism-and-total-number-of-trials
+                ),
+            ]
+        )
+
+
         def minimize():
             best_parameters, best_values, experiment, model = optimize(
                 parameters=[
@@ -62,7 +88,9 @@ class ax_optimizer:
                 ],
                 evaluation_function=fun,
                 minimize=True,
-                total_trials=total_budget
+                total_trials=total_budget,
+                generation_strategy=gs,
+
             )
         self.old_state = set_global_rs(self.rs.randint(4294967293))
         thread = threading.Thread(target=minimize, args=[], daemon=True)
