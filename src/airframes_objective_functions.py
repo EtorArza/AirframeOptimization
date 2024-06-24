@@ -20,9 +20,9 @@ import sys
 import tempfile
 import pickle
 import os
+from datetime import datetime
 
-
-# decorator
+# This decorator will run the function in a subprocess. It takes the input arguments, serialize them and call this same function. The code in __main__ is also required.
 def run_in_subprocess():
     def decorator(func):
         @functools.wraps(func)
@@ -36,19 +36,34 @@ def run_in_subprocess():
             # Serialize the arguments
             with tempfile.NamedTemporaryFile(delete=False, suffix=".pkl") as temp_file:
                 pickle.dump((args, kwargs), temp_file)
-            temp_filename = temp_file.name
+            args_filename = temp_file.name
+            
+            # Create a temporary file for the return value
+            with tempfile.NamedTemporaryFile(delete=False, suffix=".pkl") as temp_file:
+                return_filename = temp_file.name
             
             # Generate the command string
-            command = f'python {os.path.abspath(__file__)} --{script_name} {temp_filename}'
+            command = f'python {os.path.abspath(__file__)} --{script_name} {args_filename} {return_filename}'
+            
+            current_time = datetime.now()
+            print(f">> run shell on {current_time.strftime('%Y-%m-%d %H:%M:%S')}\n{command}")
             
             # Call the subprocess
             subprocess.run(command, shell=True, check=True, stdout=sys.stdout, stderr=sys.stderr, text=True)
             
-            # Clean up the temporary file
-            os.remove(temp_filename)
+            # Load the return value
+            with open(return_filename, 'rb') as temp_file:
+                return_value = pickle.load(temp_file)
+            
+            # Clean up the temporary files
+            os.remove(args_filename)
+            os.remove(return_filename)
+            
+            return return_value
         
         return wrapper
     return decorator
+
 
 # decorator
 def deterministic_simulation(func):
@@ -99,6 +114,7 @@ def repair_position_device(offset_position_tensor, offset_quat_tensor, og_p, og_
     return new_position.tolist(), repaired_angles_degree.tolist()
 
 @deterministic_simulation
+@run_in_subprocess()
 def check_collision_and_repair_isaacgym(pars: RobotParameter):
 
     from isaacgym import gymapi, gymtorch
@@ -222,18 +238,9 @@ def save_robot_pars_to_file(pars):
         pickle.dump(pars, file)
 
 
-def motor_position_enjoy(seed_enjoy):
-    cmd_str = f"python src/airframes_objective_functions.py --motor_RL_control_enjoy {seed_enjoy}"
-    from datetime import datetime
-    import torch
-    current_time = datetime.now()
-    print(f">> run shell on {current_time.strftime('%Y-%m-%d %H:%M:%S')}\n{cmd_str}")
-    output = subprocess.check_output(cmd_str, shell=True, text=True)
-    info_dict = torch.load("info_dict.pt")
-    return info_dict
-    
 
-def _motor_position_enjoy(seed_enjoy):
+@run_in_subprocess()
+def motor_position_enjoy(seed_enjoy):
     from aerial_gym_dev import AERIAL_GYM_ROOT_DIR
     import os
     import isaacgym
@@ -246,7 +253,6 @@ def _motor_position_enjoy(seed_enjoy):
     import torch
     from aerial_gym_dev.envs import base
     from aerial_gym_dev.envs.base.generalized_aerial_robot_config import GenAerialRobotCfg
-    from pprint import pprint
 
     def play(args):
 
@@ -302,6 +308,8 @@ def _motor_position_enjoy(seed_enjoy):
 
         return info_dict
 
+    cmd_str = f"python src/airframes_objective_functions.py --motor_RL_control_enjoy {seed_enjoy}"
+    sys.argv = [sys.argv[0]] + ["--env=gen_aerial_robot"]
 
     EXPORT_POLICY = True
     RECORD_FRAMES = False
@@ -312,58 +320,17 @@ def _motor_position_enjoy(seed_enjoy):
     with open("info_dict.pt", "wb") as f:
         torch.save(info_dict,f) 
 
+    info_dict = torch.load("info_dict.pt")
+    return info_dict
 
+@run_in_subprocess()
 def motor_position_train(seed_train, train_for_seconds):
-    cmd_str = f"python src/airframes_objective_functions.py --motor_RL_control_train --seed={seed_train} --train_for_seconds={train_for_seconds}"
-    from datetime import datetime
-    current_time = datetime.now()
-    print(f">> run shell on {current_time.strftime('%Y-%m-%d %H:%M:%S')}\n{cmd_str}")
-    output = subprocess.check_output(cmd_str, shell=True, text=True)
-
-def _motor_position_train(cmdl_args):
     from datetime import datetime
     current_time = datetime.now()
     subprocess.run("rm train_dir/ -rf", shell=True)
-    cmd_str = f'python3 ../../sample-factory/sf_examples/gen_aerial_robot_population/train_individual.py --env=gen_aerial_robot {cmdl_args}'
+    cmd_str = f'python3 ../../sample-factory/sf_examples/gen_aerial_robot_population/train_individual.py --env=gen_aerial_robot --seed={seed_train} --train_for_seconds={train_for_seconds}'
     print(f">> run shell on {current_time.strftime('%Y-%m-%d %H:%M:%S')}\n{cmd_str}", file=sys.stderr)
-    output = subprocess.check_output(cmd_str, shell=True, text=True)
-    print(output)
-
-def dump_animation_info_dict(pars, seed_train, seed_enjoy, info_dict):
-        with open(f'cache/airframes_animationdata/{hash(pars)}_{seed_train}_{seed_enjoy}_{pars.task_info["task_name"]}_airframeanimationdata.wb', 'wb') as f:
-            res = {"pars":pars,
-                "task_info": pars.task_info,
-                "seed_train":seed_train, 
-                "seed_enjoy": seed_enjoy,
-                **info_dict,
-            }
-            pickle.dump(res, f)
-
-def log_detailed_evaluation_results(pars, info_dict, seed_train, seed_enjoy, train_for_seconds):
-        task_name = pars.task_info["task_name"]
-        logpath = f"results/data/details_every_evaluation_{task_name}.csv"
-        header = "hash;train_for_seconds;seed_train;seed_enjoy;f;nWaypointsReached;nResets;nWaypointsReached/nResets;total_energy/nWaypointsReached;total_energy\n"
-        import torch
-        if not os.path.exists(logpath) or os.path.getsize(logpath) == 0:
-            with open(logpath, 'w') as file:
-                file.write(header)
-        with open(logpath, 'a') as file:
-            print(f"{hash(pars)};{train_for_seconds};{seed_train};{seed_enjoy};{loss_function(info_dict)};{(info_dict['f_nWaypointsReached']).cpu().item()};{(info_dict['f_nResets']).cpu().item()};{(info_dict['f_nWaypointsReached']/info_dict['f_nResets']).cpu().item()};{(info_dict['f_total_energy']/torch.clamp(info_dict['f_nWaypointsReached'], min=1.0)).cpu().item()};{(info_dict['f_total_energy']).cpu().item()}", file=file)
-
-def motor_rl_objective_function(pars, seed_train, seed_enjoy, train_for_seconds):
-    save_robot_pars_to_file(pars)
-    motor_position_train(seed_train, train_for_seconds)
-    info_dict = motor_position_enjoy(seed_enjoy)
-    log_detailed_evaluation_results(pars, info_dict, seed_train, seed_enjoy, train_for_seconds)
-    dump_animation_info_dict(pars, seed_train, seed_enjoy, info_dict)
-    return info_dict
-
-def loss_function(info_dict):
-    return -(
-        (info_dict["f_waypoints_reached_energy_adjusted"][0]  / info_dict["f_nResets"][0])
-        ).cpu().item()
-
-
+    subprocess.run(cmd_str, shell=True, stdout=sys.stdout, stderr=sys.stderr, text=True)
 
 @run_in_subprocess()
 def plot_airframe_to_file_isaacgym(pars: RobotParameter, filepath: str):
@@ -443,51 +410,69 @@ def plot_airframe_to_file_isaacgym(pars: RobotParameter, filepath: str):
 
 
 
+def dump_animation_info_dict(pars, seed_train, seed_enjoy, info_dict):
+        with open(f'cache/airframes_animationdata/{hash(pars)}_{seed_train}_{seed_enjoy}_{pars.task_info["task_name"]}_airframeanimationdata.wb', 'wb') as f:
+            res = {"pars":pars,
+                "task_info": pars.task_info,
+                "seed_train":seed_train, 
+                "seed_enjoy": seed_enjoy,
+                **info_dict,
+            }
+            pickle.dump(res, f)
+
+def log_detailed_evaluation_results(pars, info_dict, seed_train, seed_enjoy, train_for_seconds):
+        task_name = pars.task_info["task_name"]
+        logpath = f"results/data/details_every_evaluation_{task_name}.csv"
+        header = "hash;train_for_seconds;seed_train;seed_enjoy;f;nWaypointsReached;nResets;nWaypointsReached/nResets;total_energy/nWaypointsReached;total_energy\n"
+        import torch
+        if not os.path.exists(logpath) or os.path.getsize(logpath) == 0:
+            with open(logpath, 'w') as file:
+                file.write(header)
+        with open(logpath, 'a') as file:
+            print(f"{hash(pars)};{train_for_seconds};{seed_train};{seed_enjoy};{loss_function(info_dict)};{(info_dict['f_nWaypointsReached']).cpu().item()};{(info_dict['f_nResets']).cpu().item()};{(info_dict['f_nWaypointsReached']/info_dict['f_nResets']).cpu().item()};{(info_dict['f_total_energy']/torch.clamp(info_dict['f_nWaypointsReached'], min=1.0)).cpu().item()};{(info_dict['f_total_energy']).cpu().item()}", file=file)
+
+def motor_rl_objective_function(pars, seed_train, seed_enjoy, train_for_seconds):
+    save_robot_pars_to_file(pars)
+    motor_position_train(seed_train, train_for_seconds)
+    info_dict = motor_position_enjoy(seed_enjoy)
+    log_detailed_evaluation_results(pars, info_dict, seed_train, seed_enjoy, train_for_seconds)
+    dump_animation_info_dict(pars, seed_train, seed_enjoy, info_dict)
+    return info_dict
+
+def loss_function(info_dict):
+    return -(
+        (info_dict["f_waypoints_reached_energy_adjusted"][0]  / info_dict["f_nResets"][0])
+        ).cpu().item()
+
+
+
+
 # This is just a hack such that the functions with the decorator @run_in_subprocess are executed in a subprocess automagically.
+# Main script logic
 if __name__ == "__main__":
-    if len(sys.argv) > 2 and sys.argv[1].startswith('--'):
+    if len(sys.argv) > 3 and sys.argv[1].startswith('--'):
         func_name = sys.argv[1][2:]  # Remove the '--' prefix
-        temp_filename = sys.argv[2]
+        args_filename = sys.argv[2]
+        return_filename = sys.argv[3]
         
+        # Dynamically get the function by name
         func = globals().get(func_name)
         if func is None:
             print(f"Error: Function '{func_name}' not found.")
             sys.exit(1)
-
-        with open(temp_filename, 'rb') as temp_file:
+        
+        # Load arguments
+        with open(args_filename, 'rb') as temp_file:
             args, kwargs = pickle.load(temp_file)
         
-        func(*args, **kwargs)
+        # Call the function and get the return value
+        return_value = func(*args, **kwargs)
+        
+        # Save the return value
+        with open(return_filename, 'wb') as temp_file:
+            pickle.dump(return_value, temp_file)
+        
         sys.exit(0)
     else:
         # Normal script execution
         pass
-
-
-
-if __name__ == '__main__':
-    # Call objective function from subprocess. Assumes robotConfigFile.txt has been previously written.
-    import sys
-    if sys.argv[1] == "--motor_RL_control_train":
-        assert len(sys.argv) == 4
-        assert "seed" in sys.argv[2]
-        assert "train_for_seconds" in sys.argv[3]
-        sys.argv[1] = "--env=gen_aerial_robot"
-        _motor_position_train(sys.argv[2] + " " + sys.argv[3])
-        exit(0)
-
-    if sys.argv[1] == "--motor_RL_control_enjoy":
-        assert len(sys.argv) == 3
-        sys.argv[1] = "--env=gen_aerial_robot"
-        seed_enjoy = int(sys.argv[2])
-        sys.argv.remove(sys.argv[2])
-        _motor_position_enjoy(seed_enjoy)
-        exit(0)
-
-
-
-
-
-    else:
-        print(f"arv[1] = {sys.argv[1]} not recognized" )
-        exit(0)
