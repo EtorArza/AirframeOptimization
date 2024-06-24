@@ -23,8 +23,6 @@ from aerial_gym_dev import AERIAL_GYM_ROOT_DIR
 
 
 
-animation_camera = "static" # "static" or "follow_goal"
-plotlims = [-1.0, 1.0]
 
 
 
@@ -280,6 +278,9 @@ def animate_airframe(pars:RobotParameter, pose_list, target_list):
     desired_fps = 24
     time_between_frames = 1.0 / 24.0
 
+    animation_camera = "follow_goal" # "static" or "follow_goal"
+    plotlims = [-1.0, 1.0]
+
 
     assert len(pose_list) == len(target_list)
 
@@ -313,7 +314,6 @@ def animate_airframe(pars:RobotParameter, pose_list, target_list):
         # ax.set_zlim((translation[2] - actual_frame_size/2, translation[2] + actual_frame_size/2))
 
 
-        margin = 0.25
         
         # xlim_lower = min(min(start_position_list[frm_idx][:3]), min(target_list[frm_idx]))
         # xlim_upper = max(max(start_position_list[frm_idx][:3]), max(target_list[frm_idx]))
@@ -324,7 +324,7 @@ def animate_airframe(pars:RobotParameter, pose_list, target_list):
 
 
         elif animation_camera == "follow_goal":
-
+            margin = 0.75
             xlim = (translation[0] - margin, translation[0]+ margin)
             ylim = (translation[1] - margin, translation[1]+ margin)
             zlim = (translation[2] - margin, translation[2]+ margin)
@@ -470,7 +470,7 @@ if __name__ == "__main__":
  
 
     # # # Best solution
-    x = np.array([0.7572612755663618, 0.596329575691988, 0.5506765729282267, 0.7197883263173931, 0.4620398998418608, 0.9307036941968287, 0.5140101473102557, 0.737870301372989, 0.29778032648109015, 0.1707035876742718, 0.5889767604566782, 0.561405602945016, 0.015679888938903565, 0.9280162872574376, 0.1420116110886635])
+    x = np.array([0.9198743414511007, 0.4505114951680433, 0.09119185269654438, 0.7241165689168139, 0.4196399126276153, 0.17177770994109137, 0.9325485565345957, 0.8336473532898071, 0.8000092416409966, 0.41237539419057284, 0.4403055655778794, 0.7073848125190241, 0.8044916211676315, 0.2967750513880738, 0.501740881592927])
 
     # # # hex       
     # x = np.array([0.0, 0.5, 0.1667, 0.5, 0.5, 
@@ -497,9 +497,9 @@ if __name__ == "__main__":
     # plot_airframe_to_file_isaacgym(pars, filepath="demo_image.png")
 
 
-    seed_train = 76062013
-    seed_enjoy = 20105689
-    train_and_enjoy = True
+    seed_train = 76047581
+    seed_enjoy = 90755820
+    train_and_enjoy = False
     if train_and_enjoy:
         info_dict = motor_rl_objective_function(pars, seed_train, seed_enjoy, 360)
         f = loss_function(info_dict)
