@@ -14,7 +14,7 @@ import numpy.typing
 from tqdm import tqdm as tqdm
 from math import sqrt
 from matplotlib.animation import FuncAnimation
-from airframes_objective_functions import motor_rl_objective_function, dump_animation_info_dict, loss_function, save_robot_pars_to_file, check_collision_and_repair_isaacgym, plot_airframe_to_file_isaacgym
+from airframes_objective_functions import motor_rl_objective_function, dump_animation_info_dict, loss_function, save_robot_pars_to_file, check_collision_and_repair_isaacgym, plot_airframe_to_file_isaacgym, plot_admisible_set
 import pickle
 import torch
 import pytorch3d.transforms as p3d_transforms
@@ -417,6 +417,7 @@ if __name__ == "__main__":
 
 
     og_pars = _decode_symmetric_hexarotor_to_RobotParameter_polar(x)
+    plot_admisible_set(og_pars)
     print(hash(og_pars))
     plot_airframe_to_file_isaacgym(og_pars, filepath="test_airframe_render.png")
     pars = repair_pars_fabrication_constraints(og_pars)

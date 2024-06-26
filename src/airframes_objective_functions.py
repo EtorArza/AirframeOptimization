@@ -105,6 +105,9 @@ def constraint_check_welf(pars: RobotParameter):
     check1, check2 = analyze_robot_config.analyze_robot_config(robot)
     return (check1, check2)
 
+def plot_admisible_set(pars: RobotParameter):
+    robot = RobotModel(pars)
+    analyze_robot_config.visualize_admissible_set_forces(robot)
 
 def repair_position_device(offset_position_tensor, offset_quat_tensor, og_p, og_euler_degrees):
     new_position = offset_position_tensor + torch.tensor(og_p)
