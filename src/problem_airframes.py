@@ -1,8 +1,6 @@
-aerial_gym_dev_path="/home/paran/Dropbox/NTNU/aerial_gym_dev/aerial_gym_dev"
 
 import sys
 import isaacgym
-sys.path.append(aerial_gym_dev_path)
 from aerial_gym_dev.envs import *
 from matplotlib import pyplot as plt
 import numpy as np
@@ -19,6 +17,8 @@ import pickle
 import torch
 import pytorch3d.transforms as p3d_transforms
 from aerial_gym_dev import AERIAL_GYM_ROOT_DIR
+aerial_gym_dev_path=AERIAL_GYM_ROOT_DIR+"/aerial_gym_dev"
+sys.path.append(aerial_gym_dev_path)
 from isaacgym import gymapi
 import time
 import subprocess
@@ -401,7 +401,7 @@ if __name__ == "__main__":
  
 
     # # # Best solution
-    x = np.array([0.9198743414511007, 0.4505114951680433, 0.09119185269654438, 0.7241165689168139, 0.4196399126276153, 0.17177770994109137, 0.9325485565345957, 0.8336473532898071, 0.8000092416409966, 0.41237539419057284, 0.4403055655778794, 0.7073848125190241, 0.8044916211676315, 0.2967750513880738, 0.501740881592927])
+    x = np.array([0.0, 0.4014029632989064, 0.10736363144190537, 0.5915064669787762, 0.4365114317087085, 0.0, 0.45911571799726847, 0.5909166833435084, 0.8212766233237595, 0.23722539740963722, 0.0, 0.7366443319273508, 0.7542161761443503, 0.1983621118753479, 0.6389514092649344])
 
     # # # hex       
     # x = np.array([0.0, 0.5, 0.1667, 0.5, 0.5, 
@@ -416,12 +416,9 @@ if __name__ == "__main__":
 
 
 
-    og_pars = _decode_symmetric_hexarotor_to_RobotParameter_polar(x)
-    plot_admisible_set(og_pars)
-    print(hash(og_pars))
-    plot_airframe_to_file_isaacgym(og_pars, filepath="test_airframe_render.png")
-    pars = repair_pars_fabrication_constraints(og_pars)
-    print(hash(pars))
+    pars = _decode_symmetric_hexarotor_to_RobotParameter_polar(x)
+    plot_airframe_to_file_isaacgym(pars, filepath="test_airframe_render.png")
+    plot_admisible_set(pars)
 
 
     save_robot_pars_to_file(pars)
@@ -429,9 +426,9 @@ if __name__ == "__main__":
     # plot_airframe_to_file_isaacgym(pars, filepath="demo_image.png")
 
 
-    seed_train = 76047581
-    seed_enjoy = 90755820
-    train_and_enjoy = True
+    seed_train = 441396
+    seed_enjoy = 16668037
+    train_and_enjoy = False
     if train_and_enjoy:
         info_dict = motor_rl_objective_function(pars, seed_train, seed_enjoy, 360)
         f = loss_function(info_dict)
