@@ -12,7 +12,7 @@ import numpy.typing
 from tqdm import tqdm as tqdm
 from math import sqrt
 from matplotlib.animation import FuncAnimation
-from airframes_objective_functions import motor_rl_objective_function, dump_animation_info_dict, loss_function, save_robot_pars_to_file, check_collision_and_repair_isaacgym, plot_airframe_to_file_isaacgym, plot_admisible_set
+from airframes_objective_functions import *
 import pickle
 import torch
 import pytorch3d.transforms as p3d_transforms
@@ -418,7 +418,7 @@ if __name__ == "__main__":
 
     pars = _decode_symmetric_hexarotor_to_RobotParameter_polar(x)
     plot_airframe_to_file_isaacgym(pars, filepath="test_airframe_render.png")
-    plot_admisible_set(pars)
+    # plot_admisible_set(pars)
 
 
     save_robot_pars_to_file(pars)
@@ -428,7 +428,7 @@ if __name__ == "__main__":
 
     seed_train = 441396
     seed_enjoy = 16668037
-    train_and_enjoy = False
+    train_and_enjoy = True
     if train_and_enjoy:
         info_dict = motor_rl_objective_function(pars, seed_train, seed_enjoy, 360)
         f = loss_function(info_dict)
