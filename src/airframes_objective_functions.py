@@ -271,8 +271,8 @@ def motor_position_enjoy(seed_enjoy, headless):
         cfg.train_dir = "./train_dir"
         nn_model = NN_Inference_ROS(cfg)
         print("CFG is:", cfg)
-
-
+        cfg.headless = headless
+        args.headless = headless    
 
         env_cfg = task_registry.get_cfgs(name=args.task)
         
