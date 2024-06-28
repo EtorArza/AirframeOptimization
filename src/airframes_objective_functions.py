@@ -20,7 +20,10 @@ import sys
 import tempfile
 import pickle
 import os
+import glob
 from datetime import datetime
+import shutil
+import tarfile
 
 # This decorator will run the function in a subprocess. It takes the input arguments, serialize them and call this same function. The code in __main__ is also required.
 def run_in_subprocess():
@@ -243,7 +246,7 @@ def save_robot_pars_to_file(pars):
 
 
 @run_in_subprocess()
-def motor_position_enjoy(seed_enjoy):
+def motor_position_enjoy(seed_enjoy, headless):
     from aerial_gym_dev import AERIAL_GYM_ROOT_DIR
     import os
     import isaacgym
@@ -259,8 +262,7 @@ def motor_position_enjoy(seed_enjoy):
 
     def play(args):
 
-        args.headless = True
-        num_airframes_parallel = int(2e4)
+        num_airframes_parallel = int(2e4 if headless else 1e2)
 
         args.num_envs = num_airframes_parallel
         cfg = parse_aerialgym_cfg(evaluation=True)
@@ -413,15 +415,57 @@ def plot_airframe_to_file_isaacgym(pars: RobotParameter, filepath: str):
 
 
 
-def dump_animation_info_dict(pars, seed_train, seed_enjoy, info_dict):
-        with open(f'cache/airframes_animationdata/{hash(pars)}_{seed_train}_{seed_enjoy}_{pars.task_info["task_name"]}_airframeanimationdata.wb', 'wb') as f:
-            res = {"pars":pars,
-                "task_info": pars.task_info,
-                "seed_train":seed_train, 
-                "seed_enjoy": seed_enjoy,
-                **info_dict,
-            }
-            pickle.dump(res, f)
+
+import pickle
+import os
+import shutil
+import io
+import tarfile
+
+def dump_animation_data_and_policy(pars, seed_train, seed_enjoy, info_dict):
+    # Compress folder ./train_dir and dump it together with the rest
+    policy_dir = "./train_dir"
+    
+    # Create a BytesIO object to hold the compressed data
+    compressed_policy_io = io.BytesIO()
+    
+    with tarfile.open(fileobj=compressed_policy_io, mode="w:gz") as tar:
+        tar.add(policy_dir, arcname=os.path.basename(policy_dir))
+    
+    # Get the compressed data as bytes
+    compressed_policy_data = compressed_policy_io.getvalue()
+    
+    res = {
+        "pars": pars,
+        "task_info": pars.task_info,
+        "seed_train": seed_train,
+        "seed_enjoy": seed_enjoy,
+        "policy_data": compressed_policy_data,
+        **info_dict,
+    }
+    
+    filename = f'cache/airframes_animationdata/{hash(pars)}_{seed_train}_{seed_enjoy}_{pars.task_info["task_name"]}_airframeanimationdata.wb'
+    os.makedirs(os.path.dirname(filename), exist_ok=True)
+    
+    with open(filename, 'wb') as f:
+        pickle.dump(res, f)
+
+def load_animation_data_and_policy(animationdata_and_policy_file_path):
+    with open(animationdata_and_policy_file_path, 'rb') as f:
+        animationdata: dict = pickle.load(f)
+    
+    # Extract policy_dir folder and put it on ./train_dir
+    compressed_policy_data = animationdata['policy_data']
+    
+    # Remove existing ./train_dir if necessary
+    if os.path.exists("./train_dir"):
+        shutil.rmtree("./train_dir")
+    
+    # Extract the compressed policy to ./train_dir
+    with tarfile.open(fileobj=io.BytesIO(compressed_policy_data), mode="r:gz") as tar:
+        tar.extractall(path=".")
+    
+    return animationdata
 
 def log_detailed_evaluation_results(pars, info_dict, seed_train, seed_enjoy, train_for_seconds):
         task_name = pars.task_info["task_name"]
@@ -437,9 +481,9 @@ def log_detailed_evaluation_results(pars, info_dict, seed_train, seed_enjoy, tra
 def motor_rl_objective_function(pars, seed_train, seed_enjoy, train_for_seconds):
     save_robot_pars_to_file(pars)
     motor_position_train(seed_train, train_for_seconds)
-    info_dict = motor_position_enjoy(seed_enjoy)
+    info_dict = motor_position_enjoy(seed_enjoy, True)
     log_detailed_evaluation_results(pars, info_dict, seed_train, seed_enjoy, train_for_seconds)
-    dump_animation_info_dict(pars, seed_train, seed_enjoy, info_dict)
+    dump_animation_data_and_policy(pars, seed_train, seed_enjoy, info_dict)
     return info_dict
 
 def loss_function(info_dict):

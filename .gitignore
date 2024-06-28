@@ -50,7 +50,6 @@ cache/bokeh_interactive_plot/*
 !cache/bokeh_interactive_plot/.gitkeep
 global_log.txt
 *.log
-train_dir
 debuglog.txt
 /*.zip
 /*.mp4
@@ -70,3 +69,9 @@ demo_before.png
 demo_after.png
 demo_image.png
 test_airframe_render.png
+
+!cache/airframes_animationdata/
+cache/airframes_animationdata/*
+!cache/airframes_animationdata/.gitkeep
+
+train_dir

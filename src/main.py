@@ -74,7 +74,7 @@ if __name__ == "__main__":
 
     elif sys.argv[1] == "--airframes-f-variance":
         from airframes_objective_functions import motor_position_train, motor_position_enjoy, save_robot_pars_to_file, log_detailed_evaluation_results
-        from problem_airframes import loss_function, dump_animation_info_dict, _decode_symmetric_hexarotor_to_RobotParameter_polar
+        from problem_airframes import loss_function, dump_animation_data_and_policy, _decode_symmetric_hexarotor_to_RobotParameter_polar
 
         task_info = {"task_name": "offsetcone"}
         task_name = task_info["task_name"]
@@ -94,13 +94,13 @@ if __name__ == "__main__":
             save_robot_pars_to_file(pars)
             with open(resfilename, 'a') as f:
                 print("seed_train;seed_enjoy;f",  file=f)
-            for seed_train in range(2,22):
+            for seed_train in range(5,32):
                 motor_position_train(seed_train, train_for_seconds=train_for_seconds)
                 for seed_enjoy in range(42,44):
-                    info_dict = motor_position_enjoy(seed_enjoy)
+                    info_dict = motor_position_enjoy(seed_enjoy, True)
                     f = loss_function(info_dict)
                     log_detailed_evaluation_results(pars, info_dict, seed_train, seed_enjoy, train_for_seconds)
-                    dump_animation_info_dict(pars, seed_train, seed_enjoy, info_dict)
+                    dump_animation_data_and_policy(pars, seed_train, seed_enjoy, info_dict)
                     with open(resfilename, 'a') as file:
                         print(f"{seed_train};{seed_enjoy};{f}",  file=file)
 
