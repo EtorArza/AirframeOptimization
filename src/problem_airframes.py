@@ -30,7 +30,7 @@ import tempfile
 import functools
 
 
-
+problem_dim = 15
 
 
 def from_minus1_one_to_RobotParameter(x: numpy.typing.NDArray[np.float_], task_info):
@@ -153,7 +153,7 @@ def f_symmetric_hexarotor_0_1(x: numpy.typing.NDArray[np.float_], seed_train: in
     assert x.shape == (15,) or x.shape== (10,)
     pars = _decode_symmetric_hexarotor_to_RobotParameter_polar(x, task_info)
     info_dict = motor_rl_objective_function(pars, seed_train, seed_enjoy, 720)
-    return loss_function(info_dict)
+    return info_dict
 
 
 
@@ -419,14 +419,14 @@ if __name__ == "__main__":
 
  
 
-    # # # Best solution
-    x = np.array([0.01, 0.4441056361867471, 0.07371777282233409, 0.8982248970565055, 0.5089361904624653, 0.0, 0.5461757576851315, 0.6187648026236188, 0.7572184852602121, 0.2186803028916304, 0.0, 0.7458089675753193, 0.8091422548022416, 0.21679528943050141, 0.5796709354016016])
+    # # # # Best solution
+    # x = np.array([0.01, 0.4441056361867471, 0.07371777282233409, 0.8982248970565055, 0.5089361904624653, 0.0, 0.5461757576851315, 0.6187648026236188, 0.7572184852602121, 0.2186803028916304, 0.0, 0.7458089675753193, 0.8091422548022416, 0.21679528943050141, 0.5796709354016016])
 
-    # # # hex       
-    # x = np.array([0.0, 0.5, 0.1667, 0.5, 0.5, 
-    #               0.0, 0.5, 0.5000, 0.5, 0.5, 
-    #               0.0, 0.5, 0.8333, 0.5, 0.5, 
-    #             ])
+    # # hex       
+    x = np.array([0.0, 0.5, 0.1667, 0.5, 0.5, 
+                  0.0, 0.5, 0.5000, 0.5, 0.5, 
+                  0.0, 0.5, 0.8333, 0.5, 0.5, 
+                ])
     
     # # quad
     # x = np.array([0.0, 0.5, 0.25, 0.5, 0.5, 
@@ -435,7 +435,7 @@ if __name__ == "__main__":
 
 
 
-    pars = _decode_symmetric_hexarotor_to_RobotParameter_polar(x, {"task_name":"offsetcone"})
+    pars = _decode_symmetric_hexarotor_to_RobotParameter_polar(x, {"task_name":"sphereorigin"})
     plot_airframe_to_file_isaacgym(pars, filepath="test_airframe_render.png")
     # plot_admisible_set(pars)
 

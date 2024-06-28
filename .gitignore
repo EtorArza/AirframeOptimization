@@ -75,3 +75,7 @@ cache/airframes_animationdata/*
 !cache/airframes_animationdata/.gitkeep
 
 train_dir
+
+!cache/ax_optimization_status/
+cache/ax_optimization_status/*
+!cache/ax_optimization_status/.gitkeep

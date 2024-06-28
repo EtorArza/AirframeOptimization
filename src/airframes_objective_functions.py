@@ -263,7 +263,7 @@ def motor_position_enjoy(seed_enjoy, headless):
     def play(args):
 
         num_airframes_parallel = int(2e4 if headless else 1e2)
-
+        print("Averaging", num_airframes_parallel, "environments.")
         args.num_envs = num_airframes_parallel
         cfg = parse_aerialgym_cfg(evaluation=True)
         cfg.num_agents = num_airframes_parallel

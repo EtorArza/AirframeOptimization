@@ -23,14 +23,14 @@ if __name__ == "__main__":
     # Directly solve problem locally, with f function that returns np.nan on infeasible solutions.
     elif sys.argv[1] == "--local-solve":
         sys.argv.pop()
-        problem_name = "airframes"
-        task_info = {"task_name": "offsetcone"}
-        algorithm_name = "ax"
-        constraint_method = "ignore" # 'ignore','nan_on_unfeasible','constant_penalty_no_evaluation','algo_specific', 'nn_encoding'
-        reuse_encoding = True
+        task_info = {"task_name": "sphereorigin",
+                     "threshold_nWaypointsReached/nResets": 10.0,
+                     "threshold_total_energy/nWaypointsReached": 4.0
+                    }
         seed = 6
         budget = 400
-        local_solve(problem_name, algorithm_name, constraint_method, seed, budget, reuse_encoding, log_every=1, task_info=task_info)
+        local_solve(seed, budget, task_info)
+
 
 
     # Directly solve problem locally, with f function that returns np.nan on infeasible solutions.
@@ -76,13 +76,16 @@ if __name__ == "__main__":
         from airframes_objective_functions import motor_position_train, motor_position_enjoy, save_robot_pars_to_file, log_detailed_evaluation_results
         from problem_airframes import loss_function, dump_animation_data_and_policy, _decode_symmetric_hexarotor_to_RobotParameter_polar
 
-        task_info = {"task_name": "offsetcone"}
+        task_info = {"task_name": "sphereorigin",
+                     "threshold_nWaypointsReached/nResets": 10.0,
+                     "threshold_total_energy/nWaypointsReached": 3.0
+                    }
         task_name = task_info["task_name"]
         train_for_seconds_list = [721]
         resfilename_list = [f"results/data/hex_f_variance_{seconds}s_{task_name}.csv" for seconds in train_for_seconds_list]
         hex_pars = _decode_symmetric_hexarotor_to_RobotParameter_polar(np.array([
             0.0, 0.5, 0.1667, 0.5, 0.5, 0.0, 0.5, 0.5000, 0.5, 0.5, 0.0, 0.5, 0.8333, 0.5, 0.5, 
-        ]))
+        ]), task_info)
         pars_list = [hex_pars for i in range(len(train_for_seconds_list))]
         for i in range(len(train_for_seconds_list)):
             pars_list[i].task_info = task_info 
