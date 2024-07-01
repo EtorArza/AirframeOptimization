@@ -131,7 +131,7 @@ def check_collision_and_repair_isaacgym(pars: RobotParameter):
     robot_model = RobotModel(pars)
     open_visualization = False
 
-    urdf_path = AERIAL_GYM_ROOT_DIR + "/resources/robots/generalized_aerial_robot/generalized_model_constraints.urdf"
+    urdf_path = AERIAL_GYM_ROOT_DIR + "/resources/robots/generalized_model_constraints.urdf"
 
 
     gym = gymapi.acquire_gym()
@@ -237,12 +237,12 @@ def check_collision_and_repair_isaacgym(pars: RobotParameter):
 
 
 def save_robot_pars_to_file(pars):
-    print("save parameters to aerial_gym_dev/envs/base/tmp/config")
-
+    print("save parameters to aerial_gym_dev/envs/base/tmp/generalized_model")
     from aerial_gym_dev import AERIAL_GYM_ROOT_DIR
-    with open(AERIAL_GYM_ROOT_DIR + "/aerial_gym_dev/envs/base/tmp/config", "wb") as file:
+    with open(AERIAL_GYM_ROOT_DIR + "/aerial_gym_dev/envs/base/tmp/generalized_model", "wb") as file:
         pickle.dump(pars, file)
-
+    urdf_path = AERIAL_GYM_ROOT_DIR + "/resources/robots/generalized_model.urdf"
+    create_urdf_from_model(RobotModel(pars), urdf_path)
 
 
 @run_in_subprocess()
@@ -345,8 +345,6 @@ def plot_airframe_to_file_isaacgym(pars: RobotParameter, filepath: str):
 
     save_robot_pars_to_file(pars)
 
-    urdf_path = AERIAL_GYM_ROOT_DIR + "/resources/robots/generalized_aerial_robot/generalized_model.urdf"
-    create_urdf_from_model(RobotModel(pars), urdf_path)
 
 
 

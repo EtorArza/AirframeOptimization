@@ -1,3 +1,10 @@
+import os
+from aerial_gym_dev import AERIAL_GYM_ROOT_DIR
+for path in [
+AERIAL_GYM_ROOT_DIR + "/aerial_gym_dev/envs/base/tmp/generalized_model",
+AERIAL_GYM_ROOT_DIR + "/resources/robots/generalized_model.urdf"]:
+    if os.path.exists(path):
+        os.remove(path)   
 
 import sys
 import isaacgym
@@ -16,14 +23,12 @@ from airframes_objective_functions import *
 import pickle
 import torch
 import pytorch3d.transforms as p3d_transforms
-from aerial_gym_dev import AERIAL_GYM_ROOT_DIR
 aerial_gym_dev_path=AERIAL_GYM_ROOT_DIR+"/aerial_gym_dev"
 sys.path.append(aerial_gym_dev_path)
 from isaacgym import gymapi
 import time
 import subprocess
 import pickle
-import os
 import glob
 import re
 import tempfile
@@ -33,7 +38,7 @@ import functools
 problem_dim = 15
 
 
-def from_minus1_one_to_RobotParameter(x: numpy.typing.NDArray[np.float_], task_info):
+def from_minus1_one_to_RobotParameter(x: numpy.typing.NDArray[np.float_]):
 
     '''
     Every value in rx is in the interval [-1,1], where -1 represents lowest possible value, and 1 represents highest possible value.
@@ -51,7 +56,7 @@ def from_minus1_one_to_RobotParameter(x: numpy.typing.NDArray[np.float_], task_i
     assert type(x)==np.ndarray, "x = "+str(x)+" | type(x) = "+str(type(x))
     assert len(x.shape)==2 and x.shape[1] == 6, "x = "+str(x)
     n_motors = x.shape[0]
-    pars = RobotParameter(task_info)
+    pars = RobotParameter()
 
     
     mass = 0.422
@@ -92,7 +97,7 @@ def from_minus1_one_to_RobotParameter(x: numpy.typing.NDArray[np.float_], task_i
     return pars
 
 
-def _decode_symmetric_hexarotor_to_RobotParameter_polar(x: numpy.typing.NDArray[np.float_], task_info):
+def _decode_symmetric_hexarotor_to_RobotParameter_polar(x: numpy.typing.NDArray[np.float_]):
     
     def r_theta_phi_0_1_linearly_to_limits(r_0_1, theta_0_1, phi_0_1):
         r_lims = [0.475,1.0]
@@ -147,11 +152,11 @@ def _decode_symmetric_hexarotor_to_RobotParameter_polar(x: numpy.typing.NDArray[
         x_decoded[prop_i*2+1, 3] = scale_down_euler_x(1.0 - x[prop_i*5 +3])# euler_x inverse 
         x_decoded[prop_i*2+1, 4] = 0.5                                   # euler_y constant (0.5)
         x_decoded[prop_i*2+1, 5] = 1.0 - x[prop_i*5 +4]                  # euler_z inverse
-    return from_minus1_one_to_RobotParameter(x_decoded, task_info)
+    return from_minus1_one_to_RobotParameter(x_decoded)
 
-def f_symmetric_hexarotor_0_1(x: numpy.typing.NDArray[np.float_], seed_train: int, seed_enjoy: int, task_info: dict):
+def f_symmetric_hexarotor_0_1(x: numpy.typing.NDArray[np.float_], seed_train: int, seed_enjoy: int):
     assert x.shape == (15,) or x.shape== (10,)
-    pars = _decode_symmetric_hexarotor_to_RobotParameter_polar(x, task_info)
+    pars = _decode_symmetric_hexarotor_to_RobotParameter_polar(x)
     info_dict = motor_rl_objective_function(pars, seed_train, seed_enjoy, 720)
     return info_dict
 
@@ -435,14 +440,14 @@ if __name__ == "__main__":
 
 
 
-    pars = _decode_symmetric_hexarotor_to_RobotParameter_polar(x, {"task_name":"sphereorigin"})
+    pars = _decode_symmetric_hexarotor_to_RobotParameter_polar(x)
     plot_airframe_to_file_isaacgym(pars, filepath="test_airframe_render.png")
     # plot_admisible_set(pars)
 
 
     save_robot_pars_to_file(pars)
     # plot_airframe_to_file_isaacgym(pars, filepath="demo_image.png")
-
+    exit(0)
 
 
 
