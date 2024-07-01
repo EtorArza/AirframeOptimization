@@ -4,6 +4,11 @@ import numpy as np
 from interfaces import *
 
 
+task_info = {"task_name": "sphereorigin",
+                "threshold_nWaypointsReached/nResets": 10.0,
+                "threshold_total_energy/nWaypointsReached": 3.0
+            }
+
 if __name__ == "__main__":
 
     # Show the percentage of feasible solutions in a problem
@@ -72,32 +77,37 @@ if __name__ == "__main__":
         plt.title("Snobfit: time per 1000 evaluations")
         plt.show()
 
-    elif sys.argv[1] == "--airframes-f-variance":
+    elif sys.argv[1] == "--airframes-repeatedly-train":
         from airframes_objective_functions import motor_position_train, motor_position_enjoy, save_robot_pars_to_file, log_detailed_evaluation_results
         from problem_airframes import loss_function, dump_animation_data_and_policy, _decode_symmetric_hexarotor_to_RobotParameter_polar
 
-        task_info = {"task_name": "sphereorigin",
-                     "threshold_nWaypointsReached/nResets": 10.0,
-                     "threshold_total_energy/nWaypointsReached": 3.0
-                    }
         task_name = task_info["task_name"]
-        train_for_seconds_list = [721]
-        resfilename_list = [f"results/data/hex_f_variance_{seconds}s_{task_name}.csv" for seconds in train_for_seconds_list]
-        hex_pars = _decode_symmetric_hexarotor_to_RobotParameter_polar(np.array([
-            0.0, 0.5, 0.1667, 0.5, 0.5, 0.0, 0.5, 0.5000, 0.5, 0.5, 0.0, 0.5, 0.8333, 0.5, 0.5, 
-        ]), task_info)
-        pars_list = [hex_pars for i in range(len(train_for_seconds_list))]
-        for i in range(len(train_for_seconds_list)):
-            pars_list[i].task_info = task_info 
+        hex_pars = _decode_symmetric_hexarotor_to_RobotParameter_polar(np.array(
+            [0.0, 0.5, 0.1667, 0.5, 0.5, 0.0, 0.5, 0.5000, 0.5, 0.5, 0.0, 0.5, 0.8333, 0.5, 0.5] 
+        ), task_info)
+        most_waypoints_GOAT_pars = _decode_symmetric_hexarotor_to_RobotParameter_polar(np.array(
+            [0.08183876204900542, 0.5219701806265, 0.11665093239221351, 0.7378768213735014, 0.508831640622941, 0.0, 0.6974289414187024, 0.49857822070195307, 0.5439566454472291, 0.2208295263646864, 0.3719121034203965, 0.686407066588435, 0.8705630953168567, 0.4697827032516831, 0.6904855778324281]
+        ), task_info)
+        efficient_GOAT_pars = _decode_symmetric_hexarotor_to_RobotParameter_polar(np.array(
+            [0.566192737657973, 0.38650732151858636, 0.04476017193935885, 0.5451959048245645, 0.6563650895986163, 0.0, 0.4549408976618331, 0.6401616189042635, 0.6630906491835392, 0.38021388305458964, 0.7267550059333063, 0.4661118903880215, 0.7995358390157647, 0.5213023826008708, 0.7348511244117153]
+        ), task_info)
+
+
+        pars_list = [hex_pars, most_waypoints_GOAT_pars, efficient_GOAT_pars]
+        train_for_seconds_list = [1440 for par in pars_list]
+        resfilename_list = [f"results/data/hex_repeatedly_train_{seconds}s_{task_name}.csv" for seconds in train_for_seconds_list]
 
 
         assert len(train_for_seconds_list) == len(pars_list) == len(resfilename_list)
         for pars, train_for_seconds, resfilename,  in zip(pars_list, train_for_seconds_list, resfilename_list):
-
             save_robot_pars_to_file(pars)
-            with open(resfilename, 'a') as f:
-                print("seed_train;seed_enjoy;f",  file=f)
-            for seed_train in range(5,32):
+
+            # Add file header (if necessary)
+            if not os.path.exists(resfilename) or os.path.getsize(resfilename) == 0:
+                with open(resfilename, 'a') as f:
+                    print("hash;seed_train;seed_enjoy;f;nWaypointsReached/nResets;total_energy/nWaypointsReached", file=f)
+
+            for seed_train in range(2,33):
                 motor_position_train(seed_train, train_for_seconds=train_for_seconds)
                 for seed_enjoy in range(42,44):
                     info_dict = motor_position_enjoy(seed_enjoy, True)
@@ -105,12 +115,13 @@ if __name__ == "__main__":
                     log_detailed_evaluation_results(pars, info_dict, seed_train, seed_enjoy, train_for_seconds)
                     dump_animation_data_and_policy(pars, seed_train, seed_enjoy, info_dict)
                     with open(resfilename, 'a') as file:
-                        print(f"{seed_train};{seed_enjoy};{f}",  file=file)
+                        print(f"{hash(pars)};{seed_train};{seed_enjoy};{f};{(info_dict['f_nWaypointsReached']/info_dict['f_nResets']).cpu().item()};{(info_dict['f_total_energy']/torch.clamp(info_dict['f_nWaypointsReached'], min=1.0)).cpu().item()}",  file=file)
 
     elif sys.argv[1] == "--airframes-f-variance-plot":
         import plot_src
-        plot_src.multiobjective_scatter_by_train_time("results/data/details_every_evaluation_offsetcone.csv")
-        plot_src.generate_bokeh_interactive_plot("results/data/details_every_evaluation_offsetcone.csv", "offsetcone")
+        task_name = task_info["task_name"]
+        plot_src.multiobjective_scatter_by_train_time(f"results/data/details_every_evaluation_{task_name}.csv")
+        plot_src.generate_bokeh_interactive_plot(f"results/data/details_every_evaluation_{task_name}.csv", task_name)
         exit(0)
         plot_src.sidebyside_boxplots([
             "results/data/hex_f_variance_360s.csv",
