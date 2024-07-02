@@ -447,11 +447,10 @@ if __name__ == "__main__":
 
     save_robot_pars_to_file(pars)
     # plot_airframe_to_file_isaacgym(pars, filepath="demo_image.png")
-    exit(0)
 
 
 
-    train_and_enjoy = False
+    train_and_enjoy = True
     if train_and_enjoy:
         seed_train = 2
         seed_enjoy = 3
@@ -460,6 +459,7 @@ if __name__ == "__main__":
         print("--------------------------")
         print("f(x) = ", f)
         print("--------------------------")
+    exit(0)
     file_path, seed_train, seed_enjoy, task_name = get_cached_file(pars)
     _  = load_animation_data_and_policy(file_path) # load policy into correct path
     motor_position_enjoy(seed_enjoy, False)

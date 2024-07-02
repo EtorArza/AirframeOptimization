@@ -238,7 +238,6 @@ def check_collision_and_repair_isaacgym(pars: RobotParameter):
 
 def save_robot_pars_to_file(pars):
     print("save parameters to aerial_gym_dev/envs/base/tmp/generalized_model")
-    from aerial_gym_dev import AERIAL_GYM_ROOT_DIR
     with open(AERIAL_GYM_ROOT_DIR + "/aerial_gym_dev/envs/base/tmp/generalized_model", "wb") as file:
         pickle.dump(pars, file)
     urdf_path = AERIAL_GYM_ROOT_DIR + "/resources/robots/generalized_model.urdf"
@@ -333,7 +332,7 @@ def motor_position_train(seed_train, train_for_seconds):
     from datetime import datetime
     current_time = datetime.now()
     subprocess.run("rm train_dir/ -rf", shell=True)
-    cmd_str = f'python3 ../../sample-factory/sf_examples/gen_aerial_robot_population/train_individual.py --env=gen_aerial_robot --seed={seed_train} --train_for_seconds={train_for_seconds}'
+    cmd_str = f'cd {AERIAL_GYM_ROOT_DIR}/aerial_gym_dev/rl_training/rl_games && python runner.py --env=gen_aerial_robot --seed={seed_train} --train_for_seconds={train_for_seconds}'
     print(f">> run shell on {current_time.strftime('%Y-%m-%d %H:%M:%S')}\n{cmd_str}", file=sys.stderr)
     subprocess.run(cmd_str, shell=True, stdout=sys.stdout, stderr=sys.stderr, text=True)
 
@@ -344,6 +343,7 @@ def plot_airframe_to_file_isaacgym(pars: RobotParameter, filepath: str):
     import time
 
     save_robot_pars_to_file(pars)
+    urdf_path = AERIAL_GYM_ROOT_DIR + "/resources/robots/generalized_model.urdf"
 
 
 
@@ -479,6 +479,7 @@ def log_detailed_evaluation_results(pars, info_dict, seed_train, seed_enjoy, tra
 def motor_rl_objective_function(pars, seed_train, seed_enjoy, train_for_seconds):
     save_robot_pars_to_file(pars)
     motor_position_train(seed_train, train_for_seconds)
+    exit(0)
     info_dict = motor_position_enjoy(seed_enjoy, True)
     log_detailed_evaluation_results(pars, info_dict, seed_train, seed_enjoy, train_for_seconds)
     dump_animation_data_and_policy(pars, seed_train, seed_enjoy, info_dict)
