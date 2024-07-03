@@ -24,6 +24,8 @@ import glob
 from datetime import datetime
 import shutil
 import tarfile
+import yaml
+from aerial_gym_dev.rl_training.rl_games.runner import get_args, update_config
 
 # This decorator will run the function in a subprocess. It takes the input arguments, serialize them and call this same function. The code in __main__ is also required.
 def run_in_subprocess():
@@ -244,87 +246,172 @@ def save_robot_pars_to_file(pars):
     create_urdf_from_model(RobotModel(pars), urdf_path)
 
 
+class ModelWrapper(torch.nn.Module):
+    '''
+    Main idea is to ignore outputs which we don't need from model
+    '''
+    def __init__(self, model):
+        torch.nn.Module.__init__(self)
+        self._model = model
+        
+        
+    def forward(self,input_dict):
+        input_dict['obs'] = self._model.norm_obs(input_dict['obs'])
+        '''
+        just model export doesn't work. Looks like onnx issue with torch distributions
+        thats why we are exporting only neural network
+        '''
+        #print(input_dict)
+        #output_dict = self._model.a2c_network(input_dict)
+        #input_dict['is_train'] = False
+        #return output_dict['logits'], output_dict['values']
+        return self._model.a2c_network(input_dict)
+
+
+def model_to_onnx():
+    from rl_games.torch_runner import Runner
+    import os
+    import yaml
+    import torch
+    import matplotlib.pyplot as plt
+    import gym
+    from IPython import display
+    import numpy as np
+    import onnx
+    import onnxruntime as ort
+
+    args = vars(get_args())
+    args['params'] = {'algo_name': 'a2c_continuous'}
+    args.update({
+        'task': 'position_setpoint_task',
+        'checkpoint': 'gen_ppo.pth',
+        'train': False,
+        'seed': 2,
+        'play': True,
+    })
+    runner = Runner()
+    yaml_config = os.path.join(AERIAL_GYM_ROOT_DIR, "aerial_gym_dev/rl_training/rl_games/ppo_aerial_quad.yaml")
+    with open(yaml_config, "r") as stream:
+        config = yaml.safe_load(stream)
+    
+    # Assuming update_config function exists
+    config = update_config(config, args)
+
+    try:
+        runner.load(config)
+    except yaml.YAMLError as exc:
+        print(exc)
+    agent = runner.create_player()
+    agent.restore('gen_ppo.pth')
+
+    import rl_games.algos_torch.flatten as flatten
+    inputs = {
+        'obs' : torch.zeros((1,) + agent.obs_shape).to(agent.device),
+        'rnn_states' : agent.states,
+    }
+
+    with torch.no_grad():
+        adapter = flatten.TracingAdapter(ModelWrapper(agent.model), inputs, allow_non_tensor=True)
+        traced = torch.jit.trace(adapter, adapter.flattened_inputs, check_trace=False)
+        flattened_outputs = traced(*adapter.flattened_inputs)
+        print(flattened_outputs)
+        
+    torch.onnx.export(traced, *adapter.flattened_inputs, "policy.onnx", verbose=True, input_names=['obs'], output_names=['mu','log_std', 'value'])
+
+
+
+
 @run_in_subprocess()
 def motor_position_enjoy(seed_enjoy, headless):
-    from aerial_gym_dev import AERIAL_GYM_ROOT_DIR
     import os
-    import isaacgym
-    from aerial_gym_dev.utils import  get_args, task_registry, Logger
     import numpy as np
-    import torch
-    from sample_factory.enjoy_ros import NN_Inference_ROS
-    from sf_examples.aerialgym_examples.train_aerialgym import parse_aerialgym_cfg, register_aerialgym_custom_components
+    from rl_games.common import env_configurations, vecenv
+    from rl_games.torch_runner import Runner
     import time
-    import torch
-    from aerial_gym_dev.envs import base
-    from aerial_gym_dev.envs.base.generalized_aerial_robot_config import GenAerialRobotCfg
-
-    def play(args):
-
-        num_airframes_parallel = int(2e4 if headless else 1e2)
-        print("Averaging", num_airframes_parallel, "environments.")
-        args.num_envs = num_airframes_parallel
-        cfg = parse_aerialgym_cfg(evaluation=True)
-        cfg.num_agents = num_airframes_parallel
-        cfg.eval_deterministic = True
-        cfg.train_dir = "./train_dir"
-        nn_model = NN_Inference_ROS(cfg)
-        print("CFG is:", cfg)
-        cfg.headless = headless
-        args.headless = headless    
-
-        env_cfg = task_registry.get_cfgs(name=args.task)
-        
-        env_cfg.control.controller = "no_control"
-
-        # prepare environment
-        env, _ = task_registry.make_env(name=args.task, args=args, env_cfg=env_cfg)
-        rs = np.random.RandomState(seed_enjoy)
-        counter = 0
-        reset_every = 750
-
-        torch.random.manual_seed(rs.randint(int(1e8)))
-        obs, _ = env.reset()
-        # random_action = torch.asarray(nn_model.action_space.sample(), device=env.device)
-        # obs, _,_,_,_ = env.step(random_action.detach())
-
-        max_steps = 1*int(env.max_episode_length)
-        env.record_info_during_reward(2, max_steps, env.action_input.shape[1], torch.device(torch.cuda.current_device()))
+    from tqdm import tqdm
+    from aerial_gym_dev.sim.sim_builder import SimBuilder
+    import yaml
+    from aerial_gym_dev.task.task_registry import task_registry
+    import onnxruntime as ort
 
 
-        for i in tqdm(range(max_steps)):
-            if counter == 0:
-                start_time = time.time()
-            counter += 1
-            action = nn_model.get_action(obs)
-            obs, priviliged_obs, rewards, resets, extras = env.step(action)
-            if not args.headless:
-                env.render()
-            if counter % reset_every == 0:
-                torch.random.manual_seed(rs.randint(int(1e8)))
-                obs, _ = env.reset()
 
-        info_dict = env.infoTensordict
+    num_airframes_parallel = int(1 if headless else 1e2)
+    print("Averaging", num_airframes_parallel, "environments.")
 
-        # reward_list = np.array(reward_list).T
-        # pose_list = np.vstack([np.array(pose_list)[:, i, :] for i in range(np.array(pose_list).shape[1])])
-        # target_list = np.vstack([np.array(target_list)[:, i, :] for i in range(np.array(target_list).shape[1])])
 
-        return info_dict
+    args = vars(get_args())
+    rl_task_env = task_registry.make_task("position_setpoint_task", {
+        "headless":False,
+        "num_envs":num_airframes_parallel
+    })
+    rl_task_env.reset()
 
-    cmd_str = f"python src/airframes_objective_functions.py --motor_RL_control_enjoy {seed_enjoy}"
-    sys.argv = [sys.argv[0]] + ["--env=gen_aerial_robot"]
+    ort_model = ort.InferenceSession("policy.onnx")
 
-    EXPORT_POLICY = True
-    RECORD_FRAMES = False
-    MOVE_CAMERA = False
-    args = get_args()
-    args.task = "gen_aerial_robot"
-    info_dict = play(args)
+
+    actions = torch.zeros(
+        (
+            rl_task_env.sim_env.num_envs,
+            rl_task_env.sim_env.num_env_actions + rl_task_env.sim_env.num_robot_actions,
+        )
+    ).to("cuda:0")
+
+    for i in range(10000):
+        obs, reward, terminated, truncated, info = rl_task_env.step(actions=actions)
+
+
+        outputs = ort_model.run(None,{"obs": obs["observations"].cpu().numpy().astype(np.float32)},)
+        actions = torch.tensor(outputs[0], device=reward.device)
+        if i % 5000 == 0:
+            print("i", i)
+            rl_task_env.reset()
+
+
+    exit(0)
+
+
+    # Load configuration
+    yaml_config = os.path.join(AERIAL_GYM_ROOT_DIR, "aerial_gym_dev/rl_training/rl_games/ppo_aerial_quad.yaml")
+    with open(yaml_config, "r") as stream:
+        config = yaml.safe_load(stream)
+    
+    # Assuming update_config function exists
+    config = update_config(config, args)
+
+    try:
+        runner.load(config)
+    except yaml.YAMLError as exc:
+        print(exc)
+
+    runner.reset()
+    rs = np.random.RandomState(args['seed'])
+    counter = 0
+    reset_every = 750
+    max_steps = 1500
+    torch.random.manual_seed(rs.randint(int(1e8)))
+
+
+    for i in tqdm(range(max_steps)):
+        if counter == 0:
+            start_time = time.time()
+        counter += 1
+
+        action = agent.get_action(obs, is_determenistic=True)
+        obs, rewards, dones, infos = env_manager.step(actions=action)
+
+        if not headless:
+            env_manager.render()
+
+        if counter % reset_every == 0:
+            torch.random.manual_seed(rs.randint(int(1e8)))
+            obs = env_manager.reset()
+            player.reset()
+
+    info_dict = env_manager.get_info()
     with open("info_dict.pt", "wb") as f:
-        torch.save(info_dict,f) 
+        torch.save(info_dict, f)
 
-    info_dict = torch.load("info_dict.pt")
     return info_dict
 
 @run_in_subprocess()
@@ -478,8 +565,8 @@ def log_detailed_evaluation_results(pars, info_dict, seed_train, seed_enjoy, tra
 
 def motor_rl_objective_function(pars, seed_train, seed_enjoy, train_for_seconds):
     save_robot_pars_to_file(pars)
-    motor_position_train(seed_train, train_for_seconds)
-    exit(0)
+    #motor_position_train(seed_train, train_for_seconds)
+    model_to_onnx()
     info_dict = motor_position_enjoy(seed_enjoy, True)
     log_detailed_evaluation_results(pars, info_dict, seed_train, seed_enjoy, train_for_seconds)
     dump_animation_data_and_policy(pars, seed_train, seed_enjoy, info_dict)
