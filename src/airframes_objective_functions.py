@@ -311,6 +311,8 @@ def model_to_onnx():
 def motor_position_enjoy(seed_enjoy, headless):
     import os
     import numpy as np
+    import torch
+    import onnxruntime as ort
     from rl_games.common import env_configurations, vecenv
     from rl_games.torch_runner import Runner
     import time
@@ -318,42 +320,54 @@ def motor_position_enjoy(seed_enjoy, headless):
     from aerial_gym_dev.sim.sim_builder import SimBuilder
     import yaml
     from aerial_gym_dev.task.task_registry import task_registry
-    import onnxruntime as ort
 
+    # Ensure CUDA is available for ONNX Runtime
+    assert 'CUDAExecutionProvider' in ort.get_available_providers(), "CUDA is not available for ONNX Runtime"
 
-
-    num_airframes_parallel = int(4 if headless else 1e2)
+    num_airframes_parallel = int(2e4 if headless else 1e2)
     print("Averaging", num_airframes_parallel, "environments.")
-
-
     args = vars(get_args())
     rl_task_env = task_registry.make_task("position_setpoint_task", {
-        "headless":False,
-        "num_envs":num_airframes_parallel
+        "headless": headless,
+        "num_envs": num_airframes_parallel
     })
     rl_task_env.reset()
 
-    ort_model = ort.InferenceSession("policy.onnx")
+    sess_options = ort.SessionOptions()
+    sess_options.graph_optimization_level = ort.GraphOptimizationLevel.ORT_ENABLE_ALL
+    ort_model_gpu = ort.InferenceSession("policy.onnx", sess_options, providers=['CUDAExecutionProvider'])
+    io_binding = ort_model_gpu.io_binding()
 
+    output_shape = (rl_task_env.sim_env.num_envs, rl_task_env.sim_env.num_env_actions + rl_task_env.sim_env.num_robot_actions)
+    actions_gpu = torch.empty(output_shape, dtype=torch.float32, device='cuda:0').contiguous()
 
-    actions = torch.zeros(
-        (
-            rl_task_env.sim_env.num_envs,
-            rl_task_env.sim_env.num_env_actions + rl_task_env.sim_env.num_robot_actions,
+    for i in tqdm(range(10000)):
+        obs, reward, terminated, truncated, info = rl_task_env.step(actions=actions_gpu)
+        
+        # GPU Inference
+        obs_tensor = obs["observations"].cuda().contiguous()
+        io_binding.bind_input(
+            name='obs',
+            device_type='cuda',
+            device_id=0,
+            element_type=np.float32,
+            shape=tuple(obs_tensor.shape),
+            buffer_ptr=obs_tensor.data_ptr()
         )
-    ).to("cuda:0")
+        io_binding.bind_output(
+            name='mu',
+            device_type='cuda',
+            device_id=0,
+            element_type=np.float32,
+            shape=tuple(actions_gpu.shape),
+            buffer_ptr=actions_gpu.data_ptr()
+        )
+        ort_model_gpu.run_with_iobinding(io_binding)
 
-    for i in range(10000):
-        obs, reward, terminated, truncated, info = rl_task_env.step(actions=actions)
 
-
-        batched_obs = obs["observations"].cpu().numpy().astype(np.float32)
-        outputs = ort_model.run(None, {"obs": batched_obs})
-        actions = torch.tensor(outputs[0], device=reward.device)
         if i % 5000 == 0:
             print("i", i)
             rl_task_env.reset()
-
 
     exit(0)
 
