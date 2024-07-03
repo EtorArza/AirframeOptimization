@@ -246,40 +246,24 @@ def save_robot_pars_to_file(pars):
     create_urdf_from_model(RobotModel(pars), urdf_path)
 
 
-class ModelWrapper(torch.nn.Module):
-    '''
-    Main idea is to ignore outputs which we don't need from model
-    '''
-    def __init__(self, model):
-        torch.nn.Module.__init__(self)
-        self._model = model
-        
-        
-    def forward(self,input_dict):
-        input_dict['obs'] = self._model.norm_obs(input_dict['obs'])
-        '''
-        just model export doesn't work. Looks like onnx issue with torch distributions
-        thats why we are exporting only neural network
-        '''
-        #print(input_dict)
-        #output_dict = self._model.a2c_network(input_dict)
-        #input_dict['is_train'] = False
-        #return output_dict['logits'], output_dict['values']
-        return self._model.a2c_network(input_dict)
 
+
+class ModelWrapper(torch.nn.Module):
+    def __init__(self, model):
+        super().__init__()
+        self._model = model
+
+    def forward(self, obs):
+        normalized_obs = self._model.norm_obs(obs)
+        input_dict = {"obs": normalized_obs}
+        actor_output = self._model.a2c_network(input_dict)
+        mu = actor_output[0]
+        return mu
 
 def model_to_onnx():
-    from rl_games.torch_runner import Runner
-    import os
     import yaml
-    import torch
-    import matplotlib.pyplot as plt
-    import gym
-    from IPython import display
-    import numpy as np
-    import onnx
-    import onnxruntime as ort
-
+    from rl_games.torch_runner import Runner
+    import rl_games.algos_torch.flatten as flatten
     args = vars(get_args())
     args['params'] = {'algo_name': 'a2c_continuous'}
     args.update({
@@ -289,36 +273,38 @@ def model_to_onnx():
         'seed': 2,
         'play': True,
     })
+
     runner = Runner()
     yaml_config = os.path.join(AERIAL_GYM_ROOT_DIR, "aerial_gym_dev/rl_training/rl_games/ppo_aerial_quad.yaml")
     with open(yaml_config, "r") as stream:
         config = yaml.safe_load(stream)
     
-    # Assuming update_config function exists
     config = update_config(config, args)
-
+    
     try:
         runner.load(config)
     except yaml.YAMLError as exc:
         print(exc)
+    
     agent = runner.create_player()
     agent.restore('gen_ppo.pth')
 
-    import rl_games.algos_torch.flatten as flatten
-    inputs = {
-        'obs' : torch.zeros((1,) + agent.obs_shape).to(agent.device),
-        'rnn_states' : agent.states,
-    }
+    wrapped_model = ModelWrapper(agent.model)
 
-    with torch.no_grad():
-        adapter = flatten.TracingAdapter(ModelWrapper(agent.model), inputs, allow_non_tensor=True)
-        traced = torch.jit.trace(adapter, adapter.flattened_inputs, check_trace=False)
-        flattened_outputs = traced(*adapter.flattened_inputs)
-        print(flattened_outputs)
-        
-    torch.onnx.export(traced, *adapter.flattened_inputs, "policy.onnx", verbose=True, input_names=['obs'], output_names=['mu','log_std', 'value'])
+    # Create a dummy input with a dynamic batch dimension
+    dummy_input = torch.randn(1, *agent.obs_shape).to(agent.device)
 
-
+    # Export the model to ONNX
+    torch.onnx.export(
+        wrapped_model,
+        dummy_input,
+        "policy.onnx",
+        verbose=True,
+        input_names=['obs'],
+        output_names=['mu'],
+        dynamic_axes={'obs': {0: 'batch_size'}, 'mu': {0: 'batch_size'}},
+        opset_version=11
+    )
 
 
 @run_in_subprocess()
@@ -336,7 +322,7 @@ def motor_position_enjoy(seed_enjoy, headless):
 
 
 
-    num_airframes_parallel = int(1 if headless else 1e2)
+    num_airframes_parallel = int(4 if headless else 1e2)
     print("Averaging", num_airframes_parallel, "environments.")
 
 
@@ -361,7 +347,8 @@ def motor_position_enjoy(seed_enjoy, headless):
         obs, reward, terminated, truncated, info = rl_task_env.step(actions=actions)
 
 
-        outputs = ort_model.run(None,{"obs": obs["observations"].cpu().numpy().astype(np.float32)},)
+        batched_obs = obs["observations"].cpu().numpy().astype(np.float32)
+        outputs = ort_model.run(None, {"obs": batched_obs})
         actions = torch.tensor(outputs[0], device=reward.device)
         if i % 5000 == 0:
             print("i", i)
