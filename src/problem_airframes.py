@@ -458,11 +458,15 @@ if __name__ == "__main__":
         f = loss_function(info_dict)
         print("--------------------------")
         print("f(x) = ", f)
+        print("Number of Waypoints Reached: ", info_dict['f_nWaypointsReached'].cpu().item())
+        print("Number of Resets: ", info_dict['f_nResets'].cpu().item())
+        print("Waypoints per Reset: ", (info_dict['f_nWaypointsReached'] / info_dict['f_nResets']).cpu().item())
+        print("Energy per Waypoint: ", (info_dict['f_total_energy'] / torch.clamp(info_dict['f_nWaypointsReached'], min=1.0)).cpu().item())
+        print("Total Energy: ", info_dict['f_total_energy'].cpu().item())
         print("--------------------------")
-    exit(0)
-    file_path, seed_train, seed_enjoy, task_name = get_cached_file(pars)
-    _  = load_animation_data_and_policy(file_path) # load policy into correct path
-    motor_position_enjoy(seed_enjoy, False)
-    # plot_enjoy_report(file_path)
-    # animate_animationdata_from_cache(file_path)
+    else: 
+
+        file_path, seed_train, seed_enjoy, task_name = get_cached_file(pars)
+        _  = load_animation_data_and_policy(file_path) # load policy into correct path
+        motor_position_enjoy(seed_enjoy, False)
 

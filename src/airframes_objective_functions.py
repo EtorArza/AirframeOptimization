@@ -329,7 +329,8 @@ def motor_position_enjoy(seed_enjoy, headless):
     args = vars(get_args())
     rl_task_env = task_registry.make_task("position_setpoint_task", {
         "headless": headless,
-        "num_envs": num_airframes_parallel
+        "num_envs": num_airframes_parallel,
+        "is_enjoy": True,
     })
     rl_task_env.reset()
 
@@ -341,7 +342,7 @@ def motor_position_enjoy(seed_enjoy, headless):
     output_shape = (rl_task_env.sim_env.num_envs, rl_task_env.sim_env.num_env_actions + rl_task_env.sim_env.num_robot_actions)
     actions_gpu = torch.empty(output_shape, dtype=torch.float32, device='cuda:0').contiguous()
 
-    for i in tqdm(range(10000)):
+    for i in tqdm(range(1000)):
         obs, reward, terminated, truncated, info = rl_task_env.step(actions=actions_gpu)
         
         # GPU Inference
@@ -365,54 +366,11 @@ def motor_position_enjoy(seed_enjoy, headless):
         ort_model_gpu.run_with_iobinding(io_binding)
 
 
-        if i % 5000 == 0:
+        if i % 500 == 0:
             print("i", i)
             rl_task_env.reset()
 
-    exit(0)
-
-
-    # Load configuration
-    yaml_config = os.path.join(AERIAL_GYM_ROOT_DIR, "aerial_gym_dev/rl_training/rl_games/ppo_aerial_quad.yaml")
-    with open(yaml_config, "r") as stream:
-        config = yaml.safe_load(stream)
-    
-    # Assuming update_config function exists
-    config = update_config(config, args)
-
-    try:
-        runner.load(config)
-    except yaml.YAMLError as exc:
-        print(exc)
-
-    runner.reset()
-    rs = np.random.RandomState(args['seed'])
-    counter = 0
-    reset_every = 750
-    max_steps = 1500
-    torch.random.manual_seed(rs.randint(int(1e8)))
-
-
-    for i in tqdm(range(max_steps)):
-        if counter == 0:
-            start_time = time.time()
-        counter += 1
-
-        action = agent.get_action(obs, is_determenistic=True)
-        obs, rewards, dones, infos = env_manager.step(actions=action)
-
-        if not headless:
-            env_manager.render()
-
-        if counter % reset_every == 0:
-            torch.random.manual_seed(rs.randint(int(1e8)))
-            obs = env_manager.reset()
-            player.reset()
-
-    info_dict = env_manager.get_info()
-    with open("info_dict.pt", "wb") as f:
-        torch.save(info_dict, f)
-
+    info_dict = rl_task_env.get_info()
     return info_dict
 
 @run_in_subprocess()
@@ -510,27 +468,27 @@ import tarfile
 
 def dump_animation_data_and_policy(pars, seed_train, seed_enjoy, info_dict):
     # Compress folder ./train_dir and dump it together with the rest
-    policy_dir = "./train_dir"
+    policy_path = "policy.onnx"
     
     # Create a BytesIO object to hold the compressed data
     compressed_policy_io = io.BytesIO()
     
     with tarfile.open(fileobj=compressed_policy_io, mode="w:gz") as tar:
-        tar.add(policy_dir, arcname=os.path.basename(policy_dir))
+        tar.add(policy_path, arcname=os.path.basename(policy_path))
     
     # Get the compressed data as bytes
     compressed_policy_data = compressed_policy_io.getvalue()
     
     res = {
         "pars": pars,
-        "task_info": pars.task_info,
+        "task_name": info_dict["task_name"],
         "seed_train": seed_train,
         "seed_enjoy": seed_enjoy,
         "policy_data": compressed_policy_data,
         **info_dict,
     }
     
-    filename = f'cache/airframes_animationdata/{hash(pars)}_{seed_train}_{seed_enjoy}_{pars.task_info["task_name"]}_airframeanimationdata.wb'
+    filename = f'cache/airframes_animationdata/{hash(pars)}_{seed_train}_{seed_enjoy}_{info_dict["task_name"]}_airframeanimationdata.wb'
     os.makedirs(os.path.dirname(filename), exist_ok=True)
     
     with open(filename, 'wb') as f:
@@ -540,12 +498,10 @@ def load_animation_data_and_policy(animationdata_and_policy_file_path):
     with open(animationdata_and_policy_file_path, 'rb') as f:
         animationdata: dict = pickle.load(f)
     
-    # Extract policy_dir folder and put it on ./train_dir
     compressed_policy_data = animationdata['policy_data']
     
-    # Remove existing ./train_dir if necessary
-    if os.path.exists("./train_dir"):
-        shutil.rmtree("./train_dir")
+    if os.path.exists("policy.onnx"):
+        os.remove("policy.onnx")
     
     # Extract the compressed policy to ./train_dir
     with tarfile.open(fileobj=io.BytesIO(compressed_policy_data), mode="r:gz") as tar:
@@ -554,21 +510,22 @@ def load_animation_data_and_policy(animationdata_and_policy_file_path):
     return animationdata
 
 def log_detailed_evaluation_results(pars, info_dict, seed_train, seed_enjoy, train_for_seconds):
-        task_name = pars.task_info["task_name"]
-        logpath = f"results/data/details_every_evaluation_{task_name}.csv"
-        header = "hash;train_for_seconds;seed_train;seed_enjoy;f;nWaypointsReached;nResets;nWaypointsReached/nResets;total_energy/nWaypointsReached;total_energy\n"
-        import torch
-        if not os.path.exists(logpath) or os.path.getsize(logpath) == 0:
-            with open(logpath, 'w') as file:
-                file.write(header)
-        with open(logpath, 'a') as file:
-            print(f"{hash(pars)};{train_for_seconds};{seed_train};{seed_enjoy};{loss_function(info_dict)};{(info_dict['f_nWaypointsReached']).cpu().item()};{(info_dict['f_nResets']).cpu().item()};{(info_dict['f_nWaypointsReached']/info_dict['f_nResets']).cpu().item()};{(info_dict['f_total_energy']/torch.clamp(info_dict['f_nWaypointsReached'], min=1.0)).cpu().item()};{(info_dict['f_total_energy']).cpu().item()}", file=file)
+    task_name = info_dict["task_name"]
+    logpath = f"results/data/details_every_evaluation_{task_name}.csv"
+    header = "hash;train_for_seconds;seed_train;seed_enjoy;f;nWaypointsReached;nResets;nWaypointsReached/nResets;total_energy/nWaypointsReached;total_energy\n"
+    import torch
+    if not os.path.exists(logpath) or os.path.getsize(logpath) == 0:
+        with open(logpath, 'w') as file:
+            file.write(header)
+    with open(logpath, 'a') as file:
+        print(f"{hash(pars)};{train_for_seconds};{seed_train};{seed_enjoy};{loss_function(info_dict)};{(info_dict['f_nWaypointsReached']).cpu().item()};{(info_dict['f_nResets']).cpu().item()};{(info_dict['f_nWaypointsReached']/info_dict['f_nResets']).cpu().item()};{(info_dict['f_total_energy']/torch.clamp(info_dict['f_nWaypointsReached'], min=1.0)).cpu().item()};{(info_dict['f_total_energy']).cpu().item()}", file=file)
 
 def motor_rl_objective_function(pars, seed_train, seed_enjoy, train_for_seconds):
     save_robot_pars_to_file(pars)
-    #motor_position_train(seed_train, train_for_seconds)
+    # motor_position_train(seed_train, train_for_seconds)
+    # exit(0)
     model_to_onnx()
-    info_dict = motor_position_enjoy(seed_enjoy, True)
+    info_dict = motor_position_enjoy(seed_enjoy, False)
     log_detailed_evaluation_results(pars, info_dict, seed_train, seed_enjoy, train_for_seconds)
     dump_animation_data_and_policy(pars, seed_train, seed_enjoy, info_dict)
     return info_dict
