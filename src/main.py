@@ -94,12 +94,12 @@ if __name__ == "__main__":
 
 
         pars_list = [hex_pars, most_waypoints_GOAT_pars, efficient_GOAT_pars]
-        train_for_seconds_list = [1440 for par in pars_list]
-        resfilename_list = [f"results/data/hex_repeatedly_train_{seconds}s_{task_name}.csv" for seconds in train_for_seconds_list]
+        max_epochs_list = [350 for par in pars_list]
+        resfilename_list = [f"results/data/hex_repeatedly_train_{seconds}s_{task_name}.csv" for seconds in max_epochs_list]
 
 
-        assert len(train_for_seconds_list) == len(pars_list) == len(resfilename_list)
-        for pars, train_for_seconds, resfilename,  in zip(pars_list, train_for_seconds_list, resfilename_list):
+        assert len(max_epochs_list) == len(pars_list) == len(resfilename_list)
+        for pars, max_epochs, resfilename,  in zip(pars_list, max_epochs_list, resfilename_list):
             save_robot_pars_to_file(pars)
 
             # Add file header (if necessary)
@@ -108,11 +108,11 @@ if __name__ == "__main__":
                     print("hash;seed_train;seed_enjoy;f;nWaypointsReached/nResets;total_energy/nWaypointsReached", file=f)
 
             for seed_train in range(2,33):
-                motor_position_train(seed_train, train_for_seconds=train_for_seconds)
+                motor_position_train(seed_train, max_epochs=max_epochs)
                 for seed_enjoy in range(42,44):
                     info_dict = motor_position_enjoy(seed_enjoy, True)
                     f = loss_function(info_dict)
-                    log_detailed_evaluation_results(pars, info_dict, seed_train, seed_enjoy, train_for_seconds)
+                    log_detailed_evaluation_results(pars, info_dict, seed_train, seed_enjoy, max_epochs)
                     dump_animation_data_and_policy(pars, seed_train, seed_enjoy, info_dict)
                     with open(resfilename, 'a') as file:
                         print(f"{hash(pars)};{seed_train};{seed_enjoy};{f};{(info_dict['f_nWaypointsReached']/info_dict['f_nResets']).cpu().item()};{(info_dict['f_total_energy']/torch.clamp(info_dict['f_nWaypointsReached'], min=1.0)).cpu().item()}",  file=file)

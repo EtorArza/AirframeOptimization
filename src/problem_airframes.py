@@ -157,7 +157,7 @@ def _decode_symmetric_hexarotor_to_RobotParameter_polar(x: numpy.typing.NDArray[
 def f_symmetric_hexarotor_0_1(x: numpy.typing.NDArray[np.float_], seed_train: int, seed_enjoy: int):
     assert x.shape == (15,) or x.shape== (10,)
     pars = _decode_symmetric_hexarotor_to_RobotParameter_polar(x)
-    info_dict = motor_rl_objective_function(pars, seed_train, seed_enjoy, 720)
+    info_dict = motor_rl_objective_function(pars, seed_train, seed_enjoy, 350)
     return info_dict
 
 
@@ -454,7 +454,7 @@ if __name__ == "__main__":
     if train_and_enjoy:
         seed_train = 2
         seed_enjoy = 3
-        info_dict = motor_rl_objective_function(pars, seed_train, seed_enjoy, 720)
+        info_dict = motor_rl_objective_function(pars, seed_train, seed_enjoy, 350)
         f = loss_function(info_dict)
         print("--------------------------")
         print("f(x) = ", f)

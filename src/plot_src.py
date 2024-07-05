@@ -215,7 +215,7 @@ def _read_and_clean_data_every_evaluation_csv(details_every_evaluation_csv):
 
     df = df[chosen_rows]
 
-    df = df.groupby(['hash', 'seed_train', "train_for_seconds"]).agg({
+    df = df.groupby(['hash', 'seed_train', "max_epochs"]).agg({
         'seed_enjoy': lambda x: x.iloc[0] if len(x) > 1 else x.iloc[0],
         'f': 'mean',
         'nWaypointsReached/nResets': 'mean',
@@ -230,7 +230,7 @@ def multiobjective_scatter_by_train_time(details_every_evaluation_csv):
 
     df = _read_and_clean_data_every_evaluation_csv(details_every_evaluation_csv)
 
-    unique_train_seconds = df['train_for_seconds'].unique()
+    unique_train_seconds = df['max_epochs'].unique()
     color_map = {value: color for value, color in zip(unique_train_seconds, plt.rcParams['axes.prop_cycle'].by_key()['color'])}
     markers = itertools.cycle(('x', 's', 'v', '^', '<', '>', '8', 'p', '*', 'h', 'H', 'D', 'd'))
 
@@ -241,11 +241,11 @@ def multiobjective_scatter_by_train_time(details_every_evaluation_csv):
 
     plt.figure(figsize=(10, 6))
     for train_value in unique_train_seconds:
-        subset = df[df['train_for_seconds'] == train_value]
+        subset = df[df['max_epochs'] == train_value]
         plt.scatter(
             x=subset['total_energy/nWaypointsReached'],
             y=subset['nWaypointsReached/nResets'],
-            label=labels_map.get(train_value, f'train_for_seconds = {train_value}'),
+            label=labels_map.get(train_value, f'max_epochs = {train_value}'),
             color=color_map[train_value],
             marker=next(markers),
             alpha=0.5

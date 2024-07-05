@@ -261,6 +261,9 @@ class ModelWrapper(torch.nn.Module):
         return mu
 
 def model_to_onnx():
+    if not os.path.exists('gen_ppo.pth'):
+        raise FileNotFoundError("The file 'gen_ppo.pth' does not exist. Cannot proceed with model conversion.")
+
     import yaml
     from rl_games.torch_runner import Runner
     import rl_games.algos_torch.flatten as flatten
@@ -374,13 +377,21 @@ def motor_position_enjoy(seed_enjoy, headless):
     return info_dict
 
 @run_in_subprocess()
-def motor_position_train(seed_train, train_for_seconds):
+def motor_position_train(seed_train, max_epochs):
     from datetime import datetime
     current_time = datetime.now()
-    subprocess.run("rm train_dir/ -rf", shell=True)
-    cmd_str = f'cd {AERIAL_GYM_ROOT_DIR}/aerial_gym_dev/rl_training/rl_games && python runner.py --env=gen_aerial_robot --seed={seed_train} --train_for_seconds={train_for_seconds}'
+     
+    subprocess.run(f"rm {AERIAL_GYM_ROOT_DIR}/aerial_gym_dev/rl_training/rl_games/runs/* -rf", shell=True)
+    cmd_str = f'wd=`pwd` && cd {AERIAL_GYM_ROOT_DIR}/aerial_gym_dev/rl_training/rl_games && python runner.py --seed={seed_train} --save_best_after={max_epochs // 2} --max_epochs={max_epochs}'
     print(f">> run shell on {current_time.strftime('%Y-%m-%d %H:%M:%S')}\n{cmd_str}", file=sys.stderr)
     subprocess.run(cmd_str, shell=True, stdout=sys.stdout, stderr=sys.stderr, text=True)
+    dirs = glob.glob(f"{AERIAL_GYM_ROOT_DIR}/aerial_gym_dev/rl_training/rl_games/runs/gen_ppo_*")
+    if len(dirs) == 1:
+        subprocess.run(f"cp {os.path.join(dirs[0], 'nn', 'gen_ppo.pth')} gen_ppo.pth", shell=True)
+    else:
+        print("Error: There should be exactly one directory that contains the policy.")
+        exit(1)
+
 
 @run_in_subprocess()
 def plot_airframe_to_file_isaacgym(pars: RobotParameter, filepath: str):
@@ -509,24 +520,24 @@ def load_animation_data_and_policy(animationdata_and_policy_file_path):
     
     return animationdata
 
-def log_detailed_evaluation_results(pars, info_dict, seed_train, seed_enjoy, train_for_seconds):
+def log_detailed_evaluation_results(pars, info_dict, seed_train, seed_enjoy, max_epochs):
     task_name = info_dict["task_name"]
     logpath = f"results/data/details_every_evaluation_{task_name}.csv"
-    header = "hash;train_for_seconds;seed_train;seed_enjoy;f;nWaypointsReached;nResets;nWaypointsReached/nResets;total_energy/nWaypointsReached;total_energy\n"
+    header = "hash;max_epochs;seed_train;seed_enjoy;f;nWaypointsReached;nResets;nWaypointsReached/nResets;total_energy/nWaypointsReached;total_energy\n"
     import torch
     if not os.path.exists(logpath) or os.path.getsize(logpath) == 0:
         with open(logpath, 'w') as file:
             file.write(header)
     with open(logpath, 'a') as file:
-        print(f"{hash(pars)};{train_for_seconds};{seed_train};{seed_enjoy};{loss_function(info_dict)};{(info_dict['f_nWaypointsReached']).cpu().item()};{(info_dict['f_nResets']).cpu().item()};{(info_dict['f_nWaypointsReached']/info_dict['f_nResets']).cpu().item()};{(info_dict['f_total_energy']/torch.clamp(info_dict['f_nWaypointsReached'], min=1.0)).cpu().item()};{(info_dict['f_total_energy']).cpu().item()}", file=file)
+        print(f"{hash(pars)};{max_epochs};{seed_train};{seed_enjoy};{loss_function(info_dict)};{(info_dict['f_nWaypointsReached']).cpu().item()};{(info_dict['f_nResets']).cpu().item()};{(info_dict['f_nWaypointsReached']/info_dict['f_nResets']).cpu().item()};{(info_dict['f_total_energy']/torch.clamp(info_dict['f_nWaypointsReached'], min=1.0)).cpu().item()};{(info_dict['f_total_energy']).cpu().item()}", file=file)
 
-def motor_rl_objective_function(pars, seed_train, seed_enjoy, train_for_seconds):
+def motor_rl_objective_function(pars, seed_train, seed_enjoy, max_epochs):
     save_robot_pars_to_file(pars)
-    # motor_position_train(seed_train, train_for_seconds)
-    # exit(0)
+    motor_position_train(seed_train, max_epochs)
     model_to_onnx()
+    # subprocess.run(f"rm gen_ppo.pth", shell=True)
     info_dict = motor_position_enjoy(seed_enjoy, False)
-    log_detailed_evaluation_results(pars, info_dict, seed_train, seed_enjoy, train_for_seconds)
+    log_detailed_evaluation_results(pars, info_dict, seed_train, seed_enjoy, max_epochs)
     dump_animation_data_and_policy(pars, seed_train, seed_enjoy, info_dict)
     return info_dict
 
