@@ -334,8 +334,11 @@ def motor_position_enjoy(seed_enjoy, headless):
         "headless": headless,
         "num_envs": num_airframes_parallel,
         "is_enjoy": True,
+        "training": False,
+        "train": False,
+        "play": True,
     })
-    rl_task_env.reset()
+    obs = rl_task_env.reset()[0]["observations"].contiguous()
 
     sess_options = ort.SessionOptions()
     sess_options.graph_optimization_level = ort.GraphOptimizationLevel.ORT_ENABLE_ALL
@@ -346,17 +349,15 @@ def motor_position_enjoy(seed_enjoy, headless):
     actions_gpu = torch.empty(output_shape, dtype=torch.float32, device='cuda:0').contiguous()
 
     for i in tqdm(range(1000)):
-        obs, reward, terminated, truncated, info = rl_task_env.step(actions=actions_gpu)
         
         # GPU Inference
-        obs_tensor = obs["observations"].cuda().contiguous()
         io_binding.bind_input(
             name='obs',
             device_type='cuda',
             device_id=0,
             element_type=np.float32,
-            shape=tuple(obs_tensor.shape),
-            buffer_ptr=obs_tensor.data_ptr()
+            shape=tuple(obs.shape),
+            buffer_ptr=obs.data_ptr()
         )
         io_binding.bind_output(
             name='mu',
@@ -367,11 +368,12 @@ def motor_position_enjoy(seed_enjoy, headless):
             buffer_ptr=actions_gpu.data_ptr()
         )
         ort_model_gpu.run_with_iobinding(io_binding)
+        obs = rl_task_env.step(actions=actions_gpu)[0]["observations"].contiguous()
 
 
-        if i % 500 == 0:
+        if (i+1) % 500 == 0:
             print("i", i)
-            rl_task_env.reset()
+            obs = rl_task_env.reset()[0]["observations"].contiguous()
 
     info_dict = rl_task_env.get_info()
     return info_dict
@@ -521,8 +523,8 @@ def load_animation_data_and_policy(animationdata_and_policy_file_path):
     return animationdata
 
 def log_detailed_evaluation_results(pars, info_dict, seed_train, seed_enjoy, max_epochs):
-    task_name = info_dict["task_name"]
-    logpath = f"results/data/details_every_evaluation_{task_name}.csv"
+    waypoint_name = info_dict["waypoint_name"]
+    logpath = f"results/data/details_every_evaluation_{waypoint_name}.csv"
     header = "hash;max_epochs;seed_train;seed_enjoy;f;nWaypointsReached;nResets;nWaypointsReached/nResets;total_energy/nWaypointsReached;total_energy\n"
     import torch
     if not os.path.exists(logpath) or os.path.getsize(logpath) == 0:
