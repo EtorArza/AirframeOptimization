@@ -267,51 +267,91 @@ def model_to_onnx():
     import yaml
     from rl_games.torch_runner import Runner
     import rl_games.algos_torch.flatten as flatten
+    from aerial_gym_dev.rl_training.rl_games.runner import update_config
+    
     args = vars(get_args())
     args['params'] = {'algo_name': 'a2c_continuous'}
+
     args.update({
         'task': 'position_setpoint_task',
         'checkpoint': 'gen_ppo.pth',
         'train': False,
+        'training': False,
         'seed': 2,
         'play': True,
     })
 
-    runner = Runner()
     yaml_config = os.path.join(AERIAL_GYM_ROOT_DIR, "aerial_gym_dev/rl_training/rl_games/ppo_aerial_quad.yaml")
     with open(yaml_config, "r") as stream:
         config = yaml.safe_load(stream)
-    
+
+    args["seed"] = 2
     config = update_config(config, args)
-    
+    config["params"]["load_checkpoint"] = True
+
+    runner = Runner()
+
     try:
         runner.load(config)
     except yaml.YAMLError as exc:
         print(exc)
+        exit(1)
     
     agent = runner.create_player()
     agent.restore('gen_ppo.pth')
 
     wrapped_model = ModelWrapper(agent.model)
-
-    # Create a dummy input with a dynamic batch dimension
     dummy_input = torch.randn(1, *agent.obs_shape).to(agent.device)
 
-    # Export the model to ONNX
-    torch.onnx.export(
-        wrapped_model,
-        dummy_input,
-        "policy.onnx",
-        verbose=True,
-        input_names=['obs'],
-        output_names=['mu'],
-        dynamic_axes={'obs': {0: 'batch_size'}, 'mu': {0: 'batch_size'}},
-        opset_version=11
-    )
+    with torch.no_grad():
+        torch.onnx.export(
+            wrapped_model,
+            dummy_input,
+            "policy.onnx",
+            verbose=True,
+            input_names=['obs'],
+            output_names=['mu'],
+            dynamic_axes={'obs': {0: 'batch_size'}, 'mu': {0: 'batch_size'}},
+            opset_version=11
+        )
 
+def update_task_config_parameters(seed: int, headless: bool, waypoint_name: str):
+    assert isinstance(seed, int), "seed must be an integer"
+    assert isinstance(headless, bool), "headless must be a boolean"
+    assert isinstance(waypoint_name, str), "waypoint_name must be a string"
+
+    print("updating", seed, headless, waypoint_name)
+
+    file_path = f"{AERIAL_GYM_ROOT_DIR}/aerial_gym_dev/config/task_config/position_setpoint_with_attitude_control.py"
+    
+    with open(file_path, 'r') as file:
+        lines = file.readlines()
+    
+    seed_count = headless_count = waypoint_count = 0
+    
+    for i, line in enumerate(lines):
+        if line.strip().startswith("seed ="):
+            lines[i] = f"    seed = {seed}\n"
+            seed_count += 1
+        elif line.strip().startswith("headless ="):
+            lines[i] = f"    headless = {headless}\n"
+            headless_count += 1
+        elif line.strip().startswith("waypoint_name ="):
+            lines[i] = f'    waypoint_name = "{waypoint_name}"\n'
+            waypoint_count += 1
+    
+    assert seed_count == 1, "Expected exactly one 'seed' field in the file"
+    assert headless_count == 1, "Expected exactly one 'headless' field in the file"
+    assert waypoint_count == 1, "Expected exactly one 'waypoint_name' field in the file"
+    
+    with open(file_path, 'w') as file:
+        file.writelines(lines)
 
 @run_in_subprocess()
-def motor_position_enjoy(seed_enjoy, headless):
+def motor_position_enjoy(seed_enjoy, headless, waypoint_name):
+
+    update_task_config_parameters(seed_enjoy, headless, waypoint_name)
+
     import os
     import numpy as np
     import torch
@@ -323,6 +363,7 @@ def motor_position_enjoy(seed_enjoy, headless):
     from aerial_gym_dev.sim.sim_builder import SimBuilder
     import yaml
     from aerial_gym_dev.task.task_registry import task_registry
+
 
     # Ensure CUDA is available for ONNX Runtime
     assert 'CUDAExecutionProvider' in ort.get_available_providers(), "CUDA is not available for ONNX Runtime"
@@ -337,6 +378,7 @@ def motor_position_enjoy(seed_enjoy, headless):
         "training": False,
         "train": False,
         "play": True,
+        "seed": seed_enjoy,
     })
     obs = rl_task_env.reset()[0]["observations"].contiguous()
 
@@ -379,12 +421,17 @@ def motor_position_enjoy(seed_enjoy, headless):
     return info_dict
 
 @run_in_subprocess()
-def motor_position_train(seed_train, max_epochs):
+def motor_position_train(seed_train, max_epochs, headless, waypoint_name):
+
+    update_task_config_parameters(seed_train, headless, waypoint_name)
+
     from datetime import datetime
     current_time = datetime.now()
-     
+
+
+
     subprocess.run(f"rm {AERIAL_GYM_ROOT_DIR}/aerial_gym_dev/rl_training/rl_games/runs/* -rf", shell=True)
-    cmd_str = f'wd=`pwd` && cd {AERIAL_GYM_ROOT_DIR}/aerial_gym_dev/rl_training/rl_games && python runner.py --seed={seed_train} --save_best_after={max_epochs // 2} --max_epochs={max_epochs}'
+    cmd_str = f"wd=`pwd` && cd {AERIAL_GYM_ROOT_DIR}/aerial_gym_dev/rl_training/rl_games && python runner.py --seed={seed_train} --save_best_after={100} --max_epochs={max_epochs}"
     print(f">> run shell on {current_time.strftime('%Y-%m-%d %H:%M:%S')}\n{cmd_str}", file=sys.stderr)
     subprocess.run(cmd_str, shell=True, stdout=sys.stdout, stderr=sys.stderr, text=True)
     dirs = glob.glob(f"{AERIAL_GYM_ROOT_DIR}/aerial_gym_dev/rl_training/rl_games/runs/gen_ppo_*")
@@ -494,14 +541,14 @@ def dump_animation_data_and_policy(pars, seed_train, seed_enjoy, info_dict):
     
     res = {
         "pars": pars,
-        "task_name": info_dict["task_name"],
+        "waypoint_name": info_dict["waypoint_name"],
         "seed_train": seed_train,
         "seed_enjoy": seed_enjoy,
         "policy_data": compressed_policy_data,
         **info_dict,
     }
     
-    filename = f'cache/airframes_animationdata/{hash(pars)}_{seed_train}_{seed_enjoy}_{info_dict["task_name"]}_airframeanimationdata.wb'
+    filename = f'cache/airframes_animationdata/{hash(pars)}_{seed_train}_{seed_enjoy}_{info_dict["waypoint_name"]}_airframeanimationdata.wb'
     os.makedirs(os.path.dirname(filename), exist_ok=True)
     
     with open(filename, 'wb') as f:
@@ -533,12 +580,12 @@ def log_detailed_evaluation_results(pars, info_dict, seed_train, seed_enjoy, max
     with open(logpath, 'a') as file:
         print(f"{hash(pars)};{max_epochs};{seed_train};{seed_enjoy};{loss_function(info_dict)};{(info_dict['f_nWaypointsReached']).cpu().item()};{(info_dict['f_nResets']).cpu().item()};{(info_dict['f_nWaypointsReached']/info_dict['f_nResets']).cpu().item()};{(info_dict['f_total_energy']/torch.clamp(info_dict['f_nWaypointsReached'], min=1.0)).cpu().item()};{(info_dict['f_total_energy']).cpu().item()}", file=file)
 
-def motor_rl_objective_function(pars, seed_train, seed_enjoy, max_epochs):
+def motor_rl_objective_function(pars, seed_train, seed_enjoy, max_epochs, waypoint_name):
     save_robot_pars_to_file(pars)
-    motor_position_train(seed_train, max_epochs)
+    motor_position_train(seed_train, max_epochs, False, waypoint_name)
     model_to_onnx()
-    # subprocess.run(f"rm gen_ppo.pth", shell=True)
-    info_dict = motor_position_enjoy(seed_enjoy, False)
+    subprocess.run(f"rm gen_ppo.pth", shell=True)
+    info_dict = motor_position_enjoy(seed_enjoy, False, waypoint_name)
     log_detailed_evaluation_results(pars, info_dict, seed_train, seed_enjoy, max_epochs)
     dump_animation_data_and_policy(pars, seed_train, seed_enjoy, info_dict)
     return info_dict

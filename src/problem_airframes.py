@@ -376,13 +376,13 @@ def get_cached_file(pars):
     if len(matching_files) == 1:
         file_path = matching_files[0]
         filename = os.path.basename(file_path)
-        # Extract seed_train, seed_enjoy, and task_name using regex
+        # Extract seed_train, seed_enjoy, and waypoint_name using regex
         match = re.match(r'\d+_(\d+)_(\d+)_(\w+)_airframeanimationdata\.wb', filename)
         if match:
             seed_train = int(match.group(1))
             seed_enjoy = int(match.group(2))
-            task_name = match.group(3)
-            return file_path, seed_train, seed_enjoy, task_name
+            waypoint_name = match.group(3)
+            return file_path, seed_train, seed_enjoy, waypoint_name
         else:
             raise ValueError(f"Unable to extract values from filename: {filename}")
     elif len(matching_files) == 0:
@@ -452,10 +452,12 @@ if __name__ == "__main__":
 
     train_and_enjoy = True
     if train_and_enjoy:
-        seed_train = 2
-        seed_enjoy = 3
-        info_dict = motor_rl_objective_function(pars, seed_train, seed_enjoy, 350)
+        seed_train = 3
+        seed_enjoy = 6
+        start = time.time()
+        info_dict = motor_rl_objective_function(pars, seed_train, seed_enjoy, 350, "offsetcone")
         f = loss_function(info_dict)
+        print(f"objective function (train + enjoy) time: {time.time() - start}")
         print("--------------------------")
         print("f(x) = ", f)
         print("Number of Waypoints Reached: ", info_dict['f_nWaypointsReached'].cpu().item())
@@ -466,7 +468,7 @@ if __name__ == "__main__":
         print("--------------------------")
     else: 
 
-        file_path, seed_train, seed_enjoy, task_name = get_cached_file(pars)
+        file_path, seed_train, seed_enjoy, waypoint_name = get_cached_file(pars)
         _  = load_animation_data_and_policy(file_path) # load policy into correct path
         motor_position_enjoy(seed_enjoy, False)
 

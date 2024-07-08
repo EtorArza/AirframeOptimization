@@ -93,7 +93,7 @@ class optimization_algorithm:
 
 def local_solve(seed, budget, task_info):
 
-    task_info_str = "" if task_info is None else task_info["task_name"]
+    task_info_str = "" if task_info is None else task_info["waypoint_name"]
     result_file_path = f'results/data/{task_info_str}_{seed}.csv'
     ax_status_filepath = f'cache/ax_optimization_status/{task_info_str}_{seed}.csv'
     

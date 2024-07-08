@@ -4,7 +4,7 @@ import numpy as np
 from interfaces import *
 
 
-task_info = {"task_name": "sphereorigin",
+task_info = {"waypoint_name": "sphereorigin",
                 "threshold_nWaypointsReached/nResets": 10.0,
                 "threshold_total_energy/nWaypointsReached": 3.0
             }
@@ -28,7 +28,7 @@ if __name__ == "__main__":
     # Directly solve problem locally, with f function that returns np.nan on infeasible solutions.
     elif sys.argv[1] == "--local-solve":
         sys.argv.pop()
-        task_info = {"task_name": "sphereorigin",
+        task_info = {"waypoint_name": "sphereorigin",
                      "threshold_nWaypointsReached/nResets": 10.0,
                      "threshold_total_energy/nWaypointsReached": 4.0
                     }
@@ -81,7 +81,7 @@ if __name__ == "__main__":
         from airframes_objective_functions import motor_position_train, motor_position_enjoy, save_robot_pars_to_file, log_detailed_evaluation_results
         from problem_airframes import loss_function, dump_animation_data_and_policy, _decode_symmetric_hexarotor_to_RobotParameter_polar
 
-        task_name = task_info["task_name"]
+        waypoint_name = task_info["waypoint_name"]
         hex_pars = _decode_symmetric_hexarotor_to_RobotParameter_polar(np.array(
             [0.0, 0.5, 0.1667, 0.5, 0.5, 0.0, 0.5, 0.5000, 0.5, 0.5, 0.0, 0.5, 0.8333, 0.5, 0.5] 
         ), task_info)
@@ -95,7 +95,7 @@ if __name__ == "__main__":
 
         pars_list = [hex_pars, most_waypoints_GOAT_pars, efficient_GOAT_pars]
         max_epochs_list = [350 for par in pars_list]
-        resfilename_list = [f"results/data/hex_repeatedly_train_{seconds}s_{task_name}.csv" for seconds in max_epochs_list]
+        resfilename_list = [f"results/data/hex_repeatedly_train_{seconds}s_{waypoint_name}.csv" for seconds in max_epochs_list]
 
 
         assert len(max_epochs_list) == len(pars_list) == len(resfilename_list)
@@ -119,9 +119,9 @@ if __name__ == "__main__":
 
     elif sys.argv[1] == "--airframes-f-variance-plot":
         import plot_src
-        task_name = task_info["task_name"]
-        plot_src.multiobjective_scatter_by_train_time(f"results/data/details_every_evaluation_{task_name}.csv")
-        plot_src.generate_bokeh_interactive_plot(f"results/data/details_every_evaluation_{task_name}.csv", task_name)
+        waypoint_name = task_info["waypoint_name"]
+        plot_src.multiobjective_scatter_by_train_time(f"results/data/details_every_evaluation_{waypoint_name}.csv")
+        plot_src.generate_bokeh_interactive_plot(f"results/data/details_every_evaluation_{waypoint_name}.csv", waypoint_name)
         exit(0)
         plot_src.sidebyside_boxplots([
             "results/data/hex_f_variance_360s.csv",

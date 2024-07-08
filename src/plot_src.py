@@ -260,7 +260,7 @@ def multiobjective_scatter_by_train_time(details_every_evaluation_csv):
     return df
 
 
-def generate_bokeh_interactive_plot(details_every_evaluation_csv, task_name):
+def generate_bokeh_interactive_plot(details_every_evaluation_csv, waypoint_name):
 
     from bokeh.plotting import figure, output_file, show, save, ColumnDataSource
     from bokeh.models import HoverTool
@@ -280,7 +280,7 @@ def generate_bokeh_interactive_plot(details_every_evaluation_csv, task_name):
     legend_labels = []
 
     for i in tqdm(range(df.shape[0])):
-        id = str(df["hash"][i])+ "_" + str(df["seed_train"][i])+ "_" + str(df["seed_enjoy"][i]) + "_" + task_name
+        id = str(df["hash"][i])+ "_" + str(df["seed_train"][i])+ "_" + str(df["seed_enjoy"][i]) + "_" + waypoint_name
         pars_hash = df["hash"][i]
         if pars_hash == 7399056118471101504:
             colors.append("orange")
@@ -334,7 +334,7 @@ def generate_bokeh_interactive_plot(details_every_evaluation_csv, task_name):
 
     p.xaxis.axis_label = 'Energy per waypoint reached'
     p.yaxis.axis_label = 'Waypoint reached per reset'
-    p.title.text = f'Waypoints reached vs. energy use ({task_name})'
+    p.title.text = f'Waypoints reached vs. energy use ({waypoint_name})'
 
 
     # p.legend.title = 'Hexarotor Type'
