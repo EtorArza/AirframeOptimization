@@ -142,3 +142,33 @@ def local_solve(seed, budget, task_info):
     print_to_log("-------------------------------------------------------------")
     print_to_log("Finished local optimization.", get_human_time())
     print_to_log("-------------------------------------------------------------")
+
+
+def airframe_repeatedly_train_and_enjoy(train_seed_list, enjoy_seed_list, max_epochs, pars, task_info):
+    from airframes_objective_functions import motor_position_train, motor_position_enjoy, save_robot_pars_to_file, log_detailed_evaluation_results, model_to_onnx
+    from problem_airframes import loss_function, dump_animation_data_and_policy
+    import os
+    import torch
+    import subprocess
+
+    waypoint_name = task_info["waypoint_name"]
+    resfilename = f"results/data/hex_repeatedly_train_{max_epochs}s_{waypoint_name}.csv"
+    save_robot_pars_to_file(pars)
+    
+    if not os.path.exists(resfilename) or os.path.getsize(resfilename) == 0:
+        with open(resfilename, 'a') as f:
+            print("hash;seed_train;seed_enjoy;f;nWaypointsReached/nResets;total_energy/nWaypointsReached", file=f)
+    
+    for seed_train in train_seed_list:
+        subprocess.run(f"rm gen_ppo.pth -f", shell=True)
+        motor_position_train(seed_train, max_epochs, True, waypoint_name)
+        model_to_onnx()
+        for seed_enjoy in enjoy_seed_list:
+            info_dict = motor_position_enjoy(seed_enjoy, True, waypoint_name)
+            f = loss_function(info_dict)
+            log_detailed_evaluation_results(pars, info_dict, seed_train, seed_enjoy, max_epochs)
+            dump_animation_data_and_policy(pars, seed_train, seed_enjoy, info_dict)
+            
+            with open(resfilename, 'a') as file:
+                print(f"{hash(pars)};{seed_train};{seed_enjoy};{f};{(info_dict['f_nWaypointsReached']/info_dict['f_nResets']).cpu().item()};{(info_dict['f_total_energy']/torch.clamp(info_dict['f_nWaypointsReached'], min=1.0)).cpu().item()}", file=file)
+

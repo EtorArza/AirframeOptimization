@@ -260,6 +260,7 @@ class ModelWrapper(torch.nn.Module):
         mu = actor_output[0]
         return mu
 
+@run_in_subprocess()
 def model_to_onnx():
     if not os.path.exists('gen_ppo.pth'):
         raise FileNotFoundError("The file 'gen_ppo.pth' does not exist. Cannot proceed with model conversion.")

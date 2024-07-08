@@ -28,10 +28,6 @@ if __name__ == "__main__":
     # Directly solve problem locally, with f function that returns np.nan on infeasible solutions.
     elif sys.argv[1] == "--local-solve":
         sys.argv.pop()
-        task_info = {"waypoint_name": "sphereorigin",
-                     "threshold_nWaypointsReached/nResets": 10.0,
-                     "threshold_total_energy/nWaypointsReached": 4.0
-                    }
         seed = 6
         budget = 400
         local_solve(seed, budget, task_info)
@@ -77,45 +73,52 @@ if __name__ == "__main__":
         plt.title("Snobfit: time per 1000 evaluations")
         plt.show()
 
-    elif sys.argv[1] == "--airframes-repeatedly-train":
-        from airframes_objective_functions import motor_position_train, motor_position_enjoy, save_robot_pars_to_file, log_detailed_evaluation_results
-        from problem_airframes import loss_function, dump_animation_data_and_policy, _decode_symmetric_hexarotor_to_RobotParameter_polar
 
-        waypoint_name = task_info["waypoint_name"]
+    elif sys.argv[1] == "--hex-different-epochs":
+        from problem_airframes import loss_function, dump_animation_data_and_policy, _decode_symmetric_hexarotor_to_RobotParameter_polar
+        import itertools
+
         hex_pars = _decode_symmetric_hexarotor_to_RobotParameter_polar(np.array(
             [0.0, 0.5, 0.1667, 0.5, 0.5, 0.0, 0.5, 0.5000, 0.5, 0.5, 0.0, 0.5, 0.8333, 0.5, 0.5] 
-        ), task_info)
+        ))
+
+
+        train_seed_list = list(range(2,23))
+        enjoy_seed_list = list(range(42,44))
+        pars = hex_pars
+        max_epochs_list = [350, 700, 1400, 2800]
+        
+        for max_epochs in max_epochs_list:
+            airframe_repeatedly_train_and_enjoy(train_seed_list, enjoy_seed_list, max_epochs, pars, task_info)
+
+
+
+    elif sys.argv[1] == "--airframes-repeatedly-train":
+        from problem_airframes import loss_function, dump_animation_data_and_policy, _decode_symmetric_hexarotor_to_RobotParameter_polar
+        import itertools
+
+        hex_pars = _decode_symmetric_hexarotor_to_RobotParameter_polar(np.array(
+            [0.0, 0.5, 0.1667, 0.5, 0.5, 0.0, 0.5, 0.5000, 0.5, 0.5, 0.0, 0.5, 0.8333, 0.5, 0.5] 
+        ))
         most_waypoints_GOAT_pars = _decode_symmetric_hexarotor_to_RobotParameter_polar(np.array(
             [0.08183876204900542, 0.5219701806265, 0.11665093239221351, 0.7378768213735014, 0.508831640622941, 0.0, 0.6974289414187024, 0.49857822070195307, 0.5439566454472291, 0.2208295263646864, 0.3719121034203965, 0.686407066588435, 0.8705630953168567, 0.4697827032516831, 0.6904855778324281]
-        ), task_info)
+        ))
         efficient_GOAT_pars = _decode_symmetric_hexarotor_to_RobotParameter_polar(np.array(
             [0.566192737657973, 0.38650732151858636, 0.04476017193935885, 0.5451959048245645, 0.6563650895986163, 0.0, 0.4549408976618331, 0.6401616189042635, 0.6630906491835392, 0.38021388305458964, 0.7267550059333063, 0.4661118903880215, 0.7995358390157647, 0.5213023826008708, 0.7348511244117153]
-        ), task_info)
+        ))
 
-
+        train_seed_list = list(range(2,33))
+        enjoy_seed_list = list(range(42,44))
         pars_list = [hex_pars, most_waypoints_GOAT_pars, efficient_GOAT_pars]
-        max_epochs_list = [350 for par in pars_list]
-        resfilename_list = [f"results/data/hex_repeatedly_train_{seconds}s_{waypoint_name}.csv" for seconds in max_epochs_list]
+        max_epochs = 350
+        
+        for pars in pars_list:
+            airframe_repeatedly_train_and_enjoy(train_seed_list, enjoy_seed_list, max_epochs, pars, task_info)
 
 
-        assert len(max_epochs_list) == len(pars_list) == len(resfilename_list)
-        for pars, max_epochs, resfilename,  in zip(pars_list, max_epochs_list, resfilename_list):
-            save_robot_pars_to_file(pars)
 
-            # Add file header (if necessary)
-            if not os.path.exists(resfilename) or os.path.getsize(resfilename) == 0:
-                with open(resfilename, 'a') as f:
-                    print("hash;seed_train;seed_enjoy;f;nWaypointsReached/nResets;total_energy/nWaypointsReached", file=f)
 
-            for seed_train in range(2,33):
-                motor_position_train(seed_train, max_epochs=max_epochs)
-                for seed_enjoy in range(42,44):
-                    info_dict = motor_position_enjoy(seed_enjoy, True)
-                    f = loss_function(info_dict)
-                    log_detailed_evaluation_results(pars, info_dict, seed_train, seed_enjoy, max_epochs)
-                    dump_animation_data_and_policy(pars, seed_train, seed_enjoy, info_dict)
-                    with open(resfilename, 'a') as file:
-                        print(f"{hash(pars)};{seed_train};{seed_enjoy};{f};{(info_dict['f_nWaypointsReached']/info_dict['f_nResets']).cpu().item()};{(info_dict['f_total_energy']/torch.clamp(info_dict['f_nWaypointsReached'], min=1.0)).cpu().item()}",  file=file)
+
 
     elif sys.argv[1] == "--airframes-f-variance-plot":
         import plot_src
