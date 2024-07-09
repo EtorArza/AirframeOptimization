@@ -6,7 +6,7 @@ results/figures/*/*
 !results/data/.gitkeep
 !results/figures/.gitkeep
 
-!results/figures/quad_hex_f_variance/.gitkeep
+!results/figures/repeatedly_different_train_seed/.gitkeep
 !results/figures/venn/.gitkeep
 !results/figures/compare_constraint_methods/.gitkeep
 

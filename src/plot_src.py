@@ -147,67 +147,39 @@ def compare_different_constraint_methods(problem, algorithm, constraint_method_l
     plt.tight_layout()
 
 from typing import Iterable
-def sidebyside_boxplots(file_list: Iterable[str]):
+def boxplots_repeatedly_different_train_seed(result_file_path: str, waypoint_name:str):
     import pandas as pd
 
-    # Read data
-    df_dict = dict()
-    for file in file_list:
-        key = file.split("/")[-1]
-        key = key.replace("s.csv","")
-        key = key.replace("_f_variance","")
-        key = (key.split("_")[0], int(key.split("_")[1]))
-        df_dict[key] = pd.read_csv(file, sep=";")
+    df = _read_and_clean_data_every_evaluation_csv(result_file_path)
 
+    for column_name in ["f","nWaypointsReached/nResets","total_energy/nWaypointsReached"]:
+        data_list = []
+        label_list = []
+        max_epoch_list = sorted(df["max_epochs"].unique().tolist())
+        for max_epoch in max_epoch_list:
+            data_list.append(df.query(f"max_epochs == {max_epoch}")[column_name])    
+            label_list.append(str(max_epoch))
+            
 
-    # Plot one boxplot per train seed, to see both the train and test variances together
-    from matplotlib import pyplot as plt
-    for key in [("quad",720), ("hex",360), ("hex", 1440)]:
-        boxplot = plt.boxplot([df_dict[key].query(f"seed_train == {seed}")["f_waypoints_reached_energy_adjusted"] for seed in range(2, 22)], showmeans=True)
-        legend_handles = [boxplot["medians"][0], boxplot["means"][0]]
-        legend_labels = ["Median", "Mean"]
-        plt.legend(legend_handles, legend_labels)
-        plt.title(str(key))
+        plt.figure(figsize=(4,2.5))
+        boxplot = plt.boxplot(data_list, showmeans=True)
+        # plt.hlines(59.14, *plt.gca().get_xlim(),colors="blue", linestyles="--", label="best retrain 1440s")
+        # plt.hlines(55.88, *plt.gca().get_xlim(), colors="red", linestyles="-.", label="best 360s")
+        plt.legend()
+        plt.xticks(list(range(1, len(data_list)+1)), label_list)
+        plt.xlabel("Traininig time (max epochs)")
+        plt.ylabel(column_name)
+        plt.title("Hex different train seeds")
         plt.tight_layout()
-        plt.savefig(f"results/figures/quad_hex_f_variance/train_and_test_variance_{key[0]}_{key[1]}.pdf")
+        plt.savefig(f"results/figures/repeatedly_different_train_seed/hex_repeatedly_{column_name.replace('/','-')}_boxplots_{waypoint_name}.pdf")
         plt.close()
-
-    # Boxplot of variance on hex train
-    f_list = []
-    label_list = []
-    sorted_keys = sorted(df_dict.keys(), key=lambda x: -10000 + x[1] if "quad" in x[0] else x[1])
-    for key in sorted_keys:
-        if "quad" in key:
-            continue
-        f_list.append(df_dict[key].groupby('seed_train')['f'].mean().values)
-        label_list.append(str(key[1]))
-
-    # Print variance
-    for idx, key, f_array in zip(range(10000), sorted_keys, f_list):
-        plt.plot(np.ones_like(f_array)*idx + np.random.random(len(f_array)) / 8, f_array, label=key, linestyle="", marker=".")
-        print(key, " train variance =", np.var(f_array), "| test variance =", np.mean(df_dict[key].groupby('seed_train')['f'].var().values))
-    plt.show()
-    plt.close()
-
-    plt.figure(figsize=(4,2.5))
-    boxplot = plt.boxplot(f_list, showmeans=True)
-    plt.hlines(59.14, *plt.gca().get_xlim(),colors="blue", linestyles="--", label="best retrain 1440s")
-    plt.hlines(55.88, *plt.gca().get_xlim(), colors="red", linestyles="-.", label="best 360s")
-    plt.legend()
-    plt.xticks(list(range(1, len(f_list)+1)), label_list)
-    plt.xlabel("Traininig time (s)")
-    plt.ylabel("Mean reward")
-    plt.title("Hex different train seeds")
-    plt.tight_layout()
-    plt.savefig("results/figures/quad_hex_f_variance/train_variance_hex.pdf")
-    plt.close()
 
 
 
 def _read_and_clean_data_every_evaluation_csv(details_every_evaluation_csv):
     df = pd.read_csv(details_every_evaluation_csv, sep=";")
 
-    chosen_rows = (df["nWaypointsReached/nResets"] > 0.1) & (df["total_energy/nWaypointsReached"] > 0.01) & (df["total_energy/nWaypointsReached"] < 5.0)
+    chosen_rows = (df["nWaypointsReached/nResets"] > 0.1) & (df["total_energy/nWaypointsReached"] > 0.01) & (df["total_energy/nWaypointsReached"] < 30.0)
     
     perc_rows = (1.0 - np.count_nonzero(chosen_rows) / df.shape[0]) * 100.0
 

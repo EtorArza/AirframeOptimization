@@ -154,10 +154,10 @@ def _decode_symmetric_hexarotor_to_RobotParameter_polar(x: numpy.typing.NDArray[
         x_decoded[prop_i*2+1, 5] = 1.0 - x[prop_i*5 +4]                  # euler_z inverse
     return from_minus1_one_to_RobotParameter(x_decoded)
 
-def f_symmetric_hexarotor_0_1(x: numpy.typing.NDArray[np.float_], seed_train: int, seed_enjoy: int):
+def f_symmetric_hexarotor_0_1(x: numpy.typing.NDArray[np.float_], seed_train: int, seed_enjoy, task_info):
     assert x.shape == (15,) or x.shape== (10,)
     pars = _decode_symmetric_hexarotor_to_RobotParameter_polar(x)
-    info_dict = motor_rl_objective_function(pars, seed_train, seed_enjoy, 350)
+    info_dict = motor_rl_objective_function(pars, seed_train, seed_enjoy, 350, task_info['waypoint_name'])
     return info_dict
 
 

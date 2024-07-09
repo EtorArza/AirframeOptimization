@@ -570,15 +570,14 @@ def load_animation_data_and_policy(animationdata_and_policy_file_path):
     
     return animationdata
 
-def log_detailed_evaluation_results(pars, info_dict, seed_train, seed_enjoy, max_epochs):
+def log_detailed_evaluation_results(pars, info_dict, seed_train, seed_enjoy, max_epochs, result_file_path):
     waypoint_name = info_dict["waypoint_name"]
-    logpath = f"results/data/details_every_evaluation_{waypoint_name}.csv"
     header = "hash;max_epochs;seed_train;seed_enjoy;f;nWaypointsReached;nResets;nWaypointsReached/nResets;total_energy/nWaypointsReached;total_energy\n"
     import torch
-    if not os.path.exists(logpath) or os.path.getsize(logpath) == 0:
-        with open(logpath, 'w') as file:
+    if not os.path.exists(result_file_path) or os.path.getsize(result_file_path) == 0:
+        with open(result_file_path, 'w') as file:
             file.write(header)
-    with open(logpath, 'a') as file:
+    with open(result_file_path, 'a') as file:
         print(f"{hash(pars)};{max_epochs};{seed_train};{seed_enjoy};{loss_function(info_dict)};{(info_dict['f_nWaypointsReached']).cpu().item()};{(info_dict['f_nResets']).cpu().item()};{(info_dict['f_nWaypointsReached']/info_dict['f_nResets']).cpu().item()};{(info_dict['f_total_energy']/torch.clamp(info_dict['f_nWaypointsReached'], min=1.0)).cpu().item()};{(info_dict['f_total_energy']).cpu().item()}", file=file)
 
 def motor_rl_objective_function(pars, seed_train, seed_enjoy, max_epochs, waypoint_name):
@@ -587,7 +586,7 @@ def motor_rl_objective_function(pars, seed_train, seed_enjoy, max_epochs, waypoi
     model_to_onnx()
     subprocess.run(f"rm gen_ppo.pth", shell=True)
     info_dict = motor_position_enjoy(seed_enjoy, False, waypoint_name)
-    log_detailed_evaluation_results(pars, info_dict, seed_train, seed_enjoy, max_epochs)
+    log_detailed_evaluation_results(pars, info_dict, seed_train, seed_enjoy, max_epochs, waypoint_name)
     dump_animation_data_and_policy(pars, seed_train, seed_enjoy, info_dict)
     return info_dict
 

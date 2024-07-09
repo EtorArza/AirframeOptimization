@@ -4,10 +4,11 @@ import numpy as np
 from interfaces import *
 
 
-task_info = {"waypoint_name": "sphereorigin",
-                "threshold_nWaypointsReached/nResets": 10.0,
-                "threshold_total_energy/nWaypointsReached": 3.0
-            }
+task_info = {
+    "waypoint_name": "offsetcone",
+    "threshold_nWaypointsReached/nResets": 10.0,
+    "threshold_total_energy/nWaypointsReached": 3.0
+}
 
 if __name__ == "__main__":
 
@@ -89,7 +90,7 @@ if __name__ == "__main__":
         max_epochs_list = [350, 700, 1400, 2800]
         
         for max_epochs in max_epochs_list:
-            airframe_repeatedly_train_and_enjoy(train_seed_list, enjoy_seed_list, max_epochs, pars, task_info)
+            airframe_repeatedly_train_and_enjoy(train_seed_list, enjoy_seed_list, max_epochs, pars, task_info, f"results/data/repeatedly_standard_hex_different_train_seed_{task_info['waypoint_name']}.csv")
 
 
 
@@ -122,14 +123,12 @@ if __name__ == "__main__":
 
     elif sys.argv[1] == "--airframes-f-variance-plot":
         import plot_src
-        waypoint_name = task_info["waypoint_name"]
+        plot_src.boxplots_repeatedly_different_train_seed(f"results/data/repeatedly_standard_hex_different_train_seed_{task_info['waypoint_name']}.csv", task_info['waypoint_name'])
+        exit(0)
         plot_src.multiobjective_scatter_by_train_time(f"results/data/details_every_evaluation_{waypoint_name}.csv")
         plot_src.generate_bokeh_interactive_plot(f"results/data/details_every_evaluation_{waypoint_name}.csv", waypoint_name)
         exit(0)
-        plot_src.sidebyside_boxplots([
-            "results/data/hex_f_variance_360s.csv",
-            "results/data/hex_f_variance_720s.csv",
-        ])
+
 
     else:
         print("sys.argv[1]=",sys.argv[1],"not recognized.", sep=" ")
