@@ -22,7 +22,10 @@ import copy
 
 def evaluate_airframe(x, train_seed, test_seed, task_info):
     info_dict = problem_airframes.f_symmetric_hexarotor_0_1(x, train_seed, test_seed, task_info)
-    f_res = {"nWaypointsReached/nResets":(info_dict['f_nWaypointsReached']/info_dict['f_nResets']).cpu().item(), "total_energy/nWaypointsReached":(info_dict['f_total_energy']/torch.clamp(info_dict['f_nWaypointsReached'], min=1.0)).cpu().item()}
+    if info_dict is None:
+        f_res = {"nWaypointsReached/nResets":0.0, "total_energy/nWaypointsReached":1e6}
+    else:
+        f_res = {"nWaypointsReached/nResets":(info_dict['f_nWaypointsReached']/info_dict['f_nResets']).cpu().item(), "total_energy/nWaypointsReached":(info_dict['f_total_energy']/torch.clamp(info_dict['f_nWaypointsReached'], min=1.0)).cpu().item()}
     return f_res
 
 
@@ -157,11 +160,12 @@ def airframe_repeatedly_train_and_enjoy(train_seed_list, enjoy_seed_list, max_ep
 
     
     for seed_train in train_seed_list:
-        subprocess.run(f"rm gen_ppo.pth -f", shell=True)
-        motor_position_train(seed_train, max_epochs, True, waypoint_name)
-        model_to_onnx()
-        for seed_enjoy in enjoy_seed_list:
-            info_dict = motor_position_enjoy(seed_enjoy, True, waypoint_name)
-            f = loss_function(info_dict)
-            log_detailed_evaluation_results(pars, info_dict, seed_train, seed_enjoy, max_epochs, result_file_path)
-            dump_animation_data_and_policy(pars, seed_train, seed_enjoy, info_dict)
+        exit_flag = motor_position_train(seed_train, max_epochs, True, waypoint_name)
+        print("exit_flag", exit_flag)
+        if exit_flag == "success":
+            model_to_onnx()
+            for seed_enjoy in enjoy_seed_list:
+                info_dict = motor_position_enjoy(seed_enjoy, True, waypoint_name)
+                f = loss_function(info_dict)
+                log_detailed_evaluation_results(pars, info_dict, seed_train, seed_enjoy, max_epochs, result_file_path)
+                dump_animation_data_and_policy(pars, seed_train, seed_enjoy, info_dict)

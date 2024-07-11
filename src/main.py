@@ -84,10 +84,10 @@ if __name__ == "__main__":
         ))
 
 
-        train_seed_list = list(range(2,23))
+        train_seed_list = list(range(3,23))
         enjoy_seed_list = list(range(42,44))
         pars = hex_pars
-        max_epochs_list = [350, 700, 1400, 2800]
+        max_epochs_list = [1000, 2000, 4000]
         
         for max_epochs in max_epochs_list:
             airframe_repeatedly_train_and_enjoy(train_seed_list, enjoy_seed_list, max_epochs, pars, task_info, f"results/data/repeatedly_standard_hex_different_train_seed_{task_info['waypoint_name']}.csv")

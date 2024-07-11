@@ -430,14 +430,19 @@ def motor_position_train(seed_train, max_epochs, headless, waypoint_name):
     current_time = datetime.now()
 
 
-
+    subprocess.run(f"rm gen_ppo.pth -f", shell=True)
     subprocess.run(f"rm {AERIAL_GYM_ROOT_DIR}/aerial_gym_dev/rl_training/rl_games/runs/* -rf", shell=True)
-    cmd_str = f"wd=`pwd` && cd {AERIAL_GYM_ROOT_DIR}/aerial_gym_dev/rl_training/rl_games && python runner.py --seed={seed_train} --save_best_after={100} --max_epochs={max_epochs}"
+    cmd_str = f"wd=`pwd` && cd {AERIAL_GYM_ROOT_DIR}/aerial_gym_dev/rl_training/rl_games && python runner.py --seed={seed_train} --save_best_after={751} --max_epochs={max_epochs}"
     print(f">> run shell on {current_time.strftime('%Y-%m-%d %H:%M:%S')}\n{cmd_str}", file=sys.stderr)
     subprocess.run(cmd_str, shell=True, stdout=sys.stdout, stderr=sys.stderr, text=True)
     dirs = glob.glob(f"{AERIAL_GYM_ROOT_DIR}/aerial_gym_dev/rl_training/rl_games/runs/gen_ppo_*")
-    if len(dirs) == 1:
+    if len(dirs) == 0:
+        print("Early stopped, system failed to learn hover in a reasonable time. No policy saved.")
+        return "early_stopped"
+
+    elif len(dirs) == 1:
         subprocess.run(f"cp {os.path.join(dirs[0], 'nn', 'gen_ppo.pth')} gen_ppo.pth", shell=True)
+        return "success"
     else:
         print("Error: There should be exactly one directory that contains the policy.")
         exit(1)
@@ -582,13 +587,16 @@ def log_detailed_evaluation_results(pars, info_dict, seed_train, seed_enjoy, max
 
 def motor_rl_objective_function(pars, seed_train, seed_enjoy, max_epochs, waypoint_name):
     save_robot_pars_to_file(pars)
-    motor_position_train(seed_train, max_epochs, False, waypoint_name)
-    model_to_onnx()
-    subprocess.run(f"rm gen_ppo.pth", shell=True)
-    info_dict = motor_position_enjoy(seed_enjoy, False, waypoint_name)
-    log_detailed_evaluation_results(pars, info_dict, seed_train, seed_enjoy, max_epochs, waypoint_name)
-    dump_animation_data_and_policy(pars, seed_train, seed_enjoy, info_dict)
-    return info_dict
+    exit_flag = motor_position_train(seed_train, max_epochs, True, waypoint_name)
+    if exit_flag == "early_stopped":
+        return None
+
+    elif exit_flag == "success":
+        model_to_onnx()
+        info_dict = motor_position_enjoy(seed_enjoy, True, waypoint_name)
+        log_detailed_evaluation_results(pars, info_dict, seed_train, seed_enjoy, max_epochs, waypoint_name)
+        dump_animation_data_and_policy(pars, seed_train, seed_enjoy, info_dict)
+        return info_dict
 
 def loss_function(info_dict):
     return -(
