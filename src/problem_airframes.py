@@ -393,69 +393,34 @@ def get_cached_file(pars):
 
 if __name__ == "__main__":
 
-
-    # # Single rotor interactive plot
-    # plot_airframe_interactive_single_rotor()
-    # exit(0)
-
-
-    # # Plot hexarotor simmetric random drone, with 45 degree rotation and translation
-    # rs = np.random.RandomState(5)
-    # og_pars = rs.random(15)
-    # decoded_pars = _decode_symmetric_hexarotor_to_RobotParameter(og_pars, task_info)
-    # rotation_matrix = np.array([
-    #     [1/sqrt(2) , -1/sqrt(2) , 0],
-    #     [1/sqrt(2) , 1/sqrt(2) , 0],
-    #     [0 , 0 , 1]
-    # ])
-    # translation = np.array([0.75,0,0])
-    # plot_airframe_design(decoded_pars, translation, rotation_matrix)
-
-
-
-    # target = [2.3,0.75,1.5]
-    # target_str = '[' + ','.join([str(el) for el in target]) + ']'
-
-    # rs = np.random.RandomState(5)
-    # og_pars = rs.random(15)
-    # pars_str = '[' + ','.join([str(el) for el in og_pars]) + ']'
-    # output = subprocess.check_output(f"python src/airframes_objective_functions.py {pars_str} {target_str}", shell=True, text=True)
-    # print(output.split("result:")[-1])
-
- 
-
-    # # Best solution
-    x = np.array([0.08183876204900542, 0.5219701806265, 0.11665093239221351, 0.7378768213735014, 0.508831640622941, 0.0, 0.6974289414187024, 0.49857822070195307, 0.5439566454472291, 0.2208295263646864, 0.3719121034203965, 0.686407066588435, 0.8705630953168567, 0.4697827032516831, 0.6904855778324281])
-
-    # # # hex       
-    # x = np.array([0.0, 0.5, 0.1667, 0.5, 0.5, 
-    #               0.0, 0.5, 0.5000, 0.5, 0.5, 
-    #               0.0, 0.5, 0.8333, 0.5, 0.5, 
-    #             ])
-    
-    # # quad
-    # x = np.array([0.0, 0.5, 0.25, 0.5, 0.5, 
-    #               0.0, 0.5, 0.75, 0.5, 0.5, 
-    #              ])
-
-
-
-    pars = _decode_symmetric_hexarotor_to_RobotParameter_polar(x)
-    plot_airframe_to_file_isaacgym(pars, filepath="test_airframe_render.png")
-    # plot_admisible_set(pars)
-
-
-    save_robot_pars_to_file(pars)
-    # plot_airframe_to_file_isaacgym(pars, filepath="demo_image.png")
-
-
-
-    train_and_enjoy = True
+    train_and_enjoy = False
     if train_and_enjoy:
-        seed_train = 3
-        seed_enjoy = 6
+
+        # # # Best solution
+        # x = np.array([0.08183876204900542, 0.5219701806265, 0.11665093239221351, 0.7378768213735014, 0.508831640622941, 0.0, 0.6974289414187024, 0.49857822070195307, 0.5439566454472291, 0.2208295263646864, 0.3719121034203965, 0.686407066588435, 0.8705630953168567, 0.4697827032516831, 0.6904855778324281])
+
+        # # hex       
+        x = np.array([0.0, 0.5, 0.1667, 0.5, 0.5, 
+                    0.0, 0.5, 0.5000, 0.5, 0.5, 
+                    0.0, 0.5, 0.8333, 0.5, 0.5, 
+                    ])
+        
+        # # quad
+        # x = np.array([0.0, 0.5, 0.25, 0.5, 0.5, 
+        #               0.0, 0.5, 0.75, 0.5, 0.5, 
+        #              ])
+
+        pars = _decode_symmetric_hexarotor_to_RobotParameter_polar(x)
+        plot_airframe_to_file_isaacgym(pars, filepath="test_airframe_render.png")
+        # plot_admisible_set(pars)
+
+        save_robot_pars_to_file(pars)
+        # plot_airframe_to_file_isaacgym(pars, filepath="demo_image.png")
+
+        seed_train = 999
+        seed_enjoy = 999
         start = time.time()
-        info_dict = motor_rl_objective_function(pars, seed_train, seed_enjoy, 350, "offsetcone")
+        info_dict = motor_rl_objective_function(pars, seed_train, seed_enjoy, 4000, "offsetcone")
         f = loss_function(info_dict)
         print(f"objective function (train + enjoy) time: {time.time() - start}")
         print("--------------------------")
@@ -468,7 +433,10 @@ if __name__ == "__main__":
         print("--------------------------")
     else: 
 
-        file_path, seed_train, seed_enjoy, waypoint_name = get_cached_file(pars)
-        _  = load_animation_data_and_policy(file_path) # load policy into correct path
-        motor_position_enjoy(seed_enjoy, False)
+        # file_path, seed_train, seed_enjoy, waypoint_name = get_cached_file(pars)
+        file_path = "cache/airframes_animationdata/7399056118471101504_21_43_offsetcone_airframeanimationdata.wb"
+        animation_data  = load_animation_data_and_policy(file_path) # load policy into correct path
+        save_robot_pars_to_file(animation_data["pars"])
+        plot_airframe_to_file_isaacgym(animation_data["pars"], filepath="test_airframe_render.png")
+        motor_position_enjoy(animation_data["seed_enjoy"], False, animation_data["waypoint_name"])
 

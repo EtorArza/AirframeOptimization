@@ -369,7 +369,7 @@ def motor_position_enjoy(seed_enjoy, headless, waypoint_name):
     # Ensure CUDA is available for ONNX Runtime
     assert 'CUDAExecutionProvider' in ort.get_available_providers(), "CUDA is not available for ONNX Runtime"
 
-    num_airframes_parallel = int(2e4 if headless else 1e2)
+    num_airframes_parallel = int(2e4 if headless else 50)
     print("Averaging", num_airframes_parallel, "environments.")
     args = vars(get_args())
     rl_task_env = task_registry.make_task("position_setpoint_task", {
@@ -412,7 +412,9 @@ def motor_position_enjoy(seed_enjoy, headless, waypoint_name):
         )
         ort_model_gpu.run_with_iobinding(io_binding)
         obs = rl_task_env.step(actions=actions_gpu)[0]["observations"].contiguous()
-
+        
+        if not headless:
+            time.sleep(1.0 / 100.0)
 
         if (i+1) % 500 == 0:
             print("i", i)
