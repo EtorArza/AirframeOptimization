@@ -157,7 +157,7 @@ def _decode_symmetric_hexarotor_to_RobotParameter_polar(x: numpy.typing.NDArray[
 def f_symmetric_hexarotor_0_1(x: numpy.typing.NDArray[np.float_], seed_train: int, seed_enjoy, task_info):
     assert x.shape == (15,) or x.shape== (10,)
     pars = _decode_symmetric_hexarotor_to_RobotParameter_polar(x)
-    info_dict = motor_rl_objective_function(pars, seed_train, seed_enjoy, 350, task_info['waypoint_name'])
+    info_dict = motor_rl_objective_function(pars, seed_train, seed_enjoy, 4000, task_info['waypoint_name'], f"results/data/local_solve_{task_info['waypoint_name']}.csv")
     return info_dict
 
 
@@ -420,7 +420,7 @@ if __name__ == "__main__":
         seed_train = 999
         seed_enjoy = 999
         start = time.time()
-        info_dict = motor_rl_objective_function(pars, seed_train, seed_enjoy, 4000, "offsetcone")
+        info_dict = motor_rl_objective_function(pars, seed_train, seed_enjoy, 4000, "offsetcone", "problem_airframes_train_and_enjoy.csv")
         f = loss_function(info_dict)
         print(f"objective function (train + enjoy) time: {time.time() - start}")
         print("--------------------------")

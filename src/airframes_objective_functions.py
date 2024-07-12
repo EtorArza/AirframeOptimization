@@ -433,6 +433,8 @@ def motor_position_train(seed_train, max_epochs, headless, waypoint_name):
 
 
     subprocess.run(f"rm gen_ppo.pth -f", shell=True)
+    subprocess.run(f"rm policy.onnx -f", shell=True)
+
     subprocess.run(f"rm {AERIAL_GYM_ROOT_DIR}/aerial_gym_dev/rl_training/rl_games/runs/* -rf", shell=True)
     cmd_str = f"wd=`pwd` && cd {AERIAL_GYM_ROOT_DIR}/aerial_gym_dev/rl_training/rl_games && python runner.py --seed={seed_train} --save_best_after={751} --max_epochs={max_epochs}"
     print(f">> run shell on {current_time.strftime('%Y-%m-%d %H:%M:%S')}\n{cmd_str}", file=sys.stderr)
@@ -587,7 +589,7 @@ def log_detailed_evaluation_results(pars, info_dict, seed_train, seed_enjoy, max
     with open(result_file_path, 'a') as file:
         print(f"{hash(pars)};{max_epochs};{seed_train};{seed_enjoy};{loss_function(info_dict)};{(info_dict['f_nWaypointsReached']).cpu().item()};{(info_dict['f_nResets']).cpu().item()};{(info_dict['f_nWaypointsReached']/info_dict['f_nResets']).cpu().item()};{(info_dict['f_total_energy']/torch.clamp(info_dict['f_nWaypointsReached'], min=1.0)).cpu().item()};{(info_dict['f_total_energy']).cpu().item()}", file=file)
 
-def motor_rl_objective_function(pars, seed_train, seed_enjoy, max_epochs, waypoint_name):
+def motor_rl_objective_function(pars, seed_train, seed_enjoy, max_epochs, waypoint_name, log_detailed_evaluation_results_path):
     save_robot_pars_to_file(pars)
     exit_flag = motor_position_train(seed_train, max_epochs, True, waypoint_name)
     if exit_flag == "early_stopped":
@@ -596,7 +598,7 @@ def motor_rl_objective_function(pars, seed_train, seed_enjoy, max_epochs, waypoi
     elif exit_flag == "success":
         model_to_onnx()
         info_dict = motor_position_enjoy(seed_enjoy, True, waypoint_name)
-        log_detailed_evaluation_results(pars, info_dict, seed_train, seed_enjoy, max_epochs, waypoint_name)
+        log_detailed_evaluation_results(pars, info_dict, seed_train, seed_enjoy, max_epochs, log_detailed_evaluation_results_path)
         dump_animation_data_and_policy(pars, seed_train, seed_enjoy, info_dict)
         return info_dict
 

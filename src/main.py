@@ -6,8 +6,8 @@ from interfaces import *
 
 task_info = {
     "waypoint_name": "offsetcone",
-    "threshold_nWaypointsReached/nResets": 10.0,
-    "threshold_total_energy/nWaypointsReached": 3.0
+    "threshold_nWaypointsReached/nResets": 18.0,
+    "threshold_total_energy/nWaypointsReached": 5.0
 }
 
 if __name__ == "__main__":
@@ -30,7 +30,7 @@ if __name__ == "__main__":
     elif sys.argv[1] == "--local-solve":
         sys.argv.pop()
         seed = 6
-        budget = 400
+        budget = 1200
         local_solve(seed, budget, task_info)
 
 
