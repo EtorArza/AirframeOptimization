@@ -33,10 +33,19 @@ import glob
 import re
 import tempfile
 import functools
-
+from contextlib import contextmanager
 
 problem_dim = 15
 
+@contextmanager
+def measure_time():
+    start_time = time.time()
+    try:
+        yield
+    finally:
+        end_time = time.time()
+        elapsed_time = end_time - start_time
+        print(f">> Took {elapsed_time:.1f} s")
 
 def from_minus1_one_to_RobotParameter(x: numpy.typing.NDArray[np.float_]):
 
@@ -55,39 +64,45 @@ def from_minus1_one_to_RobotParameter(x: numpy.typing.NDArray[np.float_]):
     # A linear scalling to [0,1]^number_of_parameters
     assert type(x)==np.ndarray, "x = "+str(x)+" | type(x) = "+str(type(x))
     assert len(x.shape)==2 and x.shape[1] == 6, "x = "+str(x)
-    n_motors = x.shape[0]
     pars = RobotParameter()
+    pars.n_motors = x.shape[0]
 
-    
-    mass = 0.422
-    proportion_mass_in_body = 0.664
     max_width = 0.5 / 2.0
-    
-    
+
     pars.cq = 0.1
-    pars.frame_mass = mass * proportion_mass_in_body
-    pars.motor_masses = [mass * (1.0 - proportion_mass_in_body) / n_motors] * n_motors
     
 
-    pars.motor_directions = ([1,-1,-1,1]*6)[:n_motors]
+    pars.motor_directions = ([1,-1,-1,1]*6)[:pars.n_motors]
 
-    x_motor_translations = np.array([x[rotor_idx, i] for rotor_idx in range(n_motors) for i in range(3)])
-    x_motor_orientations = np.array([x[rotor_idx, i] for rotor_idx in range(n_motors) for i in range(3,6)])
+    x_motor_translations = np.array([x[rotor_idx, i] for rotor_idx in range(pars.n_motors) for i in range(3)])
+    x_motor_orientations = np.array([x[rotor_idx, i] for rotor_idx in range(pars.n_motors) for i in range(3,6)])
 
     pars.motor_translations = x_motor_translations.reshape(-1,3) * max_width
     pars.motor_orientations = x_motor_orientations.reshape(-1, 3) * 360
 
     pars.motor_translations = pars.motor_translations.tolist()
     pars.motor_orientations = pars.motor_orientations.tolist()
-    
+
+    pars.motor_idx_list = [1,2,3,2,1,2]
+    pars.battery_idx = 3
+
+
+    from aerial_gym_dev.utils.battery_rotor_dynamics import BatteryRotorDynamics
+
+    battery_rotor = BatteryRotorDynamics(1, [0.1], pars.n_motors, pars.motor_idx_list, pars.battery_idx, 0.01, pars.cq, "cpu")
+    pars.core_mass = 0.130
+    guard_and_arm_mass = 0.0082 + 0.005
+    pars.battery_mass = battery_rotor.battery_mass
+
+    # For Inertia only these two below are taken into account
+    pars.motor_masses = [mtr_mass + guard_and_arm_mass for mtr_mass in battery_rotor.motor_mass_list[:]] # actually arms mass
+    pars.frame_mass = pars.core_mass + pars.battery_mass
+
+
     #pars.sensor_masses = [0.15, 0.1]
     #pars.sensor_orientations = [[0,0,0],[0,-20,0]]
     #pars.sensor_translations = [[0,0.5,0.1],[0,0,-0.1]]
 
-    pars.min_thrust = pars.min_u = 0
-    pars.max_thrust = pars.max_u = 3*mass*9.81 / n_motors
-    pars.max_thrust_rate = 100.0
-    
     
     pars.motor_time_constant_min = 0.01
     pars.motor_time_constant_max = 0.03
@@ -393,7 +408,7 @@ def get_cached_file(pars):
 
 if __name__ == "__main__":
 
-    train_and_enjoy = False
+    train_and_enjoy = True
     if train_and_enjoy:
 
         # # # Best solution

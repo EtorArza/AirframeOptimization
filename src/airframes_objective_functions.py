@@ -25,7 +25,6 @@ from datetime import datetime
 import shutil
 import tarfile
 import yaml
-from aerial_gym_dev.rl_training.rl_games.runner import get_args, update_config
 
 # This decorator will run the function in a subprocess. It takes the input arguments, serialize them and call this same function. The code in __main__ is also required.
 def run_in_subprocess():
@@ -268,7 +267,7 @@ def model_to_onnx():
     import yaml
     from rl_games.torch_runner import Runner
     import rl_games.algos_torch.flatten as flatten
-    from aerial_gym_dev.rl_training.rl_games.runner import update_config
+    from aerial_gym_dev.rl_training.rl_games.runner import update_config, get_args
     
     args = vars(get_args())
     args['params'] = {'algo_name': 'a2c_continuous'}
@@ -364,6 +363,7 @@ def motor_position_enjoy(seed_enjoy, headless, waypoint_name):
     from aerial_gym_dev.sim.sim_builder import SimBuilder
     import yaml
     from aerial_gym_dev.task.task_registry import task_registry
+    from aerial_gym_dev.rl_training.rl_games.runner import get_args
 
 
     # Ensure CUDA is available for ONNX Runtime
@@ -591,7 +591,7 @@ def log_detailed_evaluation_results(pars, info_dict, seed_train, seed_enjoy, max
 
 def motor_rl_objective_function(pars, seed_train, seed_enjoy, max_epochs, waypoint_name, log_detailed_evaluation_results_path):
     save_robot_pars_to_file(pars)
-    exit_flag = motor_position_train(seed_train, max_epochs, True, waypoint_name)
+    exit_flag = motor_position_train(seed_train, max_epochs, False, waypoint_name)
     if exit_flag == "early_stopped":
         return None
 
