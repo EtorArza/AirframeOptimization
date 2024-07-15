@@ -83,8 +83,8 @@ def from_minus1_one_to_RobotParameter(x: numpy.typing.NDArray[np.float_]):
     pars.motor_translations = pars.motor_translations.tolist()
     pars.motor_orientations = pars.motor_orientations.tolist()
 
-    pars.motor_idx_list = [1,2,3,2,1,2]
-    pars.battery_idx = 3
+    pars.motor_idx_list = [3,3,3,3,3,3]
+    pars.battery_idx = 7
 
 
     from aerial_gym_dev.utils.battery_rotor_dynamics import BatteryRotorDynamics
