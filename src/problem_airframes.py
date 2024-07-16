@@ -89,7 +89,7 @@ def from_minus1_one_to_RobotParameter(x: numpy.typing.NDArray[np.float_]):
 
     from aerial_gym_dev.utils.battery_rotor_dynamics import BatteryRotorDynamics
 
-    battery_rotor = BatteryRotorDynamics(1, [0.1], pars.n_motors, pars.motor_idx_list, pars.battery_idx, 0.01, pars.cq, "cpu")
+    battery_rotor = BatteryRotorDynamics(1, torch.zeros(1), torch.zeros(1), pars.n_motors, pars.motor_idx_list, pars.battery_idx, 0.01, pars.cq, "cpu")
     pars.core_mass = 0.130
     guard_and_arm_mass = 0.0082 + 0.005
     pars.battery_mass = battery_rotor.battery_mass
