@@ -33,92 +33,30 @@ import glob
 import re
 import tempfile
 import functools
-from contextlib import contextmanager
 
-problem_dim = 15
 
-@contextmanager
-def measure_time():
-    start_time = time.time()
-    try:
-        yield
-    finally:
-        end_time = time.time()
-        elapsed_time = end_time - start_time
-        print(f">> Took {elapsed_time:.1f} s")
 
-def from_minus1_one_to_RobotParameter(x: numpy.typing.NDArray[np.float_]):
+
+
+
+def from_0_1_to_RobotParameter(x_0_1: numpy.typing.NDArray[np.float_],  motor_idx_0_1=None, battery_idx_0_1=None, battery_S=6):
 
     '''
-    Every value in rx is in the interval [-1,1], where -1 represents lowest possible value, and 1 represents highest possible value.
-    Every theta value is in the tinterval [0,1], where -1 represents the lowest possible value and 1 represents the highest.
-    x = [
-    [rx, ry, rz, theta1, theta2, theta3], # propeller 1
-    [rx, ry, rz, theta1, theta2, theta3], # propeller 2
-    etc.
-    ]
-
+    Every value in x_0_1 is in the interval [0,1], where 0 represents lowest possible value, and 1 represents highest possible value.
+    
+    
+             ---Position (polar)------                ------Orientation-----
+    x_0_1 = [r_0_1, theta_0_1, phi_0_1,               eulerx_0_1, eulerz_0_1,   # propeller 1
+             r_0_1, theta_0_1, phi_0_1,               eulerx_0_1, eulerz_0_1,   # propeller 2
+    etc.]
     '''
 
+    # 5 parameters per rotor, 6 rotors in total. We only define 3 rotors, due to simmetry.
+    # assert x.shape == (5*3,) or x.shape == (5*2,), "x.shape = "+ str(x.shape)
 
-    # A linear scalling to [0,1]^number_of_parameters
-    assert type(x)==np.ndarray, "x = "+str(x)+" | type(x) = "+str(type(x))
-    assert len(x.shape)==2 and x.shape[1] == 6, "x = "+str(x)
-    pars = RobotParameter()
-    pars.n_motors = x.shape[0]
+    def scale_from_0_1(x_0_1, min_value, max_value):
+        return min_value + x_0_1*(max_value - min_value)
 
-    max_width = 0.5 / 2.0
-
-    pars.cq = 0.1
-    
-
-    pars.motor_directions = ([1,-1,-1,1]*6)[:pars.n_motors]
-
-    x_motor_translations = np.array([x[rotor_idx, i] for rotor_idx in range(pars.n_motors) for i in range(3)])
-    x_motor_orientations = np.array([x[rotor_idx, i] for rotor_idx in range(pars.n_motors) for i in range(3,6)])
-
-    pars.motor_translations = x_motor_translations.reshape(-1,3) * max_width
-    pars.motor_orientations = x_motor_orientations.reshape(-1, 3) * 360
-
-    pars.motor_translations = pars.motor_translations.tolist()
-    pars.motor_orientations = pars.motor_orientations.tolist()
-
-    pars.motor_idx_list = [3,3,3,3,3,3]
-    pars.battery_idx = 7
-
-
-    from aerial_gym_dev.utils.battery_rotor_dynamics import BatteryRotorDynamics
-
-    battery_rotor = BatteryRotorDynamics(1, torch.zeros(1), torch.zeros(1), pars.n_motors, pars.motor_idx_list, pars.battery_idx, 0.01, pars.cq, "cpu")
-    pars.core_mass = 0.130
-    guard_and_arm_mass = 0.0082 + 0.005
-    pars.battery_mass = battery_rotor.battery_mass
-
-    # For Inertia only these two below are taken into account
-    pars.motor_masses = [mtr_mass + guard_and_arm_mass for mtr_mass in battery_rotor.motor_mass_list[:]] # actually arms mass
-    pars.frame_mass = pars.core_mass + pars.battery_mass
-
-
-    #pars.sensor_masses = [0.15, 0.1]
-    #pars.sensor_orientations = [[0,0,0],[0,-20,0]]
-    #pars.sensor_translations = [[0,0.5,0.1],[0,0,-0.1]]
-
-    
-    pars.motor_time_constant_min = 0.01
-    pars.motor_time_constant_max = 0.03
-
-    pars = repair_pars_fabrication_constraints(pars)
-
-    return pars
-
-
-def _decode_symmetric_hexarotor_to_RobotParameter_polar(x: numpy.typing.NDArray[np.float_]):
-    
-    def r_theta_phi_0_1_linearly_to_limits(r_0_1, theta_0_1, phi_0_1):
-        r_lims = [0.475,1.0]
-        theta_lims = [0.1*np.pi, 0.9*np.pi]
-        phi_lims = [0.0, 1.0*np.pi]
-        return r_lims[0] + r_0_1*(r_lims[1] - r_lims[0]), theta_lims[0] + theta_0_1*(theta_lims[1] - theta_lims[0]), phi_lims[0] + phi_0_1*(phi_lims[1] - phi_lims[0])
 
     def polar_to_cartesian(r, theta, phi):
         x = r * np.sin(theta) * np.cos(phi)
@@ -126,261 +64,106 @@ def _decode_symmetric_hexarotor_to_RobotParameter_polar(x: numpy.typing.NDArray[
         z = r * np.cos(theta)
         return x, y, z
 
+    assert isinstance(x_0_1,np.ndarray), "x_0_1 = "+str(x)+" | type(x_0_1) = "+str(type(x_0_1))
+    assert len(x_0_1) // 5 == len(motor_idx_0_1)
 
-    # 5 parameters per rotor, 6 rotors in total. We only define 3 rotors, due to simmetry.
-    assert x.shape == (5*3,) or x.shape == (5*2,), "x.shape = "+ str(x.shape)
+    n_motors = (len(x_0_1) // 5) * 2
+    motor_translations = np.zeros((n_motors, 3))
+    motor_orientations = np.zeros((n_motors, 3))
+
+    for i in range(n_motors//2):
+        r =     scale_from_0_1(x_0_1[i*5]  , 0.11875    , 0.25)
+        theta = scale_from_0_1(x_0_1[i*5+1], 0.1*np.pi  , 0.9*np.pi)
+        phi =   scale_from_0_1(x_0_1[i*5+2], 0.0        , 1.0*np.pi)
+        x, y, z = polar_to_cartesian(r, theta, phi)
+        motor_translations[i][0] = x
+        motor_translations[i][1] = y
+        motor_translations[i][2] = z
+
+        motor_translations[i + n_motors//2][0] = x
+        motor_translations[i + n_motors//2][1] = -y
+        motor_translations[i + n_motors//2][2] = z
+
+        motor_orientations[i][0] = scale_from_0_1(x_0_1[i*5+3], 360*0.4, 360*0.6)
+        motor_orientations[i][1] = 0.0
+        motor_orientations[i][2] = scale_from_0_1(x_0_1[i*5+3], 0.0, 360.0)
+
+        motor_orientations[i + n_motors//2][0] = scale_from_0_1(1.0 - x_0_1[i*5+3], 360*0.4, 360*0.6)
+        motor_orientations[i + n_motors//2][1] = 0.0
+        motor_orientations[i + n_motors//2][2] = scale_from_0_1(1.0 - x_0_1[i*5+3], 0.0, 360.0)
+
+    pars = RobotParameter()
+    pars.n_motors = n_motors
+    assert n_motors in (4,6)
+    pars.motor_directions = [1,-1,-1,-1,1,1] if pars.n_motors == 6 else [1,-1,-1, 1] if pars.n_motors == 4 else None 
+
+    pars.motor_translations = motor_translations.tolist()
+    pars.motor_orientations = motor_orientations.tolist()
+
+    from aerial_gym_dev.utils.battery_rotor_dynamics import BatteryRotorDynamics
+    compatible_motors, compatible_batteries = BatteryRotorDynamics.get_compatible_battery_and_motors_indices(battery_S)
+    n_compatible_motors, n_compatible_batteries = len(compatible_motors), len(compatible_batteries)
+
+    pars.motor_idx_list = [compatible_motors[int(el*(n_compatible_motors-1e-8))]  for el in motor_idx_0_1]
+    pars.motor_idx_list = [*pars.motor_idx_list, *pars.motor_idx_list] # Same motors on the other side to keep simmetry
+    pars.battery_idx = compatible_batteries[int(battery_idx_0_1*(n_compatible_batteries-1e-8))]
+
+                     # core mass       # electronics mass
+    pars.core_mass = 0.090       +     0.031
+    guard_and_arm_mass = 0.045
+
+
+    motor_only_masses, pars.battery_mass = BatteryRotorDynamics.get_motor_and_battery_mass(pars.motor_idx_list, pars.battery_idx)
+
+
+    # For Inertia only these two below are taken into account
+    pars.motor_masses = [mtr_mass + guard_and_arm_mass for mtr_mass in motor_only_masses] # actually arms mass
+    pars.frame_mass = pars.core_mass + pars.battery_mass
+
+
+    pars.total_mass = sum(pars.motor_masses) + pars.frame_mass
+    print("------")
+    print("Thrust to weight ratio: ", BatteryRotorDynamics.static_get_thrust_to_weight_ratio(pars.motor_idx_list, pars.total_mass))
+    print("motor_masses =", pars.motor_masses)
+    print("frame_mass =", pars.frame_mass)
+    print("total_mass =",pars.total_mass)
+    print("------")
+
+
+    #pars.sensor_masses = [0.15, 0.1]
+    #pars.sensor_orientations = [[0,0,0],[0,-20,0]]
+    #pars.sensor_translations = [[0,0.5,0.1],[0,0,-0.1]]
     
+    pars.motor_time_constant_min = 0.027
+    pars.motor_time_constant_max = 0.037
+    pars.cq = 0.1
 
-    n_unique_rotors = round(x.shape[0]/5)
-    euler_x_max_proportion = 0.2 # Maximum rotor inclination from vertical position. We dont want them to tilt more than 20%
-    def scale_down_euler_x(euler_x_01):
-        return euler_x_01*euler_x_max_proportion + (0.5 - euler_x_max_proportion/2.0)
-    
-    np.set_printoptions(precision=2, suppress=True)
+    pars = repair_pars_fabrication_constraints(pars)
 
-    x_decoded = np.zeros(shape=(2*n_unique_rotors,6), dtype=np.float64)
-    # For each propeller, symmetric encoding has 5 parameters, and 0_1 encoding has 6 x 2 (one of the propellers has simmetric parameters).
-    for prop_i in range(n_unique_rotors):
+    return pars
 
-        # Convert polar to Cartesian
-        r_0_1, theta_0_1, phi_0_1 = x[prop_i * 5:prop_i * 5 + 3]
-        
-        # https://cdn1.byjus.com/wp-content/uploads/2019/12/3d-polar-coordinates.png
-        r_x, r_y, r_z = polar_to_cartesian(*r_theta_phi_0_1_linearly_to_limits(r_0_1, theta_0_1, phi_0_1))
-
-
-
-        # og
-        x_decoded[prop_i*2, 0] =   r_x                        # r_x same
-        x_decoded[prop_i*2, + 1] = r_y                        # r_y can only be in one side
-        x_decoded[prop_i*2, + 2] = r_z                        # r_z same
-        x_decoded[prop_i*2, + 3] = scale_down_euler_x(x[prop_i*5 +3])      # euler_x same 
-        x_decoded[prop_i*2, + 4] = 0.5                                   # euler_y constant (0.5)
-        x_decoded[prop_i*2, + 5] = x[prop_i*5 +4]                        # euler_z same
-
-
-        # symmetric
-        x_decoded[prop_i*2+1, 0] = r_x                    # r_x same
-        x_decoded[prop_i*2+1, 1] = -r_y                    # r_y inverse, and can only be in one side
-        x_decoded[prop_i*2+1, 2] = r_z                    # r_z same
-
-        x_decoded[prop_i*2+1, 3] = scale_down_euler_x(1.0 - x[prop_i*5 +3])# euler_x inverse 
-        x_decoded[prop_i*2+1, 4] = 0.5                                   # euler_y constant (0.5)
-        x_decoded[prop_i*2+1, 5] = 1.0 - x[prop_i*5 +4]                  # euler_z inverse
-    return from_minus1_one_to_RobotParameter(x_decoded)
 
 def f_symmetric_hexarotor_0_1(x: numpy.typing.NDArray[np.float_], seed_train: int, seed_enjoy, task_info):
-    assert x.shape == (15,) or x.shape== (10,)
-    pars = _decode_symmetric_hexarotor_to_RobotParameter_polar(x)
+    if x.shape == (19,):
+        x_0_1 = x[:15]
+        motor_idx_0_1 = x[15:18]
+        battery_idx_0_1 = x[18]
+    elif x.shape == (13,):
+        x_0_1 = x[:10]
+        motor_idx_0_1 = x[10:12]
+        battery_idx_0_1 = x[12]
+    else:
+        raise ValueError("Wrong dimension on x.", f"x = {x}")
+
+    pars = from_0_1_to_RobotParameter(x_0_1, motor_idx_0_1, battery_idx_0_1)
     info_dict = motor_rl_objective_function(pars, seed_train, seed_enjoy, 4000, task_info['waypoint_name'], f"results/data/local_solve_{task_info['waypoint_name']}.csv")
     return info_dict
 
 
 
-def _plot_airframe_into_ax(ax, pars:RobotParameter, translation, rotation_matrix):
-    e1 = np.array([1,0,0])
-    e2 = np.array([0,1,0])
-    e3 = np.array([0,0,1])
-
-    frame_scale_plane = 0.016
-    frame_scale_normal = 0.026
-
-    def apply_transformation(x, translation, rotation_matrix):
-        assert x.shape == (3,)
-        assert translation.shape == (3,)
-        assert rotation_matrix.shape == (3,3)
-        T = np.concatenate([rotation_matrix, translation.reshape(3,1)], axis=1)
-        T = np.concatenate([T, np.array([[0,0,0,1]])])
-        res = T@(np.array([x[0],x[1],x[2], 1]).T)
-        return res.flatten()[0:3]
-
-    for i in range(len(pars.motor_orientations)):
-        t_vec = pars.motor_translations[i]
-        R = Rotation.from_euler("xyz", pars.motor_orientations[i], degrees=True).as_matrix()
-        if pars.motor_directions[i] == -1:
-            color = "b"
-        elif pars.motor_directions[i] == 1:
-            color = "orange"
-        else:
-            raise ValueError("Direction should be either 1 or -1. Instead, pars.motor_directions[i]=", pars.motor_directions[i])
-        line_list = [
-            [[0,t_vec[0]],[0,t_vec[1]],[0,t_vec[2]]],
-            [[t_vec[0],t_vec[0]+R[0,:]@e1*frame_scale_plane],[t_vec[1],t_vec[1]+R[1,:]@e1*frame_scale_plane],[t_vec[2],t_vec[2]+R[2,:]@e1*frame_scale_plane]],
-            [[t_vec[0],t_vec[0]+R[0,:]@e2*frame_scale_plane],[t_vec[1],t_vec[1]+R[1,:]@e2*frame_scale_plane],[t_vec[2],t_vec[2]+R[2,:]@e2*frame_scale_plane]],
-            [[t_vec[0],t_vec[0]-R[0,:]@e1*frame_scale_plane],[t_vec[1],t_vec[1]-R[1,:]@e1*frame_scale_plane],[t_vec[2],t_vec[2]-R[2,:]@e1*frame_scale_plane]],
-            [[t_vec[0],t_vec[0]-R[0,:]@e2*frame_scale_plane],[t_vec[1],t_vec[1]-R[1,:]@e2*frame_scale_plane],[t_vec[2],t_vec[2]-R[2,:]@e2*frame_scale_plane]],
-            [[t_vec[0],t_vec[0]+R[0,:]@e3*frame_scale_normal],[t_vec[1],t_vec[1]+R[1,:]@e3*frame_scale_normal],[t_vec[2],t_vec[2]+R[2,:]@e3*frame_scale_normal]],
-            [[0,0.8],[0,0],[0,0]],
-            [[0,0],[0,0.8],[0,0]],
-            [[0,0],[0,0],[0,0.8]],
-        ]
-        color_list = ["gray"] + [color]*4 + ['g'] + ["red","green","blue"]
-        for line, color in zip(line_list, color_list):
-            start = np.array([line[0][0], line[1][0], line[2][0]])
-            end = np.array([line[0][1], line[1][1], line[2][1]])
-            start = apply_transformation(start, translation, rotation_matrix)
-            end = apply_transformation(end, translation, rotation_matrix)
-            ax.add_line(Line3D([start[0],end[0]],[start[1],end[1]],[start[2],end[2]], color=color, linestyle=":" if color in ["red","green","blue"] else "-"))
-
-def animate_airframe(pars:RobotParameter, pose_list, target_list):
-
-    max_time = 24
-    dt = 0.01
-    desired_fps = 24
-    time_between_frames = 1.0 / 24.0
-
-    animation_camera = "follow_goal" # "static" or "follow_goal"
-    plotlims = [-1.0, 1.0]
-
-
-    assert len(pose_list) == len(target_list)
-
-    start_position_list = [pose_list[0]]
-    for i in range(len(pose_list)-1):
-
-        if np.all(target_list[i] == target_list[i+1]):
-            start_position_list.append(start_position_list[-1])
-        else:
-            start_position_list.append(pose_list[i+1])
-
-    fig = plt.figure()
-    xlim = ylim = zlim = plotlims
-    ax = fig.add_subplot(projection='3d', xlim=xlim, ylim=ylim, zlim=zlim)
-    ax.set_xlabel('x',size=18)
-    ax.set_ylabel('y',size=18)
-    ax.set_zlabel('z',size=18)
-
-    def animate(i):
-        frm_idx = int(i / dt / desired_fps)
-        pose = pose_list[frm_idx]
-        ax.clear()
-        translation = pose[0:3]
-        rotation_matrix = Rotation.from_euler("xyz", pose[3:6], degrees=False).as_matrix()
-        _plot_airframe_into_ax(ax, pars, translation, rotation_matrix)
-
-        # default_frame_size = 1.0
-        # actual_frame_size = default_frame_size + max(abs(np.array(pose_list)[frm_idx+1][:3] - np.array(pose_list)[frm_idx][:3]))
-        # ax.set_xlim((translation[0] - actual_frame_size/2, translation[0] + actual_frame_size/2)); 
-        # ax.set_ylim((translation[1] - actual_frame_size/2, translation[1] + actual_frame_size/2)); 
-        # ax.set_zlim((translation[2] - actual_frame_size/2, translation[2] + actual_frame_size/2))
-
-
-        
-        # xlim_lower = min(min(start_position_list[frm_idx][:3]), min(target_list[frm_idx]))
-        # xlim_upper = max(max(start_position_list[frm_idx][:3]), max(target_list[frm_idx]))
-
-
-        if animation_camera == ("static"):
-            xlim =  ylim = zlim = plotlims
-
-
-        elif animation_camera == "follow_goal":
-            margin = 0.75
-            xlim = (translation[0] - margin, translation[0]+ margin)
-            ylim = (translation[1] - margin, translation[1]+ margin)
-            zlim = (translation[2] - margin, translation[2]+ margin)
-
-        else:
-            raise NotImplementedError()
-
-        ax.set_xlim(xlim) 
-        ax.set_ylim(ylim) 
-        ax.set_zlim(zlim)
-
-
-
-        ax.set_xlabel(f'x={pose[0]:.2f}',size=14)
-        ax.set_ylabel(f'y={pose[1]:.2f}',size=14)
-        ax.set_zlabel(f'z={pose[2]:.2f}',size=14)
-        ax.set_title(f"{i*time_between_frames:.2f}s")
-        ax.plot(*target_list[frm_idx], color="pink", marker="o", linestyle="")
-    print("Generating animation (takes a long time)...", end="",flush=True)
-    ani = FuncAnimation(fig, animate, frames=max_time*desired_fps-1, interval= time_between_frames*1000.0, repeat=False)
-    plt.close()
-    ani.save(filename="test.mp4", writer="ffmpeg", dpi=300)
-    print("done.")
-
-def animate_animationdata_from_cache(animationdata_and_policy_file_path):
-    animationdata = load_animation_data_and_policy(animationdata_and_policy_file_path)
-    # print("--pars comparison--")
-    # print(pars)
-    # print(animationdata['pars'])
-    # print("----")
-    assert hash(pars) == hash(animationdata['pars'])
-    print("seed_train =",animationdata["seed_train"])
-    print("seed_enjoy =",animationdata["seed_enjoy"])
-    print("task_info =", animationdata["pars"].task_info)
-    print(hash(animationdata['pars']))
-    positions = np.array(animationdata["poses"].reshape(-1,6).tolist())
-    animate_airframe(pars, positions, animationdata["goal_poses"].reshape(-1,6)[:,:3].cpu().numpy())
-
-def plot_enjoy_report(animationdata_and_policy_file_path):
-    animationdata = load_animation_data_and_policy(animationdata_and_policy_file_path)
-    # print("--pars comparison--")
-    # print(pars)
-    # print(animationdata['pars'])
-    # print("----")
-    assert hash(pars) == hash(animationdata['pars'])
-
-    print(list(animationdata.keys()))
-    
-
-    fig, axs = plt.subplots(3, 3)
-    axs[0,0].plot(animationdata["poses"][:,:,:3].reshape(-1,3).tolist(), linewidth=0.5)
-    axs[0,0].legend(["x", "y", "z"])
-    axs[0,0].set_title("Position")
-
-    axs[1,0].plot(torch.norm(animationdata["poses"][:,:,:3] - animationdata["goal_poses"][:,:,:3], dim=2).reshape(-1).tolist(), linewidth=0.5)
-    axs[1,0].set_yscale("log")
-    axs[1,0].set_title("Postion error")
-
-
-    axs[0,1].plot(animationdata["goal_poses"][:,:,:3].reshape(-1,3).tolist(), linewidth=0.5)
-    axs[0,1].set_title("Goal Position")
-
-    axs[0,2].plot(animationdata["action_delta"].reshape(-1).tolist(), linewidth=0.5)
-    axs[0,2].set_title("Action Delta")
-
-    axs[1,2].plot(animationdata["action"].reshape(-1,animationdata["action"].shape[2]).tolist(), linewidth=0.5)
-    axs[1,2].set_title("Actions")
-
-    axs[2,0].plot(animationdata["angvels"].reshape(-1).tolist(), linewidth=0.5)
-    axs[2,0].set_title("Angelvel")
-
-    axs[1,1].plot(animationdata["reward"].reshape(-1).tolist(), linewidth=0.5)
-    axs[1,1].set_title("Reward")
-    
-    from itertools import cycle
-    markers = cycle(['o', 'v', 's', 'p', '*', 'h', '+', 'x'])
-
-    axs[2,2].plot(animationdata["rewardcomponent_crs"].reshape(-1).tolist(), label= "bonus_survive",  linewidth=0.5, marker=next(markers), markevery=0.33, alpha=0.51)
-    axs[2,2].plot(animationdata["rewardcomponent_dist_cost"].reshape(-1).tolist(), label= "dist_cost",  linewidth=0.5, marker=next(markers), markevery=0.33, alpha=0.51)
-    axs[2,2].plot(animationdata["rewardcomponent_tiltage_cost"].reshape(-1).tolist(), label= "tiltage_cost",  linewidth=0.5, marker=next(markers), markevery=0.33, alpha=0.51)
-    axs[2,2].plot(animationdata["rewardcomponent_velocity_cost"].reshape(-1).tolist(), label= "velocity_cost",  linewidth=0.5, marker=next(markers), markevery=0.33, alpha=0.51)
-    axs[2,2].plot(animationdata["rewardcomponent_angularvel_cost"].reshape(-1).tolist(),  label= "angularvel_cost",  linewidth=0.5, marker=next(markers), markevery=0.33, alpha=0.51)
-    axs[2,2].plot(animationdata["rewardcomponent_action_cost"].reshape(-1).tolist(), label= "action_cost",  linewidth=0.5, marker=next(markers), markevery=0.33, alpha=0.51)
-    axs[2,2].plot(animationdata["rewardcomponent_action_change_cost"].reshape(-1).tolist(), label= "action_change_cost",  linewidth=0.5, marker=next(markers), markevery=0.33, alpha=0.51)
-    axs[2,2].plot(animationdata["rewardcomponent_bonus_reward_completed_task"].reshape(-1).tolist(), label= "bonus_reward_completed_task",  linewidth=0.5, marker=next(markers), markevery=0.33, alpha=0.51)
-    axs[2,2].set_title("Reward")
-    axs[2,2].legend(loc='upper center', bbox_to_anchor=(0.5, -0.05), fancybox=True, shadow=True, ncol=2, prop={'size': 6})
-
-
-
-    axs[2,1].plot(animationdata["completedrewardcomponent_pos_completed_reward"].reshape(-1).tolist(), label= "pos",  linewidth=0.5, marker=next(markers), markevery=0.33, alpha=0.51)
-    axs[2,1].plot(animationdata["completedrewardcomponent_linvels_completed_reward"].reshape(-1).tolist(), label= "linvels",  linewidth=0.5, marker=next(markers), markevery=0.33, alpha=0.51)
-    axs[2,1].plot(animationdata["completedrewardcomponent_angvels_completed_reward"].reshape(-1).tolist(), label= "angvels",  linewidth=0.5, marker=next(markers), markevery=0.33, alpha=0.51)
-    axs[2,1].plot(animationdata["completedrewardcomponent_action_reward"].reshape(-1).tolist(), label= "actions",  linewidth=0.5, marker=next(markers), markevery=0.33, alpha=0.51)
-    axs[2,1].set_title("Completed reward")
-    axs[2,1].legend(loc='upper center', bbox_to_anchor=(0.5, -0.05), fancybox=True, shadow=True, ncol=2, prop={'size': 6})
-
-
-    plt.tight_layout()
-    plt.savefig("test_control_report.pdf")
-    plt.close()
-
 def repair_pars_fabrication_constraints(pars: RobotParameter) -> RobotParameter:
     res = check_collision_and_repair_isaacgym(pars)[0]
-    assert type(res) == RobotParameter
+    assert isinstance(res,RobotParameter)
     return res
 
 
@@ -415,9 +198,10 @@ if __name__ == "__main__":
         # x = np.array([0.08183876204900542, 0.5219701806265, 0.11665093239221351, 0.7378768213735014, 0.508831640622941, 0.0, 0.6974289414187024, 0.49857822070195307, 0.5439566454472291, 0.2208295263646864, 0.3719121034203965, 0.686407066588435, 0.8705630953168567, 0.4697827032516831, 0.6904855778324281])
 
         # # hex       
-        x = np.array([0.0, 0.5, 0.1667, 0.5, 0.5, 
+        x = np.array([
                     0.0, 0.5, 0.5000, 0.5, 0.5, 
-                    0.0, 0.5, 0.8333, 0.5, 0.5, 
+                    0.0, 0.5, 0.1667, 0.5, 0.5, 
+                    0.0, 0.5, 0.8333, 0.5, 0.5,
                     ])
         
         # # quad
@@ -425,7 +209,7 @@ if __name__ == "__main__":
         #               0.0, 0.5, 0.75, 0.5, 0.5, 
         #              ])
 
-        pars = _decode_symmetric_hexarotor_to_RobotParameter_polar(x)
+        pars = from_0_1_to_RobotParameter(x, [1.0, 1.0, 1.0], 0.5)
         plot_airframe_to_file_isaacgym(pars, filepath="test_airframe_render.png")
         # plot_admisible_set(pars)
 

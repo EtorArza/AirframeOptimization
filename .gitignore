@@ -81,3 +81,4 @@ cache/ax_optimization_status/*
 !cache/ax_optimization_status/.gitkeep
 gen_ppo.pth
 policy.onnx
+problem_airframes_train_and_enjoy.csv

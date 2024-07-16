@@ -5,15 +5,9 @@ import os
 import time
 from tqdm import tqdm as tqdm
 import numpy as np
-import threading
-import queue
-from ax import optimize
-from contextlib import contextmanager
 import random
 import numpy as np
 from ax.service.ax_client import AxClient, ObjectiveProperties
-from ax.utils.measurement.synthetic_functions import hartmann6
-from ax.utils.notebook.plotting import init_notebook_plotting, render
 from ax.modelbridge.generation_strategy import GenerationStep, GenerationStrategy
 from ax.modelbridge.registry import Models
 import problem_airframes
@@ -45,13 +39,13 @@ class optimization_algorithm:
                     GenerationStep(
                         model=Models.SOBOL,
                         num_trials=100,
-                        min_trials_observed=100,
+                        min_trials_observed=3,
                         max_parallelism=1,
                         model_kwargs={"seed": self.rs.randint(int(1e6))},
                         model_gen_kwargs={},
                     ),
                     GenerationStep(
-                        model=Models.GPEI,
+                        model=Models.BOTORCH_MODULAR,
                         num_trials=-1,
                         max_parallelism=1,
                         model_kwargs={"seed": self.rs.randint(int(1e6))},
@@ -62,11 +56,27 @@ class optimization_algorithm:
             self.ax_client.create_experiment(
                 parameters=[
                     {
-                        "name": f"x{i}",
+                        "name": f"A_x{i:02d}",
                         "type": "range",
                         "value_type": "float",
                         "bounds": [0.0, 1.0],
                     } for i in range(15)
+                ]+
+                [
+                    {
+                        "name": f"B_motor{i:02d}",
+                        "type": "range",
+                        "value_type": "float",
+                        "bounds": [0.0, 1.0]
+                    } for i in range(3)
+                ]+
+                [
+                    {
+                        "name": f"C_battery",
+                        "type": "range",
+                        "value_type": "float",
+                        "bounds": [0.0, 1.0]
+                    }
                 ],
                 objectives={
                     "nWaypointsReached/nResets": ObjectiveProperties(minimize=False, threshold=task_info["threshold_nWaypointsReached/nResets"]),
@@ -83,7 +93,7 @@ class optimization_algorithm:
 
     def ask(self):
         x_ax, self.trial_index = self.ax_client.get_next_trial()
-        return np.array([el[1] for el in sorted(x_ax.items(), key=lambda z: float(z[0].strip("x")))])
+        return np.array([el[1] for el in sorted(x_ax.items())])
         
     def tell(self, f_res):
         self.ax_client.complete_trial(trial_index=self.trial_index, raw_data=copy.deepcopy(f_res))
@@ -106,7 +116,6 @@ def local_solve(seed, budget, task_info):
                 print(*args,  file=f)
 
     np.random.seed(seed+28342348)
-    import random
     random.seed(seed+28342348)
 
 
