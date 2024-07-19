@@ -135,7 +135,7 @@ def from_0_1_to_RobotParameter(x_0_1: numpy.typing.NDArray[np.float_],  motor_id
     #pars.sensor_translations = [[0,0.5,0.1],[0,0,-0.1]]
     
     pars.motor_time_constant_min = 0.027
-    pars.motor_time_constant_max = 0.037
+    pars.motor_time_constant_max = 0.027
     pars.cq = 0.1
 
     pars = repair_pars_fabrication_constraints(pars)
@@ -220,15 +220,13 @@ if __name__ == "__main__":
         seed_enjoy = 999
         start = time.time()
         info_dict = motor_rl_objective_function(pars, seed_train, seed_enjoy, 4000, "offsetcone", "problem_airframes_train_and_enjoy.csv")
-        f = loss_function(info_dict)
         print(f"objective function (train + enjoy) time: {time.time() - start}")
         print("--------------------------")
-        print("f(x) = ", f)
-        print("Number of Waypoints Reached: ", info_dict['f_nWaypointsReached'].cpu().item())
-        print("Number of Resets: ", info_dict['f_nResets'].cpu().item())
-        print("Waypoints per Reset: ", (info_dict['f_nWaypointsReached'] / info_dict['f_nResets']).cpu().item())
-        print("Energy per Waypoint: ", (info_dict['f_total_energy'] / torch.clamp(info_dict['f_nWaypointsReached'], min=1.0)).cpu().item())
-        print("Total Energy: ", info_dict['f_total_energy'].cpu().item())
+        print("Number of Waypoints Reached:", info_dict['nWaypointsReached'])
+        print("Total battery use:", info_dict['percentage_of_battery_used_in_total'])
+        print("Number of Resets:", info_dict['nResets'])
+        print("f1 (Waypoints per Reset) =", info_dict['n_waypoints_per_reset'])
+        print("f2 (Waypoints reachable based on battery use) =", info_dict['n_waypoints_reachable_based_on_battery_use'])
         print("--------------------------")
     else: 
 

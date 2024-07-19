@@ -17,9 +17,9 @@ import copy
 def evaluate_airframe(x, train_seed, test_seed, task_info):
     info_dict = problem_airframes.f_symmetric_hexarotor_0_1(x, train_seed, test_seed, task_info)
     if info_dict is None:
-        f_res = {"nWaypointsReached/nResets":0.0, "total_energy/nWaypointsReached":1e6}
+        f_res = {"n_waypoints_per_reset":0.0, "n_waypoints_reachable_based_on_battery_use": 0.0}
     else:
-        f_res = {"nWaypointsReached/nResets":(info_dict['f_nWaypointsReached']/info_dict['f_nResets']).cpu().item(), "total_energy/nWaypointsReached":(info_dict['f_total_energy']/torch.clamp(info_dict['f_nWaypointsReached'], min=1.0)).cpu().item()}
+        f_res = {"n_waypoints_per_reset":info_dict['n_waypoints_per_reset'].cpu().item(), "n_waypoints_reachable_based_on_battery_use":info_dict['n_waypoints_reachable_based_on_battery_use'].cpu().item()}
     return f_res
 
 
@@ -79,8 +79,8 @@ class optimization_algorithm:
                     }
                 ],
                 objectives={
-                    "nWaypointsReached/nResets": ObjectiveProperties(minimize=False, threshold=task_info["threshold_nWaypointsReached/nResets"]),
-                    "total_energy/nWaypointsReached": ObjectiveProperties(minimize=True, threshold=task_info["threshold_total_energy/nWaypointsReached"]),
+                    "n_waypoints_per_reset": ObjectiveProperties(minimize=False, threshold=task_info["threshold_n_waypoints_per_reset"]),
+                    "n_waypoints_reachable_based_on_battery_use": ObjectiveProperties(minimize=True, threshold=task_info["threshold_n_waypoints_reachable_based_on_battery_use"]),
                 }
             )
         else:
@@ -128,7 +128,7 @@ def local_solve(seed, budget, task_info):
 
     solver_time = 0.0
 
-    f_best = -1e10 if algo.ax_client.get_trials_data_frame().shape[0]==0 else algo.ax_client.get_trials_data_frame()["nWaypointsReached/nResets"].max()
+    f_best = -1e10 if algo.ax_client.get_trials_data_frame().shape[0]==0 else algo.ax_client.get_trials_data_frame()["n_waypoints_per_reset"].max()
     x_best = None
     x_list = []
     f_list = []
@@ -141,14 +141,14 @@ def local_solve(seed, budget, task_info):
         algo.save_optimization_status(ax_status_filepath)
         df = algo.ax_client.get_trials_data_frame()
 
-        if f["nWaypointsReached/nResets"] > f_best:
-            f_best = f["nWaypointsReached/nResets"]
+        if f["n_waypoints_per_reset"] > f_best:
+            f_best = f["n_waypoints_per_reset"]
             x_best = x
             print_to_log("---New best----------------------------------------------------")
             print_to_log("---", get_human_time(), f_best, x_best.tolist())
             print_to_log("--------------------------------------------------------------")
 
-        print_to_log("n_f_evals:", i, "nWaypointsReached/nResets:", f["nWaypointsReached/nResets"], "total_energy/nWaypointsReached:", f["total_energy/nWaypointsReached"], "t:", time.time() - ref, "x:", x.tolist())
+        print_to_log("n_f_evals:", i, "n_waypoints_per_reset:", f["n_waypoints_per_reset"], "n_waypoints_reachable_based_on_battery_use:", f["n_waypoints_reachable_based_on_battery_use"], "t:", time.time() - ref, "x:", x.tolist())
 
 
     print_to_log("-------------------------------------------------------------")
