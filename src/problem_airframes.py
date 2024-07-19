@@ -110,7 +110,7 @@ def from_0_1_to_RobotParameter(x_0_1: numpy.typing.NDArray[np.float_],  motor_id
 
                      # core mass       # electronics mass
     pars.core_mass = 0.090       +     0.031
-    guard_and_arm_mass = 0.045
+    guard_and_arm_mass = 0.008
 
 
     motor_only_masses, pars.battery_mass = BatteryRotorDynamics.get_motor_and_battery_mass(pars.motor_idx_list, pars.battery_idx)
