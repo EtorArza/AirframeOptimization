@@ -134,8 +134,8 @@ def from_0_1_to_RobotParameter(x_0_1: numpy.typing.NDArray[np.float_],  motor_id
     #pars.sensor_orientations = [[0,0,0],[0,-20,0]]
     #pars.sensor_translations = [[0,0.5,0.1],[0,0,-0.1]]
     
-    pars.motor_time_constant_min = 0.027
-    pars.motor_time_constant_max = 0.027
+    pars.motor_time_constant_min = 0.01
+    pars.motor_time_constant_max = 0.01
     pars.cq = 0.1
 
     pars = repair_pars_fabrication_constraints(pars)
