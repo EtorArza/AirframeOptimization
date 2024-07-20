@@ -593,13 +593,13 @@ def log_detailed_evaluation_results(pars, info_dict, seed_train, seed_enjoy, max
 def motor_rl_objective_function(pars, seed_train, seed_enjoy, max_epochs, waypoint_name, log_detailed_evaluation_results_path):
     save_robot_pars_to_file(pars)
     # exit_flag = "success" # motor_position_train(seed_train, max_epochs, True, waypoint_name)
-    exit_flag = motor_position_train(seed_train, max_epochs, False, waypoint_name)
+    exit_flag = motor_position_train(seed_train, max_epochs, True, waypoint_name)
     if exit_flag == "early_stopped":
         return None
 
     elif exit_flag == "success":
         model_to_onnx()
-        info_dict = motor_position_enjoy(seed_enjoy, False, waypoint_name)
+        info_dict = motor_position_enjoy(seed_enjoy, True, waypoint_name)
         log_detailed_evaluation_results(pars, info_dict, seed_train, seed_enjoy, max_epochs, log_detailed_evaluation_results_path)
         dump_animation_data_and_policy(pars, seed_train, seed_enjoy, info_dict)
         return info_dict

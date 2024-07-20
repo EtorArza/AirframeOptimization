@@ -38,7 +38,7 @@ class optimization_algorithm:
                 steps=[
                     GenerationStep(
                         model=Models.SOBOL,
-                        num_trials=100,
+                        num_trials=200,
                         min_trials_observed=3,
                         max_parallelism=1,
                         model_kwargs={"seed": self.rs.randint(int(1e6))},
