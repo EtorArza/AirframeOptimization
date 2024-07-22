@@ -129,6 +129,11 @@ if __name__ == "__main__":
         plot_src.generate_bokeh_interactive_plot(f"results/data/details_every_evaluation_{waypoint_name}.csv", waypoint_name)
         exit(0)
 
+    elif sys.argv[1] == "--ax-get-conclusions-solution-space":
+        import plot_src
+        pa = problem_analyzer("cache/ax_optimization_status/offsetcone_6.json")
+        interpolated_x, was_evaluated, relative_pos_on_pareto = pa.get_pareto_solutions_with_extra_interpolated_solutions()
+        plot_src.bokeh_plot_solution_interpolation(interpolated_x, was_evaluated, relative_pos_on_pareto)
 
     else:
         print("sys.argv[1]=",sys.argv[1],"not recognized.", sep=" ")

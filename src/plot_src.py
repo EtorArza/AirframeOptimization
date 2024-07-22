@@ -353,6 +353,13 @@ def generate_bokeh_interactive_plot(details_every_evaluation_csv, waypoint_name)
 
 
 
+def bokeh_plot_solution_interpolation(interpolated_x, was_evaluated, relative_pos_on_pareto):
+
+    pass
+
+
+
+
 
 if __name__ == '__main__':
     # plot_progress_one('results/data/airframes_pyopt_4.csv')
