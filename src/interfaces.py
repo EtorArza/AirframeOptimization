@@ -19,7 +19,7 @@ def evaluate_airframe(x, train_seed, test_seed, task_info):
     if info_dict is None:
         f_res = {"n_waypoints_per_reset":0.0, "n_waypoints_reachable_based_on_battery_use": 0.0}
     else:
-        f_res = {"n_waypoints_per_reset":info_dict['n_waypoints_per_reset'].cpu().item(), "n_waypoints_reachable_based_on_battery_use":info_dict['n_waypoints_reachable_based_on_battery_use'].cpu().item()}
+        f_res = {"n_waypoints_per_reset":info_dict['n_waypoints_per_reset'], "n_waypoints_reachable_based_on_battery_use":info_dict['n_waypoints_reachable_based_on_battery_use']}
     return f_res
 
 
