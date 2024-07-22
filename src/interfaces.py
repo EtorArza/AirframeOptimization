@@ -80,7 +80,7 @@ class optimization_algorithm:
                 ],
                 objectives={
                     "n_waypoints_per_reset": ObjectiveProperties(minimize=False, threshold=task_info["threshold_n_waypoints_per_reset"]),
-                    "n_waypoints_reachable_based_on_battery_use": ObjectiveProperties(minimize=True, threshold=task_info["threshold_n_waypoints_reachable_based_on_battery_use"]),
+                    "n_waypoints_reachable_based_on_battery_use": ObjectiveProperties(minimize=False, threshold=task_info["threshold_n_waypoints_reachable_based_on_battery_use"]),
                 }
             )
         else:
@@ -89,6 +89,48 @@ class optimization_algorithm:
             # best_x_prediction = [el[1] for el in sorted(best_x_prediction.items(), key=lambda z: float(z[0].strip("x")))]
             # print("Best x predicted by ax is: ", best_x_prediction)
             # exit(0)
+
+        read_evaluations_from_log = False
+        if read_evaluations_from_log:
+            self.read_evaluations_from_log("results/data/offsetcone_6.csv.log")
+
+    def read_evaluations_from_log(self, file_path):
+        def read_log_file(file_path):
+            known_evaluations = []
+            with open(file_path, 'r') as file:
+                for line in file:
+                    if line.startswith("---"):
+                        continue
+                    if line.startswith("n_f_evals:"):
+                        parts = line.split()
+                        n_waypoints_per_reset = float(parts[3])
+                        n_waypoints_reachable_based_on_battery_use = float(parts[5])
+
+                        x_start = line.index('[')
+                        x_string = line[x_start:]
+                        x_values = eval(x_string)
+                        
+                        evaluation = {
+                            "parameters": {
+                                **{f"A_x{i:02d}": value for i, value in enumerate(x_values[:15])},
+                                **{f"B_motor{i:02d}": value for i, value in enumerate(x_values[15:18])},
+                                "C_battery": x_values[18]
+                            },
+                            "objectives": {
+                                "n_waypoints_per_reset": n_waypoints_per_reset,
+                                "n_waypoints_reachable_based_on_battery_use": n_waypoints_reachable_based_on_battery_use
+                            }
+                        }
+                        
+                        known_evaluations.append(evaluation)
+
+            return known_evaluations
+
+        known_evaluations = read_log_file(file_path)
+        for evaluation in tqdm(known_evaluations):
+            _, idx = self.ax_client.attach_trial(evaluation["parameters"])
+            print("Objectives: ", evaluation["objectives"])
+            self.ax_client.complete_trial(trial_index=idx, raw_data=evaluation["objectives"])
 
 
     def ask(self):
@@ -106,9 +148,8 @@ class optimization_algorithm:
 
 def local_solve(seed, budget, task_info):
 
-    task_info_str = "" if task_info is None else task_info["waypoint_name"]
-    result_file_path = f'results/data/{task_info_str}_{seed}.csv'
-    ax_status_filepath = f'cache/ax_optimization_status/{task_info_str}_{seed}.csv'
+    result_file_path = f'results/data/{task_info["waypoint_name"]}_{seed}.csv'
+    ax_status_filepath = f'cache/ax_optimization_status/{task_info["waypoint_name"]}_{seed}.json'
     
 
     def print_to_log(*args):
@@ -178,3 +219,4 @@ def airframe_repeatedly_train_and_enjoy(train_seed_list, enjoy_seed_list, max_ep
                 f = loss_function(info_dict)
                 log_detailed_evaluation_results(pars, info_dict, seed_train, seed_enjoy, max_epochs, result_file_path)
                 dump_animation_data_and_policy(pars, seed_train, seed_enjoy, info_dict)
+

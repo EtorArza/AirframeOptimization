@@ -6,8 +6,8 @@ from interfaces import *
 
 task_info = {
     "waypoint_name": "offsetcone",
-    "threshold_n_waypoints_per_reset": 18.0,
-    "threshold_n_waypoints_reachable_based_on_battery_use": 5.0
+    "threshold_n_waypoints_per_reset": 8.0,
+    "threshold_n_waypoints_reachable_based_on_battery_use": 200.0
 }
 
 if __name__ == "__main__":
