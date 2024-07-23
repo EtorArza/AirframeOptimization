@@ -133,7 +133,7 @@ if __name__ == "__main__":
         import plot_src
         pa = problem_analyzer("cache/ax_optimization_status/offsetcone_6.json")
         interpolated_x, was_evaluated, relative_pos_on_pareto = pa.get_pareto_solutions_with_extra_interpolated_solutions()
-        plot_src.bokeh_plot_solution_interpolation(interpolated_x, was_evaluated, relative_pos_on_pareto)
+        plot_src.animate_solution_interpolation(interpolated_x, was_evaluated, relative_pos_on_pareto)
 
     else:
         print("sys.argv[1]=",sys.argv[1],"not recognized.", sep=" ")

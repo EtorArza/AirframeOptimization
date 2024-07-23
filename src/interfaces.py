@@ -240,19 +240,19 @@ class problem_analyzer:
             ])
         return processed_pars
 
-    def _crossover_x(self, x_a, x_b, closeness_to_a):
-        assert 0.0 <= closeness_to_a <= 1.0
+    def _crossover_x(self, x_a, x_b, closeness_to_b):
+        assert 0.0 <= closeness_to_b <= 1.0
         assert len(x_a) == len(x_b) == 19
 
         from itertools import permutations
         def apply_permutation(x: np.ndarray, permu):
             assert 0 in permu and 1 in permu and 2 in permu and len(permu)==3
             x_res = x.copy()
-            x_res[0:3] = x[(permu[0]*5):(permu[0]*5 +3)]
+            x_res[0:5] = x[(permu[0]*5):(permu[0]*5 +5)]
             x_res[15+0] = x[15+permu[0]]
-            x_res[5:8] = x[(permu[1]*5):(permu[1]*5 +3)]
+            x_res[5:10] = x[(permu[1]*5):(permu[1]*5 +5)]
             x_res[15+1] = x[15+permu[1]]
-            x_res[10:13] = x[(permu[2]*5):(permu[2]*5 +3)]
+            x_res[10:15] = x[(permu[2]*5):(permu[2]*5 +5)]
             x_res[15+2] = x[15+permu[2]]
             return x_res
 
@@ -262,7 +262,7 @@ class problem_analyzer:
             if np.linalg.norm(x_a - x_b_permuted) < min_distance:
                 min_distance = np.linalg.norm(x_a - x_b_permuted)
                 best_x_b_permuted = x_b_permuted.copy()
-        return x_a*closeness_to_a + best_x_b_permuted*(1.0 - closeness_to_a)
+        return x_a*(1.0 - closeness_to_b) + best_x_b_permuted*closeness_to_b
 
     def _get_relative_position_on_pareto(self, sol):
         f_sol = np.array([sol[1]["n_waypoints_per_reset"], sol[1]["n_waypoints_reachable_based_on_battery_use"]])
@@ -277,7 +277,7 @@ class problem_analyzer:
         return res
 
     def get_pareto_solutions_with_extra_interpolated_solutions(self):
-        total_number_of_interpolated_solutions = 100
+        total_number_of_interpolated_solutions = 20
         res_interpolated_x = [self.pareto_optimal_solutions[0][0]]
         res_was_evaluated = [True]
         res_relative_pos_on_pareto = [0]
@@ -286,11 +286,11 @@ class problem_analyzer:
             rel_pos_prev = self._get_relative_position_on_pareto(last_solution)
             rel_pos_current = self._get_relative_position_on_pareto(solution)
             assert rel_pos_current > rel_pos_prev
-            for closeness_to_a in list(np.linspace(0,1,1+int(total_number_of_interpolated_solutions*(rel_pos_current - rel_pos_prev)), endpoint=False))[1:]:
-                interpolated_x = self._crossover_x(last_solution[0], solution[0], closeness_to_a)
+            for closeness_to_b in list(np.linspace(0,1,1+int(total_number_of_interpolated_solutions*(rel_pos_current - rel_pos_prev)), endpoint=False))[1:]:
+                interpolated_x = self._crossover_x(last_solution[0], solution[0], closeness_to_b)
                 res_interpolated_x.append(interpolated_x)
                 res_was_evaluated.append(False)
-                res_relative_pos_on_pareto.append(rel_pos_prev + closeness_to_a*(rel_pos_current - rel_pos_prev))
+                res_relative_pos_on_pareto.append(rel_pos_prev + closeness_to_b*(rel_pos_current - rel_pos_prev))
             res_interpolated_x.append(solution[0])
             res_was_evaluated.append(True)
             res_relative_pos_on_pareto.append(rel_pos_current)
