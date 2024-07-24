@@ -122,12 +122,17 @@ def from_0_1_to_RobotParameter(x_0_1: numpy.typing.NDArray[np.float_],  motor_id
 
 
     pars.total_mass = sum(pars.motor_masses) + pars.frame_mass
+    pars.thrust_to_weight_ratio = BatteryRotorDynamics.static_get_thrust_to_weight_ratio_battery(pars.motor_idx_list, pars.battery_idx, pars.total_mass)
     print("------")
-    print("Thrust to weight ratio: ", BatteryRotorDynamics.static_get_thrust_to_weight_ratio(pars.motor_idx_list, pars.total_mass))
+    print("Thrust to weight ratio: ", pars.thrust_to_weight_ratio)
+    print("motor_indexes = ", pars.motor_idx_list)
     print("motor_masses =", pars.motor_masses)
     print("frame_mass =", pars.frame_mass)
     print("total_mass =",pars.total_mass)
+    print("max rps: ", BatteryRotorDynamics.static_get_max_rps_and_force_battery(pars.motor_idx_list, pars.battery_idx)[0])
+    print("max force: ", BatteryRotorDynamics.static_get_max_rps_and_force_battery(pars.motor_idx_list, pars.battery_idx)[1])
     print("------")
+
 
 
     #pars.sensor_masses = [0.15, 0.1]
@@ -209,7 +214,7 @@ if __name__ == "__main__":
         #               0.0, 0.5, 0.75, 0.5, 0.5, 
         #              ])
 
-        pars = from_0_1_to_RobotParameter(x, [1.0, 1.0, 1.0], 0.5)
+        pars = from_0_1_to_RobotParameter(x, [0.0, 0.0, 0.0], 0.7)
         plot_airframe_to_file_isaacgym(pars, filepath="test_airframe_render.png")
         # plot_admisible_set(pars)
 
@@ -219,15 +224,18 @@ if __name__ == "__main__":
         seed_train = 999
         seed_enjoy = 999
         start = time.time()
-        info_dict = motor_rl_objective_function(pars, seed_train, seed_enjoy, 4000, "offsetcone", "problem_airframes_train_and_enjoy.csv")
-        print(f"objective function (train + enjoy) time: {time.time() - start}")
-        print("--------------------------")
-        print("Number of Waypoints Reached:", info_dict['nWaypointsReached'])
-        print("Total battery use:", info_dict['percentage_of_battery_used_in_total'])
-        print("Number of Resets:", info_dict['nResets'])
-        print("f1 (Waypoints per Reset) =", info_dict['n_waypoints_per_reset'])
-        print("f2 (Waypoints reachable based on battery use) =", info_dict['n_waypoints_reachable_based_on_battery_use'])
-        print("--------------------------")
+        info_dict = motor_rl_objective_function(pars, seed_train, seed_enjoy, 800, "offsetcone", "problem_airframes_train_and_enjoy.csv")
+        if info_dict is None:
+            print("Train and test skipped, design is not valid or could not learn to hover.")
+        else:
+            print(f"objective function (train + enjoy) time: {time.time() - start}")
+            print("--------------------------")
+            print("Number of Waypoints Reached:", info_dict['nWaypointsReached'])
+            print("Total battery use:", info_dict['percentage_of_battery_used_in_total'])
+            print("Number of Resets:", info_dict['nResets'])
+            print("f1 (Waypoints per Reset) =", info_dict['n_waypoints_per_reset'])
+            print("f2 (Waypoints reachable based on battery use) =", info_dict['n_waypoints_reachable_based_on_battery_use'])
+            print("--------------------------")
     else: 
 
         # file_path, seed_train, seed_enjoy, waypoint_name = get_cached_file(pars)

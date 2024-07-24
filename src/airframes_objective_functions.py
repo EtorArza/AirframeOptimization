@@ -428,7 +428,7 @@ def motor_position_enjoy(seed_enjoy, headless, waypoint_name):
 def motor_position_train(seed_train, max_epochs, headless, waypoint_name):
 
     update_task_config_parameters(seed_train, headless, waypoint_name)
-    assert max_epochs > 751, f"No controller is saved before 750 epochs. max_epochs = {max_epochs}"
+    assert max_epochs > 751, f"No controller is saved before 750 epochs, max_epoch > 750 must be satisfied. max_epochs = {max_epochs}"
     from datetime import datetime
     current_time = datetime.now()
 
@@ -439,18 +439,25 @@ def motor_position_train(seed_train, max_epochs, headless, waypoint_name):
     subprocess.run(f"rm {AERIAL_GYM_ROOT_DIR}/aerial_gym_dev/rl_training/rl_games/runs/* -rf", shell=True)
     cmd_str = f"wd=`pwd` && cd {AERIAL_GYM_ROOT_DIR}/aerial_gym_dev/rl_training/rl_games && python runner.py --seed={seed_train} --save_best_after={751} --max_epochs={max_epochs}"
     print(f">> run shell on {current_time.strftime('%Y-%m-%d %H:%M:%S')}\n{cmd_str}", file=sys.stderr)
-    subprocess.run(cmd_str, shell=True, stdout=sys.stdout, stderr=sys.stderr, text=True)
-    dirs = glob.glob(f"{AERIAL_GYM_ROOT_DIR}/aerial_gym_dev/rl_training/rl_games/runs/gen_ppo_*")
-    if len(dirs) == 0:
-        print("Early stopped, system failed to learn hover in a reasonable time. No policy saved.")
-        return "early_stopped"
-
-    elif len(dirs) == 1:
+    result = subprocess.run(cmd_str, shell=True, stdout=sys.stdout, stderr=sys.stderr, text=True)
+    exit_code =  result.returncode
+    
+    SUCCESS_EXIT_CODE = 0
+    CRASH_EXIT_CODE = 1
+    FAILED_TO_LEAR_HOVER_EXIT_CODE = 3
+    
+    if exit_code == SUCCESS_EXIT_CODE:
+        dirs = glob.glob(f"{AERIAL_GYM_ROOT_DIR}/aerial_gym_dev/rl_training/rl_games/runs/gen_ppo_*")
+        assert len(dirs) == 1, "There should be exactly one directory that contains the policy"
         subprocess.run(f"cp {os.path.join(dirs[0], 'nn', 'gen_ppo.pth')} gen_ppo.pth", shell=True)
         return "success"
+    elif exit_code == FAILED_TO_LEAR_HOVER_EXIT_CODE:
+        print("Early stopped, system failed to learn hover in a reasonable time. No policy saved.")
+        return "fail"
+    elif exit_code == CRASH_EXIT_CODE:
+        raise ChildProcessError("Training produced an unexpected crash.")
     else:
-        print("Error: There should be exactly one directory that contains the policy.")
-        exit(1)
+        raise ValueError(f"Exit code {exit_code} not recognized.")
 
 
 @run_in_subprocess()
@@ -592,9 +599,15 @@ def log_detailed_evaluation_results(pars, info_dict, seed_train, seed_enjoy, max
 
 def motor_rl_objective_function(pars, seed_train, seed_enjoy, max_epochs, waypoint_name, log_detailed_evaluation_results_path):
     save_robot_pars_to_file(pars)
-    # exit_flag = "success" # motor_position_train(seed_train, max_epochs, True, waypoint_name)
+
+    if pars.thrust_to_weight_ratio < 2.0:
+        print("Train and test skipped: not enough thurst/weight ratio")
+        return None
+
     exit_flag = motor_position_train(seed_train, max_epochs, True, waypoint_name)
-    if exit_flag == "early_stopped":
+
+    if exit_flag == "fail":
+        print("Train failed. Skipping evaluation.")
         return None
 
     elif exit_flag == "success":
