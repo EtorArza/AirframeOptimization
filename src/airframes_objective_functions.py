@@ -587,19 +587,19 @@ def load_animation_data_and_policy(animationdata_and_policy_file_path):
     
     return animationdata
 
-def log_detailed_evaluation_results(pars, info_dict, seed_train, seed_enjoy, max_epochs, result_file_path):
+def log_detailed_evaluation_results(pars, info_dict, seed_train, seed_enjoy, max_epochs, evaluation_time, result_file_path):
     waypoint_name = info_dict["waypoint_name"]
-    header = "hash;max_epochs;seed_train;seed_enjoy;nWaypointsReached;percentage_of_battery_used_in_total;nResets;n_waypoints_per_reset;n_waypoints_reachable_based_on_battery_use\n"
+    header = "hash;max_epochs;evaluation_time;seed_train;seed_enjoy;nWaypointsReached;percentage_of_battery_used_in_total;nResets;n_waypoints_per_reset;n_waypoints_reachable_based_on_battery_use\n"
     import torch
     if not os.path.exists(result_file_path) or os.path.getsize(result_file_path) == 0:
         with open(result_file_path, 'w') as file:
             file.write(header)
     with open(result_file_path, 'a') as file:
-        print(f"{hash(pars)};{max_epochs};{seed_train};{seed_enjoy};{info_dict['nWaypointsReached']};{info_dict['percentage_of_battery_used_in_total']};{info_dict['nResets']};{info_dict['n_waypoints_per_reset']};{info_dict['n_waypoints_reachable_based_on_battery_use']}", file=file)
+        print(f"{hash(pars)};{max_epochs};{evaluation_time};{seed_train};{seed_enjoy};{info_dict['nWaypointsReached']};{info_dict['percentage_of_battery_used_in_total']};{info_dict['nResets']};{info_dict['n_waypoints_per_reset']};{info_dict['n_waypoints_reachable_based_on_battery_use']}", file=file)
 
 def motor_rl_objective_function(pars, seed_train, seed_enjoy, max_epochs, waypoint_name, log_detailed_evaluation_results_path):
     save_robot_pars_to_file(pars)
-
+    t_start = time.time() 
     if pars.thrust_to_weight_ratio < 2.0:
         print("Train and test skipped: not enough thurst/weight ratio")
         return None
@@ -613,7 +613,7 @@ def motor_rl_objective_function(pars, seed_train, seed_enjoy, max_epochs, waypoi
     elif exit_flag == "success":
         model_to_onnx()
         info_dict = motor_position_enjoy(seed_enjoy, True, waypoint_name)
-        log_detailed_evaluation_results(pars, info_dict, seed_train, seed_enjoy, max_epochs, log_detailed_evaluation_results_path)
+        log_detailed_evaluation_results(pars, info_dict, seed_train, seed_enjoy, max_epochs, time.time() - t_start, log_detailed_evaluation_results_path)
         dump_animation_data_and_policy(pars, seed_train, seed_enjoy, info_dict)
         return info_dict
     else:
