@@ -6,7 +6,7 @@ import pickle
 import os
 import isaacgym
 from aerial_gym_dev.utils.robot_model import RobotParameter, RobotModel
-from aerial_gym_dev.utils import analyze_robot_config
+from aerial_gym_dev.utils import analyze_robot_config, GESP_early_stop
 import fcl
 from pytorch3d.transforms import euler_angles_to_matrix, quaternion_to_matrix, matrix_to_euler_angles
 from aerial_gym_dev import AERIAL_GYM_ROOT_DIR
@@ -316,19 +316,20 @@ def model_to_onnx():
             opset_version=11
         )
 
-def update_task_config_parameters(seed: int, headless: bool, waypoint_name: str):
+def update_task_config_parameters(seed: int, headless: bool, waypoint_name: str, gesp_filepath=""):
     assert isinstance(seed, int), "seed must be an integer"
     assert isinstance(headless, bool), "headless must be a boolean"
     assert isinstance(waypoint_name, str), "waypoint_name must be a string"
+    assert isinstance(gesp_filepath, str), "waypoint_name must be a string"
 
-    print("updating", seed, headless, waypoint_name)
+    print("updating", seed, headless, waypoint_name, gesp_filepath)
 
     file_path = f"{AERIAL_GYM_ROOT_DIR}/aerial_gym_dev/config/task_config/position_setpoint_with_attitude_control.py"
     
     with open(file_path, 'r') as file:
         lines = file.readlines()
     
-    seed_count = headless_count = waypoint_count = 0
+    seed_count = headless_count = waypoint_count = gesp_count = 0
     
     for i, line in enumerate(lines):
         if line.strip().startswith("seed ="):
@@ -340,10 +341,13 @@ def update_task_config_parameters(seed: int, headless: bool, waypoint_name: str)
         elif line.strip().startswith("waypoint_name ="):
             lines[i] = f'    waypoint_name = "{waypoint_name}"\n'
             waypoint_count += 1
-    
+        elif line.strip().startswith("gesp_filepath ="):
+            lines[i] = f'    gesp_filepath = "{gesp_filepath}"\n'
+            gesp_count += 1
     assert seed_count == 1, "Expected exactly one 'seed' field in the file"
     assert headless_count == 1, "Expected exactly one 'headless' field in the file"
     assert waypoint_count == 1, "Expected exactly one 'waypoint_name' field in the file"
+    assert gesp_count == 1, "Expected exactly one 'gesp_filepath' field in the file"
     
     with open(file_path, 'w') as file:
         file.writelines(lines)
@@ -425,9 +429,9 @@ def motor_position_enjoy(seed_enjoy, headless, waypoint_name):
     return info_dict
 
 @run_in_subprocess()
-def motor_position_train(seed_train, max_epochs, headless, waypoint_name):
+def motor_position_train(seed_train, max_epochs, headless, waypoint_name, gesp_path):
 
-    update_task_config_parameters(seed_train, headless, waypoint_name)
+    update_task_config_parameters(seed_train, headless, waypoint_name, gesp_path)
     assert max_epochs > 751, f"No controller is saved before 750 epochs, max_epoch > 750 must be satisfied. max_epochs = {max_epochs}"
     from datetime import datetime
     current_time = datetime.now()
@@ -445,12 +449,13 @@ def motor_position_train(seed_train, max_epochs, headless, waypoint_name):
     SUCCESS_EXIT_CODE = 0
     CRASH_EXIT_CODE = 1
     FAILED_TO_LEAR_HOVER_EXIT_CODE = 3
+    EARLY_STOPPED_BY_GESP = 4
     
-    if exit_code == SUCCESS_EXIT_CODE:
+    if exit_code == SUCCESS_EXIT_CODE or exit_code == EARLY_STOPPED_BY_GESP:
         dirs = glob.glob(f"{AERIAL_GYM_ROOT_DIR}/aerial_gym_dev/rl_training/rl_games/runs/gen_ppo_*")
         assert len(dirs) == 1, "There should be exactly one directory that contains the policy"
         subprocess.run(f"cp {os.path.join(dirs[0], 'nn', 'gen_ppo.pth')} gen_ppo.pth", shell=True)
-        return "success"
+        return "success" if exit_code == SUCCESS_EXIT_CODE else "early_stop_gesp"
     elif exit_code == FAILED_TO_LEAR_HOVER_EXIT_CODE:
         print("Early stopped, system failed to learn hover in a reasonable time. No policy saved.")
         return "fail"
@@ -598,22 +603,29 @@ def log_detailed_evaluation_results(pars, info_dict, seed_train, seed_enjoy, max
         print(f"{hash(pars)};{max_epochs};{evaluation_time};{seed_train};{seed_enjoy};{info_dict['nWaypointsReached']};{info_dict['percentage_of_battery_used_in_total']};{info_dict['nResets']};{info_dict['n_waypoints_per_reset']};{info_dict['n_waypoints_reachable_based_on_battery_use']}", file=file)
 
 def motor_rl_objective_function(pars, seed_train, seed_enjoy, max_epochs, waypoint_name, log_detailed_evaluation_results_path):
+
+    gesp_path = os.path.abspath(f"cache/gesp_early_stop/gesp_data_{waypoint_name}.pkl")
+
     save_robot_pars_to_file(pars)
     t_start = time.time() 
     if pars.thrust_to_weight_ratio < 2.0:
         print("Train and test skipped: not enough thurst/weight ratio")
         return None
 
-    exit_flag = motor_position_train(seed_train, max_epochs, True, waypoint_name)
+    # exit_flag = "success" 
+    exit_flag = motor_position_train(seed_train, max_epochs, True, waypoint_name, gesp_path)
 
     if exit_flag == "fail":
         print("Train failed. Skipping evaluation.")
         return None
 
-    elif exit_flag == "success":
+    elif exit_flag == "success" or exit_flag == "early_stop_gesp":
         model_to_onnx()
         info_dict = motor_position_enjoy(seed_enjoy, True, waypoint_name)
         log_detailed_evaluation_results(pars, info_dict, seed_train, seed_enjoy, max_epochs, time.time() - t_start, log_detailed_evaluation_results_path)
+        if exit_flag == "success":
+            gesp = GESP_early_stop.GESP(gesp_path)
+            gesp.register_test(info_dict["n_waypoints_per_reset"], info_dict["n_waypoints_reachable_based_on_battery_use"])
         dump_animation_data_and_policy(pars, seed_train, seed_enjoy, info_dict)
         return info_dict
     else:

@@ -106,7 +106,7 @@ def from_0_1_to_RobotParameter(x_0_1: numpy.typing.NDArray[np.float_],  motor_id
 
     pars.motor_idx_list = [compatible_motors[int(el*(n_compatible_motors-1e-8))]  for el in motor_idx_0_1]
     pars.motor_idx_list = [*pars.motor_idx_list, *pars.motor_idx_list] # Same motors on the other side to keep simmetry
-    pars.battery_idx = compatible_batteries[int(battery_idx_0_1*(n_compatible_batteries-1e-8))]
+    pars.battery_idx = 8 #compatible_batteries[int(battery_idx_0_1*(n_compatible_batteries-1e-8))]
 
                      # core mass       # electronics mass
     pars.core_mass = 0.090       +     0.031
@@ -214,7 +214,7 @@ if __name__ == "__main__":
         #               0.0, 0.5, 0.75, 0.5, 0.5, 
         #              ])
 
-        pars = from_0_1_to_RobotParameter(x, [0.0, 0.0, 0.0], 0.7)
+        pars = from_0_1_to_RobotParameter(x, [0.4, 0.4, 0.4], 0.5)
         plot_airframe_to_file_isaacgym(pars, filepath="test_airframe_render.png")
         # plot_admisible_set(pars)
 
@@ -224,7 +224,7 @@ if __name__ == "__main__":
         seed_train = 999
         seed_enjoy = 999
         start = time.time()
-        info_dict = motor_rl_objective_function(pars, seed_train, seed_enjoy, 800, "offsetcone", "problem_airframes_train_and_enjoy.csv")
+        info_dict = motor_rl_objective_function(pars, seed_train, seed_enjoy, 4000, "offsetcone", "problem_airframes_train_and_enjoy.csv")
         if info_dict is None:
             print("Train and test skipped, design is not valid or could not learn to hover.")
         else:
