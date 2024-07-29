@@ -82,3 +82,5 @@ cache/ax_optimization_status/*
 gen_ppo.pth
 policy.onnx
 problem_airframes_train_and_enjoy.csv
+best_agility.pth
+best_efficiency.pth

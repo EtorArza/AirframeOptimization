@@ -448,7 +448,8 @@ def motor_position_train(seed_train, max_epochs, headless, waypoint_name):
     if exit_code == SUCCESS_EXIT_CODE:
         dirs = glob.glob(f"{AERIAL_GYM_ROOT_DIR}/aerial_gym_dev/rl_training/rl_games/runs/gen_ppo_*")
         assert len(dirs) == 1, "There should be exactly one directory that contains the policy"
-        subprocess.run(f"cp {os.path.join(dirs[0], 'nn', 'gen_ppo.pth')} gen_ppo.pth", shell=True)
+        subprocess.run(f"cp {os.path.join(dirs[0], 'nn', 'best_agility.pth')} gen_ppo.pth", shell=True)
+        # subprocess.run(f"cp {os.path.join(dirs[0], 'nn', 'best_efficiency.pth')} best_efficiency.pth", shell=True)
         return "success"
     elif exit_code == FAILED_TO_LEAR_HOVER_EXIT_CODE:
         print("Early stopped, system failed to learn hover in a reasonable time. No policy saved.")
