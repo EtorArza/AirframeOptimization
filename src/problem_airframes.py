@@ -106,6 +106,7 @@ def from_0_1_to_RobotParameter(x_0_1: numpy.typing.NDArray[np.float_],  motor_id
 
     pars.motor_idx_list = [compatible_motors[int(el*(n_compatible_motors-1e-8))]  for el in motor_idx_0_1]
     pars.motor_idx_list = [*pars.motor_idx_list, *pars.motor_idx_list] # Same motors on the other side to keep simmetry
+    pars.prop_diameters = []
     pars.battery_idx = 8 #compatible_batteries[int(battery_idx_0_1*(n_compatible_batteries-1e-8))]
 
                      # core mass       # electronics mass
@@ -113,13 +114,13 @@ def from_0_1_to_RobotParameter(x_0_1: numpy.typing.NDArray[np.float_],  motor_id
     guard_and_arm_mass = 0.008
 
 
-    motor_only_masses, pars.battery_mass = BatteryRotorDynamics.get_motor_and_battery_mass(pars.motor_idx_list, pars.battery_idx)
+    motor_only_masses, pars.battery_mass, prop_diameters_list = BatteryRotorDynamics.get_motor_and_battery_mass(pars.motor_idx_list, pars.battery_idx)
 
 
     # For Inertia only these two below are taken into account
     pars.motor_masses = [mtr_mass + guard_and_arm_mass for mtr_mass in motor_only_masses] # actually arms mass
     pars.frame_mass = pars.core_mass + pars.battery_mass
-
+    pars.prop_diameters = prop_diameters_list[:]
 
     pars.total_mass = sum(pars.motor_masses) + pars.frame_mass
     pars.thrust_to_weight_ratio = BatteryRotorDynamics.static_get_thrust_to_weight_ratio_battery(pars.motor_idx_list, pars.battery_idx, pars.total_mass)

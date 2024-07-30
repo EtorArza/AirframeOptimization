@@ -167,7 +167,7 @@ def check_collision_and_repair_isaacgym(pars: RobotParameter):
 
     handle_list = []
     for i in range(0,pars.n_motors+1):
-        create_urdf_model_for_collision(RobotModel(pars), urdf_path, i, 0.045, 0.08)
+        create_urdf_model_for_collision(RobotModel(pars), urdf_path, i, 0.02, 0.12)
         if i > 0:
             asset_options.fix_base_link = False
         else:
