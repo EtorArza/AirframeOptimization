@@ -62,18 +62,91 @@ if __name__ == "__main__":
                         pb.update()
         pb.close()
 
+    elif sys.argv[1] == "--plot-rotor-properties":
 
+        from aerial_gym_dev.utils.battery_rotor_dynamics import manufacturerComponentData
+        from aerial_gym_dev.utils.custom_math import linear_1d_interpolation
+ 
+        component_data = manufacturerComponentData("cpu")
+        import matplotlib.pyplot as plt
+        import numpy as np
+        import seaborn as sns
+        import torch
+        import os
 
-    # Plot how time per evaluation in snobfit increases linearly
-    elif sys.argv[1] == "--plot-snobfit-time-per-1000-evaluations":
-        from matplotlib import pyplot as plt
-        a = [35.672,66.487,83.07,106.848,138.234,164.302,165.799,150.121,209.833,222.891,271.217,238.373,299.406,275.698,383.726,350.589,306.331,362.808,344.787,466.726000000001,495.216,544.442,483.626,572.485,505.259,523.818,644.181000000001,629.82,687.755999999999,601.378000000001,670.198,619.061,793.431000000001,791.849,738.907999999999,605.154999999999,705.071000000002,752.395999999999,727.92,760.445,774.154000000002,1010.754,1039.556,1055.197,1093.278,1070.267,1209.765,1240.372,1382.626,1265.622,1418.167,1332.901,1192.581,1425.083,1391.77,1585.827,1363.194,1522.193,1248.111,1561.504,1648.914,1860.214,1868.236,1732.594,1893.023,1554.103,2117.976,1658.75999999999,1469.963,1273.931]
-        plt.plot(a)
-        plt.ylabel("time (s)")
-        plt.xlabel("x 1000 evaluations")
-        plt.title("Snobfit: time per 1000 evaluations")
-        plt.show()
+        # Create the results/figures/motor_properties directory if it doesn't exist
+        os.makedirs('results/figures/motor_properties', exist_ok=True)
 
+        # Initialize the component_data
+        component_data = manufacturerComponentData("cpu")
+
+        # Number of motor-propeller combos and RPM values
+        num_combos = len(component_data.motor_dict)
+        num_rpms = component_data.rpms.shape[1]
+
+        # Create arrays to store the calculated values
+        forces = np.zeros((num_combos, num_rpms))
+        efficiencies = np.zeros((num_combos, num_rpms))
+
+        # Calculate forces and efficiencies
+        for i in range(num_combos):
+            c_t = component_data.motor_dict[i]["C_T"]
+            rpms = component_data.motor_dict[i]["RPM"]
+            currents = component_data.currents[i, :]
+            
+            forces[i, :] = c_t * (rpms / 60.0)**2
+            efficiencies[i, :] = forces[i, :] / currents.numpy()
+
+        # Create the forces heatmap
+        plt.figure(figsize=(4, 4))
+        sns.heatmap(forces, cmap="viridis", annot=False, fmt=".2f", cbar_kws={'label': 'Force (N)'})
+        plt.title("Motor-Propeller Combo Forces")
+        plt.xlabel("RPM Index")
+        plt.ylabel("Motor-Propeller Combo Index")
+        plt.tight_layout()
+        plt.savefig('results/figures/motor_properties/forces.pdf')
+        plt.close()
+
+        # Create the efficiency heatmap
+        plt.figure(figsize=(4, 4))
+        sns.heatmap(efficiencies, cmap="viridis", annot=False, fmt=".2f", cbar_kws={'label': 'Efficiency (N/A)'})
+        plt.title("Motor-Propeller Combo Efficiencies")
+        plt.xlabel("RPM Index")
+        plt.ylabel("Motor-Propeller Combo Index")
+        plt.tight_layout()
+        plt.savefig('results/figures/motor_properties/efficiency.pdf')
+        plt.close()
+
+        num_force_points = 100
+        interpolated_efficiencies = np.full((num_combos, num_force_points), np.nan)
+        max_force = np.max(forces)
+        x_new = np.linspace(0, max_force, num_force_points)
+
+        for i in range(num_combos):
+            x_tensor = torch.tensor(forces[i], dtype=torch.float32)
+            y_tensor = torch.tensor(efficiencies[i], dtype=torch.float32)
+            xnew_tensor = torch.tensor(x_new, dtype=torch.float32)
+            
+            # Interpolate only up to the maximum force for this combo
+            max_force_index = np.searchsorted(x_new, np.max(forces[i]), side='right')
+            interpolated_values = linear_1d_interpolation(x_tensor, y_tensor, xnew_tensor[:max_force_index]).numpy()
+            
+            interpolated_efficiencies[i, :max_force_index] = interpolated_values
+
+        plt.figure(figsize=(12, 8))
+        sns.heatmap(interpolated_efficiencies, cmap="viridis", annot=False, fmt=".2f",
+                    cbar_kws={'label': 'Efficiency (N/A)'}, mask=np.isnan(interpolated_efficiencies))
+        plt.title("Efficiency with respect to Force")
+        plt.xlabel("Force (N)")
+        plt.ylabel("Motor-Propeller Combo Index")
+        n_xticklabels = 8
+        x_tick_positions = [(i*(num_force_points-1)) // (n_xticklabels-1) for i in range(n_xticklabels)]
+        print(x_tick_positions)
+        plt.xticks(x_tick_positions, [f"{x_new[x_tick_positions[i]]:.1f}" for i in range(n_xticklabels)])
+        plt.tight_layout()
+        plt.savefig('results/figures/motor_properties/efficiency_wrt_force.pdf')
+        plt.close()
+        print("done!")
 
     elif sys.argv[1] == "--hex-different-epochs":
         from problem_airframes import loss_function, dump_animation_data_and_policy, _decode_symmetric_hexarotor_to_RobotParameter_polar

@@ -9,6 +9,7 @@ results/figures/*/*
 !results/figures/repeatedly_different_train_seed/.gitkeep
 !results/figures/venn/.gitkeep
 !results/figures/compare_constraint_methods/.gitkeep
+!results/figures/motor_properties/.gitkeep
 
 other_src/WindFLO/release/libWindFLO_LINUX.so
 other_src/WindFLO/release/main.o
