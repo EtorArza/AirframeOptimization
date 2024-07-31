@@ -84,13 +84,13 @@ def from_0_1_to_RobotParameter(x_0_1: numpy.typing.NDArray[np.float_],  motor_id
         motor_translations[i + n_motors//2][1] = -y
         motor_translations[i + n_motors//2][2] = z
 
-        motor_orientations[i][0] = scale_from_0_1(x_0_1[i*5+3], 360*0.4, 360*0.6)
+        motor_orientations[i][0] = scale_from_0_1(x_0_1[i*5+3], -360*0.1, 360*0.1)
         motor_orientations[i][1] = 0.0
         motor_orientations[i][2] = scale_from_0_1(x_0_1[i*5+3], 0.0, 360.0)
 
-        motor_orientations[i + n_motors//2][0] = scale_from_0_1(1.0 - x_0_1[i*5+3], 360*0.4, 360*0.6)
+        motor_orientations[i + n_motors//2][0] = -motor_orientations[i][0]
         motor_orientations[i + n_motors//2][1] = 0.0
-        motor_orientations[i + n_motors//2][2] = scale_from_0_1(1.0 - x_0_1[i*5+3], 0.0, 360.0)
+        motor_orientations[i + n_motors//2][2] = 360.0 - motor_orientations[i][2]
 
     pars = RobotParameter()
     pars.n_motors = n_motors
@@ -201,21 +201,27 @@ if __name__ == "__main__":
     if train_and_enjoy:
 
         # # # Best solution
-        # x = np.array([0.08183876204900542, 0.5219701806265, 0.11665093239221351, 0.7378768213735014, 0.508831640622941, 0.0, 0.6974289414187024, 0.49857822070195307, 0.5439566454472291, 0.2208295263646864, 0.3719121034203965, 0.686407066588435, 0.8705630953168567, 0.4697827032516831, 0.6904855778324281])
+        x = np.array([0.70351876040685, 0.20259231582608492, 0.5710776352768845, 0.5332705783467643, 0.6229468000389684, 0.33152062514974634, 0.37615664064174315, 0.38706972408012125, 0.0, 0.9361670057383912, 0.1539448845161684, 0.45932095943521645, 0.5855862796623529, 0.3304883100996395, 1.0, 0.069811637460047, 0.8679802760621578, 1.0, 0.1842298411156732])
 
-        # # hex       
-        x = np.array([
-                    0.0, 0.5, 0.5000, 0.5, 0.5, 
-                    0.0, 0.5, 0.1667, 0.5, 0.5, 
-                    0.0, 0.5, 0.8333, 0.5, 0.5,
-                    ])
+        # # # # hex       
+        # x = np.array([
+        #             0.0, 0.5, 0.5000, 0.5, 0.5, 
+        #             0.0, 0.5, 0.1667, 0.5, 0.5, 
+        #             0.0, 0.5, 0.8333, 0.5, 0.5,
+        #             0.4, 0.4, 0.4,
+        #             0.2,
+        #             ])
         
         # # quad
         # x = np.array([0.0, 0.5, 0.25, 0.5, 0.5, 
         #               0.0, 0.5, 0.75, 0.5, 0.5, 
         #              ])
 
-        pars = from_0_1_to_RobotParameter(x, [0.4, 0.4, 0.4], 0.5)
+        x_0_1 = x[:15]
+        motor_idx_0_1 = x[15:18]
+        battery_idx_0_1 = x[18]
+
+        pars = from_0_1_to_RobotParameter(x_0_1, motor_idx_0_1, None)
         plot_airframe_to_file_isaacgym(pars, filepath="test_airframe_render.png")
         # plot_admisible_set(pars)
 
