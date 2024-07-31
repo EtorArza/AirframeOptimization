@@ -369,7 +369,7 @@ def motor_position_enjoy(seed_enjoy, headless, waypoint_name):
     # Ensure CUDA is available for ONNX Runtime
     assert 'CUDAExecutionProvider' in ort.get_available_providers(), "CUDA is not available for ONNX Runtime"
 
-    num_airframes_parallel = int(2e4 if headless else 50)
+    num_airframes_parallel = int(2e4 if headless else 1)
     print("Averaging", num_airframes_parallel, "environments.")
     args = vars(get_args())
     rl_task_env = task_registry.make_task("position_setpoint_task", {
@@ -390,8 +390,8 @@ def motor_position_enjoy(seed_enjoy, headless, waypoint_name):
 
     output_shape = (rl_task_env.sim_env.num_envs, rl_task_env.sim_env.num_env_actions + rl_task_env.sim_env.num_robot_actions)
     actions_gpu = torch.empty(output_shape, dtype=torch.float32, device='cuda:0').contiguous()
-
-    for i in tqdm(range(1000)):
+    time_last_frame = time.time()
+    for i in tqdm(range(1000 if headless else int(1e8))):
         
         # GPU Inference
         io_binding.bind_input(
@@ -414,7 +414,9 @@ def motor_position_enjoy(seed_enjoy, headless, waypoint_name):
         obs = rl_task_env.step(actions=actions_gpu)[0]["observations"].contiguous()
         
         if not headless:
-            time.sleep(1.0 / 100.0)
+            while time.time() - time_last_frame < 0.01:
+                time.sleep(1.0 / 10000.0)
+        time_last_frame = time.time()
 
         if (i+1) % 500 == 0:
             print("i", i)
