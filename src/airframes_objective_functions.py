@@ -348,7 +348,16 @@ def update_task_config_parameters(seed: int, headless: bool, waypoint_name: str)
         file.writelines(lines)
 
 @run_in_subprocess()
-def motor_position_enjoy(seed_enjoy, headless, waypoint_name):
+def motor_position_enjoy(seed_enjoy, waypoint_name, render):
+
+    assert render in  ("headless", "visualize", "save")
+    headless = render not in ("visualize", "save")
+    record_video = render == "save"
+
+    if record_video:
+        subprocess.run("rm results/figures/animation_pngs/* -f", shell=True, check=True, stdout=sys.stdout, stderr=sys.stderr, text=True)
+        subprocess.run("rm ./animation*.mp4 -f", shell=True, check=True, stdout=sys.stdout, stderr=sys.stderr, text=True)
+        headless = False
 
     update_task_config_parameters(seed_enjoy, headless, waypoint_name)
 
@@ -391,7 +400,7 @@ def motor_position_enjoy(seed_enjoy, headless, waypoint_name):
     output_shape = (rl_task_env.sim_env.num_envs, rl_task_env.sim_env.num_env_actions + rl_task_env.sim_env.num_robot_actions)
     actions_gpu = torch.empty(output_shape, dtype=torch.float32, device='cuda:0').contiguous()
     time_last_frame = time.time()
-    for i in tqdm(range(1000 if headless else int(1e8))):
+    for i in tqdm(range(1000 if headless or record_video else int(1e8))):
         
         # GPU Inference
         io_binding.bind_input(
@@ -412,21 +421,35 @@ def motor_position_enjoy(seed_enjoy, headless, waypoint_name):
         )
         ort_model_gpu.run_with_iobinding(io_binding)
         obs = rl_task_env.step(actions=actions_gpu)[0]["observations"].contiguous()
-        
+
         if not headless:
-            while time.time() - time_last_frame < 0.01:
-                time.sleep(1.0 / 10000.0)
+            if record_video and i > 1:
+                rl_task_env.sim_env.IGE_env.gym.step_graphics(rl_task_env.sim_env.IGE_env.sim)
+                rl_task_env.sim_env.IGE_env.gym.draw_viewer(rl_task_env.sim_env.IGE_env.viewer.viewer, rl_task_env.sim_env.IGE_env.sim, False)
+                time.sleep(0.2)
+                rl_task_env.sim_env.IGE_env.gym.write_viewer_image_to_file(rl_task_env.sim_env.IGE_env.viewer.viewer, f"results/figures/animation_pngs/{i:06d}.png")
+            else:            
+                while time.time() - time_last_frame < 0.01:
+                    time.sleep(1.0 / 10000.0)
         time_last_frame = time.time()
 
         if (i+1) % 500 == 0:
             print("i", i)
             obs = rl_task_env.reset()[0]["observations"].contiguous()
 
+    if record_video:
+        cmd1 = "ffmpeg -framerate 100 -pattern_type glob -i 'results/figures/animation_pngs/*.png' -c:v libx264 -pix_fmt yuv420p -vf scale=1920:1080 animation.mp4"
+        cmd2 = "ffmpeg -framerate 25 -pattern_type glob -i 'results/figures/animation_pngs/*.png' -c:v libx264 -pix_fmt yuv420p -vf scale=1920:1080 animation_slowmo_x4.mp4"
+        subprocess.run(cmd1, shell=True, check=True, stdout=sys.stdout, stderr=sys.stderr, text=True)
+        subprocess.run(cmd2, shell=True, check=True, stdout=sys.stdout, stderr=sys.stderr, text=True)
+
     info_dict = rl_task_env.get_info()
     return info_dict
 
 @run_in_subprocess()
-def motor_position_train(seed_train, max_epochs, headless, waypoint_name):
+def motor_position_train(seed_train, max_epochs, waypoint_name, render):
+
+    headless = render in ("headless", "record")
 
     update_task_config_parameters(seed_train, headless, waypoint_name)
     assert max_epochs > 751, f"No controller is saved before 750 epochs, max_epoch > 750 must be satisfied. max_epochs = {max_epochs}"
@@ -599,7 +622,9 @@ def log_detailed_evaluation_results(pars, info_dict, seed_train, seed_enjoy, max
     with open(result_file_path, 'a') as file:
         print(f"{hash(pars)};{max_epochs};{evaluation_time};{seed_train};{seed_enjoy};{info_dict['nWaypointsReached']};{info_dict['percentage_of_battery_used_in_total']};{info_dict['nResets']};{info_dict['n_waypoints_per_reset']};{info_dict['n_waypoints_reachable_based_on_battery_use']}", file=file)
 
-def motor_rl_objective_function(pars, seed_train, seed_enjoy, max_epochs, waypoint_name, log_detailed_evaluation_results_path):
+def motor_rl_objective_function(pars, seed_train, seed_enjoy, max_epochs, waypoint_name, log_detailed_evaluation_results_path, render):
+
+    assert render in  ("headless", "visualize", "save")
 
 
     save_robot_pars_to_file(pars)
@@ -609,7 +634,7 @@ def motor_rl_objective_function(pars, seed_train, seed_enjoy, max_epochs, waypoi
         return None
 
     # exit_flag = "success" 
-    exit_flag = motor_position_train(seed_train, max_epochs, True, waypoint_name)
+    exit_flag = motor_position_train(seed_train, max_epochs, waypoint_name, render)
 
     if exit_flag == "fail":
         print("Train failed. Skipping evaluation.")
@@ -617,7 +642,7 @@ def motor_rl_objective_function(pars, seed_train, seed_enjoy, max_epochs, waypoi
 
     elif exit_flag == "success":
         model_to_onnx()
-        info_dict = motor_position_enjoy(seed_enjoy, True, waypoint_name)
+        info_dict = motor_position_enjoy(seed_enjoy, waypoint_name, render)
         log_detailed_evaluation_results(pars, info_dict, seed_train, seed_enjoy, max_epochs, time.time() - t_start, log_detailed_evaluation_results_path)
         dump_animation_data_and_policy(pars, seed_train, seed_enjoy, info_dict)
         return info_dict

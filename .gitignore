@@ -10,6 +10,7 @@ results/figures/*/*
 !results/figures/venn/.gitkeep
 !results/figures/compare_constraint_methods/.gitkeep
 !results/figures/motor_properties/.gitkeep
+!results/figures/animation_pngs/.gitkeep
 
 other_src/WindFLO/release/libWindFLO_LINUX.so
 other_src/WindFLO/release/main.o

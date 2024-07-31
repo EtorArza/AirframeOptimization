@@ -212,12 +212,12 @@ def airframe_repeatedly_train_and_enjoy(train_seed_list, enjoy_seed_list, max_ep
     for seed_train in train_seed_list:
         t_start = time.time()
         evaluation_time = None
-        exit_flag = motor_position_train(seed_train, max_epochs, True, waypoint_name)
+        exit_flag = motor_position_train(seed_train, max_epochs, True, waypoint_name, "headless")
         print("exit_flag", exit_flag)
         if exit_flag == "success":
             model_to_onnx()
             for seed_enjoy in enjoy_seed_list:
-                info_dict = motor_position_enjoy(seed_enjoy, True, waypoint_name)
+                info_dict = motor_position_enjoy(seed_enjoy, True, waypoint_name, "headless")
                 if evaluation_time is None:
                     evaluation_time = time.time() - t_start
                 log_detailed_evaluation_results(pars, info_dict, seed_train, seed_enjoy, max_epochs, evaluation_time, result_file_path)

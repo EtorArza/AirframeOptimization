@@ -162,7 +162,7 @@ def f_symmetric_hexarotor_0_1(x: numpy.typing.NDArray[np.float_], seed_train: in
         raise ValueError("Wrong dimension on x.", f"x = {x}")
 
     pars = from_0_1_to_RobotParameter(x_0_1, motor_idx_0_1, battery_idx_0_1)
-    info_dict = motor_rl_objective_function(pars, seed_train, seed_enjoy, 4000, task_info['waypoint_name'], f"results/data/local_solve_{task_info['waypoint_name']}.csv")
+    info_dict = motor_rl_objective_function(pars, seed_train, seed_enjoy, 4000, task_info['waypoint_name'], f"results/data/local_solve_{task_info['waypoint_name']}.csv", "headless")
     return info_dict
 
 
@@ -228,10 +228,12 @@ if __name__ == "__main__":
         save_robot_pars_to_file(pars)
         # plot_airframe_to_file_isaacgym(pars, filepath="demo_image.png")
 
-        seed_train = 999
+        seed_train = 179
         seed_enjoy = 999
         start = time.time()
-        info_dict = motor_rl_objective_function(pars, seed_train, seed_enjoy, 4000, "offsetcone", "problem_airframes_train_and_enjoy.csv")
+        render = "visualize"
+        assert render in ("headless", "visualize", "save")
+        info_dict = motor_rl_objective_function(pars, seed_train, seed_enjoy, 4000, "offsetcone", "problem_airframes_train_and_enjoy.csv", render)
         if info_dict is None:
             print("Train and test skipped, design is not valid or could not learn to hover.")
         else:
@@ -246,9 +248,9 @@ if __name__ == "__main__":
     else: 
 
         # file_path, seed_train, seed_enjoy, waypoint_name = get_cached_file(pars)
-        file_path = "cache/airframes_animationdata/7399056118471101504_21_43_offsetcone_airframeanimationdata.wb"
+        file_path = "cache/airframes_animationdata/5488735425455136229_179_999_offsetcone_airframeanimationdata.wb"
         animation_data  = load_animation_data_and_policy(file_path) # load policy into correct path
         save_robot_pars_to_file(animation_data["pars"])
         plot_airframe_to_file_isaacgym(animation_data["pars"], filepath="test_airframe_render.png")
-        motor_position_enjoy(animation_data["seed_enjoy"], False, animation_data["waypoint_name"])
+        motor_position_enjoy(animation_data["seed_enjoy"], animation_data["waypoint_name"], "visualize")
 
