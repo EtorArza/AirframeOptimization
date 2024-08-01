@@ -197,17 +197,17 @@ if __name__ == "__main__":
     train_and_enjoy = True
     if train_and_enjoy:
 
-        # # # Best solution
-        x = np.array([0.70351876040685, 0.20259231582608492, 0.5710776352768845, 0.5332705783467643, 0.6229468000389684, 0.33152062514974634, 0.37615664064174315, 0.38706972408012125, 0.0, 0.9361670057383912, 0.1539448845161684, 0.45932095943521645, 0.5855862796623529, 0.3304883100996395, 1.0, 0.069811637460047, 0.8679802760621578, 1.0, 0.1842298411156732])
+        # # # # Best solution
+        # x = np.array([0.3920931238681078, 0.14501414727419615, 0.1764863571152091, 0.4809751398861408, 0.025923912413418293, 0.12682480365037918, 0.5175330834463239, 0.8448372511193156, 0.6910878615453839, 0.6071489648893476, 0.2536133984103799, 0.7146423412486911, 0.16109432093799114, 0.10544070322066545, 0.4319774629548192, 0.8827628185972571, 0.7882074378430843, 0.9526395360007882, 0.15439754631370306])
 
-        # # # # hex       
-        # x = np.array([
-        #             0.0, 0.5, 0.5000, 0.5, 0.5, 
-        #             0.0, 0.5, 0.1667, 0.5, 0.5, 
-        #             0.0, 0.5, 0.8333, 0.5, 0.5,
-        #             0.4, 0.4, 0.4,
-        #             0.2,
-        #             ])
+        # # # hex       
+        x = np.array([
+                    0.0, 0.5, 0.5000, 0.5, 0.5, 
+                    0.0, 0.5, 0.1667, 0.5, 0.5, 
+                    0.0, 0.5, 0.8333, 0.5, 0.5,
+                    0.4, 0.4, 0.4,
+                    0.2,
+                    ])
         
         # # quad
         # x = np.array([0.0, 0.5, 0.25, 0.5, 0.5, 
@@ -228,9 +228,7 @@ if __name__ == "__main__":
         seed_train = 179
         seed_enjoy = 999
         start = time.time()
-        render = "visualize"
-        assert render in ("headless", "visualize", "save")
-        info_dict = motor_rl_objective_function(pars, seed_train, seed_enjoy, 4000, "offsetcone", "problem_airframes_train_and_enjoy.csv", render)
+        info_dict = motor_rl_objective_function(pars, seed_train, seed_enjoy, 4000, "offsetcone", "problem_airframes_train_and_enjoy.csv", render="save")
         if info_dict is None:
             print("Train and test skipped, design is not valid or could not learn to hover.")
         else:
@@ -245,9 +243,9 @@ if __name__ == "__main__":
     else: 
 
         # file_path, seed_train, seed_enjoy, waypoint_name = get_cached_file(pars)
-        file_path = "cache/airframes_animationdata/5488735425455136229_179_999_offsetcone_airframeanimationdata.wb"
+        file_path = "cache/airframes_animationdata/4796453725906960749_218_3_offsetcone_airframeanimationdata.wb"
         animation_data  = load_animation_data_and_policy(file_path) # load policy into correct path
         save_robot_pars_to_file(animation_data["pars"])
         plot_airframe_to_file_isaacgym(animation_data["pars"], filepath="test_airframe_render.png")
-        motor_position_enjoy(animation_data["seed_enjoy"], animation_data["waypoint_name"], "visualize")
+        motor_position_enjoy(animation_data["seed_enjoy"], animation_data["waypoint_name"], "save")
 

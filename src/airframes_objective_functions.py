@@ -449,7 +449,7 @@ def motor_position_enjoy(seed_enjoy, waypoint_name, render):
 @run_in_subprocess()
 def motor_position_train(seed_train, max_epochs, waypoint_name, render):
 
-    headless = render in ("headless", "record")
+    headless = render in ("headless", "save")
 
     update_task_config_parameters(seed_train, headless, waypoint_name)
     assert max_epochs > 751, f"No controller is saved before 750 epochs, max_epoch > 750 must be satisfied. max_epochs = {max_epochs}"
