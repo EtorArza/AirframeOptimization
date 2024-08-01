@@ -69,14 +69,6 @@ class optimization_algorithm:
                         "value_type": "float",
                         "bounds": [0.0, 1.0]
                     } for i in range(3)
-                ]+
-                [
-                    {
-                        "name": f"C_battery",
-                        "type": "range",
-                        "value_type": "float",
-                        "bounds": [0.0, 1.0]
-                    }
                 ],
                 objectives={
                     "n_waypoints_per_reset": ObjectiveProperties(minimize=False, threshold=task_info["threshold_n_waypoints_per_reset"]),
@@ -114,7 +106,6 @@ class optimization_algorithm:
                             "parameters": {
                                 **{f"A_x{i:02d}": value for i, value in enumerate(x_values[:15])},
                                 **{f"B_motor{i:02d}": value for i, value in enumerate(x_values[15:18])},
-                                "C_battery": x_values[18]
                             },
                             "objectives": {
                                 "n_waypoints_per_reset": n_waypoints_per_reset,

@@ -362,8 +362,8 @@ def animate_solution_interpolation(interpolated_x, was_evaluated, relative_pos_o
     for i, x in enumerate(interpolated_x):
         x_0_1 = x[:15]
         motor_idx_0_1 = x[15:18]
-        battery_idx_0_1 = x[18]
-        pars = from_0_1_to_RobotParameter(x_0_1, motor_idx_0_1, battery_idx_0_1)
+        # battery_idx_0_1 = x[18]
+        pars = from_0_1_to_RobotParameter(x_0_1, motor_idx_0_1)
         plot_airframe_to_file_isaacgym(pars, figure_path +  f"/{i:03}.png" )
         pb.update()
     pb.close()

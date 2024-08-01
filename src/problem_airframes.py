@@ -39,7 +39,7 @@ import functools
 
 
 
-def from_0_1_to_RobotParameter(x_0_1: numpy.typing.NDArray[np.float_],  motor_idx_0_1=None, battery_idx_0_1=None, battery_S=6):
+def from_0_1_to_RobotParameter(x_0_1: numpy.typing.NDArray[np.float_],  motor_idx_0_1=None):
 
     '''
     Every value in x_0_1 is in the interval [0,1], where 0 represents lowest possible value, and 1 represents highest possible value.
@@ -50,6 +50,7 @@ def from_0_1_to_RobotParameter(x_0_1: numpy.typing.NDArray[np.float_],  motor_id
              r_0_1, theta_0_1, phi_0_1,               eulerx_0_1, eulerz_0_1,   # propeller 2
     etc.]
     '''
+    battery_S = 6
 
     # 5 parameters per rotor, 6 rotors in total. We only define 3 rotors, due to simmetry.
     # assert x.shape == (5*3,) or x.shape == (5*2,), "x.shape = "+ str(x.shape)
@@ -147,18 +148,16 @@ def from_0_1_to_RobotParameter(x_0_1: numpy.typing.NDArray[np.float_],  motor_id
 
 
 def f_symmetric_hexarotor_0_1(x: numpy.typing.NDArray[np.float_], seed_train: int, seed_enjoy, task_info):
-    if x.shape == (19,):
+    if x.shape == (18,):
         x_0_1 = x[:15]
         motor_idx_0_1 = x[15:18]
-        battery_idx_0_1 = x[18]
-    elif x.shape == (13,):
+    elif x.shape == (12,):
         x_0_1 = x[:10]
         motor_idx_0_1 = x[10:12]
-        battery_idx_0_1 = x[12]
     else:
         raise ValueError("Wrong dimension on x.", f"x = {x}")
 
-    pars = from_0_1_to_RobotParameter(x_0_1, motor_idx_0_1, battery_idx_0_1)
+    pars = from_0_1_to_RobotParameter(x_0_1, motor_idx_0_1)
     info_dict = motor_rl_objective_function(pars, seed_train, seed_enjoy, 4000, task_info['waypoint_name'], f"results/data/local_solve_{task_info['waypoint_name']}.csv", "headless")
     return info_dict
 
@@ -198,7 +197,7 @@ if __name__ == "__main__":
     if train_and_enjoy:
 
         # # # # Best solution
-        # x = np.array([0.3920931238681078, 0.14501414727419615, 0.1764863571152091, 0.4809751398861408, 0.025923912413418293, 0.12682480365037918, 0.5175330834463239, 0.8448372511193156, 0.6910878615453839, 0.6071489648893476, 0.2536133984103799, 0.7146423412486911, 0.16109432093799114, 0.10544070322066545, 0.4319774629548192, 0.8827628185972571, 0.7882074378430843, 0.9526395360007882, 0.15439754631370306])
+        # x = np.array([0.3920931238681078, 0.14501414727419615, 0.1764863571152091, 0.4809751398861408, 0.025923912413418293, 0.12682480365037918, 0.5175330834463239, 0.8448372511193156, 0.6910878615453839, 0.6071489648893476, 0.2536133984103799, 0.7146423412486911, 0.16109432093799114, 0.10544070322066545, 0.4319774629548192, 0.8827628185972571, 0.7882074378430843, 0.9526395360007882])
 
         # # # hex       
         x = np.array([
@@ -206,7 +205,6 @@ if __name__ == "__main__":
                     0.0, 0.5, 0.1667, 0.5, 0.5, 
                     0.0, 0.5, 0.8333, 0.5, 0.5,
                     0.4, 0.4, 0.4,
-                    0.2,
                     ])
         
         # # quad
@@ -216,9 +214,8 @@ if __name__ == "__main__":
 
         x_0_1 = x[:15]
         motor_idx_0_1 = x[15:18]
-        battery_idx_0_1 = x[18]
 
-        pars = from_0_1_to_RobotParameter(x_0_1, motor_idx_0_1, None)
+        pars = from_0_1_to_RobotParameter(x_0_1, motor_idx_0_1)
         plot_airframe_to_file_isaacgym(pars, filepath="test_airframe_render.png")
         # plot_admisible_set(pars)
 
