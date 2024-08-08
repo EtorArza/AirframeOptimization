@@ -179,7 +179,7 @@ def boxplots_repeatedly_different_train_seed(result_file_path: str, waypoint_nam
 def _read_and_clean_data_every_evaluation_csv(details_every_evaluation_csv):
     df = pd.read_csv(details_every_evaluation_csv, sep=";")
 
-    chosen_rows = (df["nWaypointsReached/nResets"] > 0.1) & (df["total_energy/nWaypointsReached"] > 0.01) & (df["total_energy/nWaypointsReached"] < 30.0)
+    chosen_rows = (df["n_waypoints_per_reset"] > 5.0) & (df["n_waypoints_reachable_based_on_battery_use"] > 400.0)
     
     perc_rows = (1.0 - np.count_nonzero(chosen_rows) / df.shape[0]) * 100.0
 
@@ -189,10 +189,9 @@ def _read_and_clean_data_every_evaluation_csv(details_every_evaluation_csv):
 
     df = df.groupby(['hash', 'seed_train', "max_epochs"]).agg({
         'seed_enjoy': lambda x: x.iloc[0] if len(x) > 1 else x.iloc[0],
-        'f': 'mean',
-        'nWaypointsReached/nResets': 'mean',
-        'total_energy/nWaypointsReached': 'mean',
-        'total_energy': 'mean'
+        'n_waypoints_per_reset': 'mean',
+        'n_waypoints_reachable_based_on_battery_use': 'mean',
+        'percentage_of_battery_used_in_total': 'mean'
     }).reset_index()
 
     return df
@@ -266,11 +265,11 @@ def generate_bokeh_interactive_plot(details_every_evaluation_csv, waypoint_name)
         data = pickle.load(open(f'cache/airframes_animationdata/{id}_airframeanimationdata.wb', 'rb'))
         pars = data["pars"]
         imagepath = f"cache/bokeh_interactive_plot/{id}.png"
-        plot_airframe_to_file_isaacgym(pars, imagepath)
+        # plot_airframe_to_file_isaacgym(pars, imagepath)
         desc.append(str(id))
         imgs.append(imagepath)
-        x.append(df["total_energy/nWaypointsReached"][i])
-        y.append(df["nWaypointsReached/nResets"][i])
+        x.append(df["n_waypoints_reachable_based_on_battery_use"][i])
+        y.append(df["n_waypoints_per_reset"][i])
 
     output_file("test_bokeh.html")
 
@@ -304,8 +303,8 @@ def generate_bokeh_interactive_plot(details_every_evaluation_csv, waypoint_name)
     p.scatter('x', 'y', size=10, source=source, fill_alpha=0, line_color='colors', marker="markers", legend_field='legend_labels')
 
 
-    p.xaxis.axis_label = 'Energy per waypoint reached'
-    p.yaxis.axis_label = 'Waypoint reached per reset'
+    p.xaxis.axis_label = 'Number of waypoints reachable on full battery'
+    p.yaxis.axis_label = 'Waypoint reachable in 5 seconds'
     p.title.text = f'Waypoints reached vs. energy use ({waypoint_name})'
 
 

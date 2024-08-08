@@ -196,10 +196,9 @@ if __name__ == "__main__":
 
     elif sys.argv[1] == "--airframes-f-variance-plot":
         import plot_src
-        plot_src.boxplots_repeatedly_different_train_seed(f"results/data/repeatedly_standard_hex_different_train_seed_{task_info['waypoint_name']}.csv", task_info['waypoint_name'])
-        exit(0)
-        plot_src.multiobjective_scatter_by_train_time(f"results/data/details_every_evaluation_{waypoint_name}.csv")
-        plot_src.generate_bokeh_interactive_plot(f"results/data/details_every_evaluation_{waypoint_name}.csv", waypoint_name)
+        plot_src.generate_bokeh_interactive_plot(f"results/data/local_solve_offsetcone.csv", "offsetcone")
+        # plot_src.boxplots_repeatedly_different_train_seed(f"results/data/repeatedly_standard_hex_different_train_seed_{task_info['waypoint_name']}.csv", task_info['waypoint_name'])
+        # plot_src.multiobjective_scatter_by_train_time(f"results/data/details_every_evaluation_{waypoint_name}.csv")
         exit(0)
 
     elif sys.argv[1] == "--ax-get-conclusions-solution-space":
