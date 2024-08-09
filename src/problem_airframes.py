@@ -197,7 +197,7 @@ if __name__ == "__main__":
     if train_and_enjoy:
 
         # # # # Best solution
-        # x = np.array([0.3920931238681078, 0.14501414727419615, 0.1764863571152091, 0.4809751398861408, 0.025923912413418293, 0.12682480365037918, 0.5175330834463239, 0.8448372511193156, 0.6910878615453839, 0.6071489648893476, 0.2536133984103799, 0.7146423412486911, 0.16109432093799114, 0.10544070322066545, 0.4319774629548192, 0.8827628185972571, 0.7882074378430843, 0.9526395360007882])
+        # x = np.array([0.38186925277113914, 0.8577162381261587, 0.5892557688057423, 0.48997870832681656, 0.7854188643395901, 0.14301882404834032, 0.2946389252319932, 0.7892415830865502, 0.7922039292752743, 0.392503266222775, 0.5793885868042707, 0.5937053170055151, 0.2501097805798054, 0.8285091752186418, 0.09945700597018003, 0.420531983487308, 0.21779430285096169, 0.016970542259514332])
 
         # # # hex       
         x = np.array([
@@ -222,8 +222,8 @@ if __name__ == "__main__":
         save_robot_pars_to_file(pars)
         # plot_airframe_to_file_isaacgym(pars, filepath="demo_image.png")
 
-        seed_train = 179
-        seed_enjoy = 999
+        seed_train = 610
+        seed_enjoy = 3
         start = time.time()
         info_dict = motor_rl_objective_function(pars, seed_train, seed_enjoy, 4000, "offsetcone", "problem_airframes_train_and_enjoy.csv", render="save")
         if info_dict is None:
@@ -239,8 +239,9 @@ if __name__ == "__main__":
             print("--------------------------")
     else: 
 
-        # file_path, seed_train, seed_enjoy, waypoint_name = get_cached_file(pars)
-        file_path = "cache/airframes_animationdata/4796453725906960749_218_3_offsetcone_airframeanimationdata.wb"
+        # file_path = "cache/airframes_animationdata/6127301565905497414_281_3_offsetcone_airframeanimationdata.wb" # most efficient
+        file_path = "cache/airframes_animationdata/7198200753874202160_610_3_offsetcone_airframeanimationdata.wb" # fastest
+
         animation_data  = load_animation_data_and_policy(file_path) # load policy into correct path
         save_robot_pars_to_file(animation_data["pars"])
         plot_airframe_to_file_isaacgym(animation_data["pars"], filepath="test_airframe_render.png")
