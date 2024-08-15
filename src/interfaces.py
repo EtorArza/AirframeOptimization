@@ -190,25 +190,24 @@ def local_solve(seed, budget, task_info):
 
 def airframe_repeatedly_train_and_enjoy(train_seed_list, enjoy_seed_list, max_epochs, pars, task_info, result_file_path):
     from airframes_objective_functions import motor_position_train, motor_position_enjoy, save_robot_pars_to_file, log_detailed_evaluation_results, model_to_onnx
-    from problem_airframes import loss_function, dump_animation_data_and_policy
+    from problem_airframes import dump_animation_data_and_policy
     import os
     import torch
     import subprocess
 
     waypoint_name = task_info["waypoint_name"]
-    resfilename = f"results/data/hex_repeatedly_train_{max_epochs}s_{waypoint_name}.csv"
     save_robot_pars_to_file(pars)
 
     
     for seed_train in train_seed_list:
         t_start = time.time()
         evaluation_time = None
-        exit_flag = motor_position_train(seed_train, max_epochs, True, waypoint_name, "headless")
+        exit_flag = motor_position_train(seed_train, max_epochs, waypoint_name, "headless")
         print("exit_flag", exit_flag)
         if exit_flag == "success":
             model_to_onnx()
             for seed_enjoy in enjoy_seed_list:
-                info_dict = motor_position_enjoy(seed_enjoy, True, waypoint_name, "headless")
+                info_dict = motor_position_enjoy(seed_enjoy, waypoint_name, "headless")
                 if evaluation_time is None:
                     evaluation_time = time.time() - t_start
                 log_detailed_evaluation_results(pars, info_dict, seed_train, seed_enjoy, max_epochs, evaluation_time, result_file_path)

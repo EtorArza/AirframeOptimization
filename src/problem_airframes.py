@@ -50,7 +50,7 @@ def from_0_1_to_RobotParameter(x_0_1: numpy.typing.NDArray[np.float_],  motor_id
              r_0_1, theta_0_1, phi_0_1,               eulerx_0_1, eulerz_0_1,   # propeller 2
     etc.]
     '''
-    battery_S = 6
+    battery_S = 4
 
     # 5 parameters per rotor, 6 rotors in total. We only define 3 rotors, due to simmetry.
     # assert x.shape == (5*3,) or x.shape == (5*2,), "x.shape = "+ str(x.shape)
@@ -108,7 +108,7 @@ def from_0_1_to_RobotParameter(x_0_1: numpy.typing.NDArray[np.float_],  motor_id
     pars.motor_idx_list = [compatible_motors[int(el*(n_compatible_motors-1e-8))]  for el in motor_idx_0_1]
     pars.motor_idx_list = [*pars.motor_idx_list, *pars.motor_idx_list] # Same motors on the other side to keep simmetry
     pars.prop_diameters = []
-    pars.battery_idx = 8 #compatible_batteries[int(battery_idx_0_1*(n_compatible_batteries-1e-8))]
+    pars.battery_idx = 3 #compatible_batteries[int(battery_idx_0_1*(n_compatible_batteries-1e-8))]
 
                      # core mass       # electronics mass
     pars.core_mass = 0.090       +     0.031
@@ -193,19 +193,19 @@ def get_cached_file(pars):
 
 if __name__ == "__main__":
 
-    train_and_enjoy = True
+    train_and_enjoy = False
     if train_and_enjoy:
 
-        # # # # Best solution
-        # x = np.array([0.38186925277113914, 0.8577162381261587, 0.5892557688057423, 0.48997870832681656, 0.7854188643395901, 0.14301882404834032, 0.2946389252319932, 0.7892415830865502, 0.7922039292752743, 0.392503266222775, 0.5793885868042707, 0.5937053170055151, 0.2501097805798054, 0.8285091752186418, 0.09945700597018003, 0.420531983487308, 0.21779430285096169, 0.016970542259514332])
+        # # # Best solution
+        x = np.array([0.38186925277113914, 0.8577162381261587, 0.5892557688057423, 0.48997870832681656, 0.7854188643395901, 0.14301882404834032, 0.2946389252319932, 0.7892415830865502, 0.7922039292752743, 0.392503266222775, 0.5793885868042707, 0.5937053170055151, 0.2501097805798054, 0.8285091752186418, 0.09945700597018003, 0.420531983487308, 0.21779430285096169, 0.016970542259514332])
 
-        # # # hex       
-        x = np.array([
-                    0.0, 0.5, 0.5000, 0.5, 0.5, 
-                    0.0, 0.5, 0.1667, 0.5, 0.5, 
-                    0.0, 0.5, 0.8333, 0.5, 0.5,
-                    0.4, 0.4, 0.4,
-                    ])
+        # # # # hex       
+        # x = np.array([
+        #             0.0, 0.5, 0.5000, 0.5, 0.5, 
+        #             0.0, 0.5, 0.1667, 0.5, 0.5, 
+        #             0.0, 0.5, 0.8333, 0.5, 0.5,
+        #             0.4, 0.4, 0.4,
+        #             ])
         
         # # quad
         # x = np.array([0.0, 0.5, 0.25, 0.5, 0.5, 
@@ -240,7 +240,7 @@ if __name__ == "__main__":
     else: 
 
         # file_path = "cache/airframes_animationdata/6127301565905497414_281_3_offsetcone_airframeanimationdata.wb" # most efficient
-        file_path = "cache/airframes_animationdata/7198200753874202160_610_3_offsetcone_airframeanimationdata.wb" # fastest
+        file_path = "cache/airframes_animationdata/2990193481584875358_522_3_offsetcone_airframeanimationdata.wb" # fastest
 
         animation_data  = load_animation_data_and_policy(file_path) # load policy into correct path
         save_robot_pars_to_file(animation_data["pars"])

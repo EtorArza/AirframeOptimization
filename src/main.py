@@ -10,6 +10,13 @@ task_info = {
     "threshold_n_waypoints_reachable_based_on_battery_use": 200.0
 }
 
+selected_designs = {
+    "baseline":[0.0, 0.5, 0.5000, 0.5, 0.5, 0.0, 0.5, 0.1667, 0.5, 0.5, 0.0, 0.5, 0.8333, 0.5, 0.5, 0.24814489622916597, 0.37114358066875286, 0.2870870028106025],
+    "fast":[0.07715437527428756, 0.6218957229149574, 0.49765854154815503, 0.7309625753736333, 0.5001311977397834, 0.43157054869476463, 0.6387684240251704, 0.7630872292384648, 0.9600682206027545, 0.6958757520141683, 0.2513954749425118, 0.46514910716525726, 0.21839277831997495, 0.02373766483805347, 0.21094738572938934, 0.24814489622916597, 0.37114358066875286, 0.2870870028106025],
+    "efficient":[0.07285065297852857, 0.6129069471982204, 0.5385502373788117, 0.704581536252464, 0.5340970073893634, 0.3084352243345762, 0.6654766925521296, 0.7102241220675533, 1.0, 0.6397600507091973, 0.1968733075763761, 0.5507576315448027, 0.1972728073004909, 0.0, 0.1920740597049365, 0.2530078418283584, 0.440390566598894, 0.3101391595022589],
+}
+
+
 if __name__ == "__main__":
 
     # Show the percentage of feasible solutions in a problem
@@ -149,10 +156,10 @@ if __name__ == "__main__":
         print("done!")
 
     elif sys.argv[1] == "--hex-different-epochs":
-        from problem_airframes import loss_function, dump_animation_data_and_policy, _decode_symmetric_hexarotor_to_RobotParameter_polar
+        from problem_airframes import loss_function, dump_animation_data_and_policy, from_0_1_to_RobotParameter
         import itertools
 
-        hex_pars = _decode_symmetric_hexarotor_to_RobotParameter_polar(np.array(
+        hex_pars = from_0_1_to_RobotParameter(np.array(
             [0.0, 0.5, 0.1667, 0.5, 0.5, 0.0, 0.5, 0.5000, 0.5, 0.5, 0.0, 0.5, 0.8333, 0.5, 0.5] 
         ))
 
@@ -168,26 +175,22 @@ if __name__ == "__main__":
 
 
     elif sys.argv[1] == "--airframes-repeatedly-train":
-        from problem_airframes import loss_function, dump_animation_data_and_policy, _decode_symmetric_hexarotor_to_RobotParameter_polar
+        from problem_airframes import from_0_1_to_RobotParameter
         import itertools
 
-        hex_pars = _decode_symmetric_hexarotor_to_RobotParameter_polar(np.array(
-            [0.0, 0.5, 0.1667, 0.5, 0.5, 0.0, 0.5, 0.5000, 0.5, 0.5, 0.0, 0.5, 0.8333, 0.5, 0.5] 
-        ))
-        most_waypoints_GOAT_pars = _decode_symmetric_hexarotor_to_RobotParameter_polar(np.array(
-            [0.08183876204900542, 0.5219701806265, 0.11665093239221351, 0.7378768213735014, 0.508831640622941, 0.0, 0.6974289414187024, 0.49857822070195307, 0.5439566454472291, 0.2208295263646864, 0.3719121034203965, 0.686407066588435, 0.8705630953168567, 0.4697827032516831, 0.6904855778324281]
-        ))
-        efficient_GOAT_pars = _decode_symmetric_hexarotor_to_RobotParameter_polar(np.array(
-            [0.566192737657973, 0.38650732151858636, 0.04476017193935885, 0.5451959048245645, 0.6563650895986163, 0.0, 0.4549408976618331, 0.6401616189042635, 0.6630906491835392, 0.38021388305458964, 0.7267550059333063, 0.4661118903880215, 0.7995358390157647, 0.5213023826008708, 0.7348511244117153]
-        ))
-
-        train_seed_list = list(range(2,33))
+        train_seed_list = list(range(2,23))
         enjoy_seed_list = list(range(42,44))
-        pars_list = [hex_pars, most_waypoints_GOAT_pars, efficient_GOAT_pars]
-        max_epochs = 350
+        max_epochs = 4000
         
-        for pars in pars_list:
-            airframe_repeatedly_train_and_enjoy(train_seed_list, enjoy_seed_list, max_epochs, pars, task_info)
+        for pars_name, x  in selected_designs.items():
+
+            x = np.array(x)
+            x_0_1 = x[:15]
+            motor_idx_0_1 = x[15:18]
+        
+            pars = from_0_1_to_RobotParameter(x_0_1, motor_idx_0_1)
+            print(pars)
+            airframe_repeatedly_train_and_enjoy(train_seed_list, enjoy_seed_list, max_epochs, pars, task_info, f"results/data/repeatedly_train_chosen_designs_{task_info['waypoint_name']}.csv")
 
 
 
