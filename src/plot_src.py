@@ -152,22 +152,25 @@ def boxplots_repeatedly_different_train_seed(result_file_path: str, waypoint_nam
 
     df = _read_and_clean_data_every_evaluation_csv(result_file_path)
 
-    for column_name in ["f","nWaypointsReached/nResets","total_energy/nWaypointsReached"]:
+    for column_name in ["n_waypoints_per_reset","n_waypoints_reachable_based_on_battery_use"]:
         data_list = []
         label_list = []
         max_epoch_list = sorted(df["max_epochs"].unique().tolist())
+        hash_list = df["hash"].unique().tolist()
+
         for max_epoch in max_epoch_list:
-            data_list.append(df.query(f"max_epochs == {max_epoch}")[column_name])    
-            label_list.append(str(max_epoch))
+            for pars_hash in hash_list:
+                pars_hash_str = f"'{pars_hash}'" if isinstance(pars_hash, str) else str(pars_hash)
+                data_list.append(df.query(f"max_epochs == {max_epoch} & hash == {pars_hash_str}")[column_name])    
+                label = (str(pars_hash) if len(max_epoch_list)==1 else "") + (str(max_epoch) if len(max_epoch_list)>1 else "")
+                label_list.append(label)
             
 
-        plt.figure(figsize=(4,2.5))
+        plt.figure(figsize=(8,2.5))
         boxplot = plt.boxplot(data_list, showmeans=True)
-        # plt.hlines(59.14, *plt.gca().get_xlim(),colors="blue", linestyles="--", label="best retrain 1440s")
-        # plt.hlines(55.88, *plt.gca().get_xlim(), colors="red", linestyles="-.", label="best 360s")
         plt.legend()
         plt.xticks(list(range(1, len(data_list)+1)), label_list)
-        plt.xlabel("Traininig time (max epochs)")
+        plt.xlabel("")
         plt.ylabel(column_name)
         plt.title("Hex different train seeds")
         plt.tight_layout()

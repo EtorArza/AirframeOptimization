@@ -1,7 +1,6 @@
 import sys
 from tqdm import tqdm as tqdm
 import numpy as np
-from interfaces import *
 
 
 task_info = {
@@ -11,9 +10,10 @@ task_info = {
 }
 
 selected_designs = {
-    "baseline":[0.0, 0.5, 0.5000, 0.5, 0.5, 0.0, 0.5, 0.1667, 0.5, 0.5, 0.0, 0.5, 0.8333, 0.5, 0.5, 0.24814489622916597, 0.37114358066875286, 0.2870870028106025],
     "fast":[0.07715437527428756, 0.6218957229149574, 0.49765854154815503, 0.7309625753736333, 0.5001311977397834, 0.43157054869476463, 0.6387684240251704, 0.7630872292384648, 0.9600682206027545, 0.6958757520141683, 0.2513954749425118, 0.46514910716525726, 0.21839277831997495, 0.02373766483805347, 0.21094738572938934, 0.24814489622916597, 0.37114358066875286, 0.2870870028106025],
+    "baseline_2_2_2_motors":[0.0, 0.5, 0.5000, 0.5, 0.5, 0.0, 0.5, 0.1667, 0.5, 0.5, 0.0, 0.5, 0.8333, 0.5, 0.5, 0.37114358066875286, 0.37114358066875286, 0.37114358066875286],
     "efficient":[0.07285065297852857, 0.6129069471982204, 0.5385502373788117, 0.704581536252464, 0.5340970073893634, 0.3084352243345762, 0.6654766925521296, 0.7102241220675533, 1.0, 0.6397600507091973, 0.1968733075763761, 0.5507576315448027, 0.1972728073004909, 0.0, 0.1920740597049365, 0.2530078418283584, 0.440390566598894, 0.3101391595022589],
+    "baseline_2_2_4_motors":[0.0, 0.5, 0.5000, 0.5, 0.5, 0.0, 0.5, 0.1667, 0.5, 0.5, 0.0, 0.5, 0.8333, 0.5, 0.5, 0.2530078418283584, 0.440390566598894, 0.3101391595022589],
 }
 
 
@@ -44,6 +44,7 @@ if __name__ == "__main__":
 
     # Directly solve problem locally, with f function that returns np.nan on infeasible solutions.
     elif sys.argv[1] == "--all-local-solve":
+        from interfaces import *
         sys.argv.pop()
         reuse_encoding = True
         budget = 50
@@ -156,6 +157,7 @@ if __name__ == "__main__":
         print("done!")
 
     elif sys.argv[1] == "--hex-different-epochs":
+        from interfaces import *
         from problem_airframes import loss_function, dump_animation_data_and_policy, from_0_1_to_RobotParameter
         import itertools
 
@@ -164,7 +166,7 @@ if __name__ == "__main__":
         ))
 
 
-        train_seed_list = list(range(3,23))
+        train_seed_list = list(range(3,18))
         enjoy_seed_list = list(range(42,44))
         pars = hex_pars
         max_epochs_list = [1000, 2000, 4000]
@@ -176,6 +178,7 @@ if __name__ == "__main__":
 
     elif sys.argv[1] == "--airframes-repeatedly-train":
         from problem_airframes import from_0_1_to_RobotParameter
+        from interfaces import *
         import itertools
 
         train_seed_list = list(range(2,23))
@@ -199,6 +202,8 @@ if __name__ == "__main__":
 
     elif sys.argv[1] == "--airframes-f-variance-plot":
         import plot_src
+        plot_src.boxplots_repeatedly_different_train_seed("results/data/repeatedly_train_chosen_designs_offsetcone.csv", "offsetcone")
+        exit(0)
         plot_src.generate_bokeh_interactive_plot(f"results/data/local_solve_offsetcone.csv", "offsetcone")
         # plot_src.boxplots_repeatedly_different_train_seed(f"results/data/repeatedly_standard_hex_different_train_seed_{task_info['waypoint_name']}.csv", task_info['waypoint_name'])
         # plot_src.multiobjective_scatter_by_train_time(f"results/data/details_every_evaluation_{waypoint_name}.csv")
