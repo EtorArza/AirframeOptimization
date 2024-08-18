@@ -452,7 +452,6 @@ def motor_position_train(seed_train, max_epochs, waypoint_name, render):
     headless = render in ("headless", "save")
 
     update_task_config_parameters(seed_train, headless, waypoint_name)
-    assert max_epochs > 751, f"No controller is saved before 750 epochs, max_epoch > 750 must be satisfied. max_epochs = {max_epochs}"
     from datetime import datetime
     current_time = datetime.now()
 
@@ -461,7 +460,7 @@ def motor_position_train(seed_train, max_epochs, waypoint_name, render):
     subprocess.run(f"rm policy.onnx -f", shell=True)
 
     subprocess.run(f"rm {AERIAL_GYM_ROOT_DIR}/aerial_gym_dev/rl_training/rl_games/runs/* -rf", shell=True)
-    cmd_str = f"wd=`pwd` && cd {AERIAL_GYM_ROOT_DIR}/aerial_gym_dev/rl_training/rl_games && python runner.py --seed={seed_train} --save_best_after={751} --max_epochs={max_epochs}"
+    cmd_str = f"wd=`pwd` && cd {AERIAL_GYM_ROOT_DIR}/aerial_gym_dev/rl_training/rl_games && python runner.py --seed={seed_train} --max_epochs={max_epochs}"
     print(f">> run shell on {current_time.strftime('%Y-%m-%d %H:%M:%S')}\n{cmd_str}", file=sys.stderr)
     result = subprocess.run(cmd_str, shell=True, stdout=sys.stdout, stderr=sys.stderr, text=True)
     exit_code =  result.returncode
@@ -629,9 +628,6 @@ def motor_rl_objective_function(pars, seed_train, seed_enjoy, max_epochs, waypoi
 
     save_robot_pars_to_file(pars)
     t_start = time.time() 
-    if pars.thrust_to_weight_ratio < 2.0:
-        print("Train and test skipped: not enough thurst/weight ratio")
-        return None
 
     # exit_flag = "success" 
     exit_flag = motor_position_train(seed_train, max_epochs, waypoint_name, render)

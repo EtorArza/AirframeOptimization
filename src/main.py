@@ -10,8 +10,8 @@ task_info = {
 }
 
 selected_designs = {
-    "fast":[0.07715437527428756, 0.6218957229149574, 0.49765854154815503, 0.7309625753736333, 0.5001311977397834, 0.43157054869476463, 0.6387684240251704, 0.7630872292384648, 0.9600682206027545, 0.6958757520141683, 0.2513954749425118, 0.46514910716525726, 0.21839277831997495, 0.02373766483805347, 0.21094738572938934, 0.24814489622916597, 0.37114358066875286, 0.2870870028106025],
     "baseline_2_2_2_motors":[0.0, 0.5, 0.5000, 0.5, 0.5, 0.0, 0.5, 0.1667, 0.5, 0.5, 0.0, 0.5, 0.8333, 0.5, 0.5, 0.37114358066875286, 0.37114358066875286, 0.37114358066875286],
+    "fast":[0.07715437527428756, 0.6218957229149574, 0.49765854154815503, 0.7309625753736333, 0.5001311977397834, 0.43157054869476463, 0.6387684240251704, 0.7630872292384648, 0.9600682206027545, 0.6958757520141683, 0.2513954749425118, 0.46514910716525726, 0.21839277831997495, 0.02373766483805347, 0.21094738572938934, 0.24814489622916597, 0.37114358066875286, 0.2870870028106025],
     "efficient":[0.07285065297852857, 0.6129069471982204, 0.5385502373788117, 0.704581536252464, 0.5340970073893634, 0.3084352243345762, 0.6654766925521296, 0.7102241220675533, 1.0, 0.6397600507091973, 0.1968733075763761, 0.5507576315448027, 0.1972728073004909, 0.0, 0.1920740597049365, 0.2530078418283584, 0.440390566598894, 0.3101391595022589],
     "baseline_2_2_4_motors":[0.0, 0.5, 0.5000, 0.5, 0.5, 0.0, 0.5, 0.1667, 0.5, 0.5, 0.0, 0.5, 0.8333, 0.5, 0.5, 0.2530078418283584, 0.440390566598894, 0.3101391595022589],
 }
@@ -72,7 +72,7 @@ if __name__ == "__main__":
 
     elif sys.argv[1] == "--plot-rotor-properties":
 
-        from aerial_gym_dev.utils.battery_rotor_dynamics import manufacturerComponentData
+        from aerial_gym_dev.utils.battery_rotor_dynamics import manufacturerComponentData, BatteryRotorDynamics
         from aerial_gym_dev.utils.custom_math import linear_1d_interpolation
  
         component_data = manufacturerComponentData("cpu")
@@ -82,43 +82,44 @@ if __name__ == "__main__":
         import torch
         import os
 
-        # Create the results/figures/motor_properties directory if it doesn't exist
-        os.makedirs('results/figures/motor_properties', exist_ok=True)
+        battery_S = 4
+        compatible_motors, compatible_batteries = BatteryRotorDynamics.get_compatible_battery_and_motors_indices(battery_S)
 
-        # Initialize the component_data
+
+        os.makedirs('results/figures/motor_properties', exist_ok=True)
         component_data = manufacturerComponentData("cpu")
 
-        # Number of motor-propeller combos and RPM values
-        num_combos = len(component_data.motor_dict)
+
+        num_combos = len(compatible_motors)
         num_rpms = component_data.rpms.shape[1]
 
-        # Create arrays to store the calculated values
         forces = np.zeros((num_combos, num_rpms))
         efficiencies = np.zeros((num_combos, num_rpms))
-
-        # Calculate forces and efficiencies
+        labels = []
         for i in range(num_combos):
-            c_t = component_data.motor_dict[i]["C_T"]
-            rpms = component_data.motor_dict[i]["RPM"]
-            currents = component_data.currents[i, :]
+            c_t = component_data.motor_dict[compatible_motors[i]]["C_T"]
+            rpms = component_data.motor_dict[compatible_motors[i]]["RPM"]
+            currents = component_data.currents[compatible_motors[i], :]
             
             forces[i, :] = c_t * (rpms / 60.0)**2
             efficiencies[i, :] = forces[i, :] / currents.numpy()
+            labels.append(component_data.motor_dict[compatible_motors[i]]["name"])
 
-        # Create the forces heatmap
-        plt.figure(figsize=(4, 4))
+        plt.figure(figsize=(10, 4))
         sns.heatmap(forces, cmap="viridis", annot=False, fmt=".2f", cbar_kws={'label': 'Force (N)'})
         plt.title("Motor-Propeller Combo Forces")
         plt.xlabel("RPM Index")
         plt.ylabel("Motor-Propeller Combo Index")
+        plt.yticks(np.arange(num_combos) + 0.5, labels, rotation=0)
         plt.tight_layout()
         plt.savefig('results/figures/motor_properties/forces.pdf')
         plt.close()
 
         # Create the efficiency heatmap
-        plt.figure(figsize=(4, 4))
+        plt.figure(figsize=(10, 4))
         sns.heatmap(efficiencies, cmap="viridis", annot=False, fmt=".2f", cbar_kws={'label': 'Efficiency (N/A)'})
         plt.title("Motor-Propeller Combo Efficiencies")
+        plt.yticks(np.arange(num_combos) + 0.5, labels, rotation=0)
         plt.xlabel("RPM Index")
         plt.ylabel("Motor-Propeller Combo Index")
         plt.tight_layout()
@@ -141,10 +142,11 @@ if __name__ == "__main__":
             
             interpolated_efficiencies[i, :max_force_index] = interpolated_values
 
-        plt.figure(figsize=(12, 8))
+        plt.figure(figsize=(16, 8))
         sns.heatmap(interpolated_efficiencies, cmap="viridis", annot=False, fmt=".2f",
                     cbar_kws={'label': 'Efficiency (N/A)'}, mask=np.isnan(interpolated_efficiencies))
         plt.title("Efficiency with respect to Force")
+        plt.yticks(np.arange(num_combos) + 0.5, labels, rotation=0)
         plt.xlabel("Force (N)")
         plt.ylabel("Motor-Propeller Combo Index")
         n_xticklabels = 8

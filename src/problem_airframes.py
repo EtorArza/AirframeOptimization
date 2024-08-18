@@ -124,15 +124,11 @@ def from_0_1_to_RobotParameter(x_0_1: numpy.typing.NDArray[np.float_],  motor_id
     pars.prop_diameters = prop_diameters_list[:]
 
     pars.total_mass = sum(pars.motor_masses) + pars.frame_mass
-    pars.thrust_to_weight_ratio = BatteryRotorDynamics.static_get_thrust_to_weight_ratio_battery(pars.motor_idx_list, pars.battery_idx, pars.total_mass)
     print("------")
-    print("Thrust to weight ratio: ", pars.thrust_to_weight_ratio)
     print("motor_indexes = ", pars.motor_idx_list)
     print("motor_masses =", pars.motor_masses)
     print("frame_mass =", pars.frame_mass)
     print("total_mass =",pars.total_mass)
-    print("max rps: ", BatteryRotorDynamics.static_get_max_rps_and_force_battery(pars.motor_idx_list, pars.battery_idx)[0])
-    print("max force: ", BatteryRotorDynamics.static_get_max_rps_and_force_battery(pars.motor_idx_list, pars.battery_idx)[1])
     print("------")
 
 
@@ -196,16 +192,16 @@ if __name__ == "__main__":
     train_and_enjoy = False
     if train_and_enjoy:
 
-        # # # Best solution
-        x = np.array([0.38186925277113914, 0.8577162381261587, 0.5892557688057423, 0.48997870832681656, 0.7854188643395901, 0.14301882404834032, 0.2946389252319932, 0.7892415830865502, 0.7922039292752743, 0.392503266222775, 0.5793885868042707, 0.5937053170055151, 0.2501097805798054, 0.8285091752186418, 0.09945700597018003, 0.420531983487308, 0.21779430285096169, 0.016970542259514332])
+        # # # # Best solution
+        # x = np.array([0.38186925277113914, 0.8577162381261587, 0.5892557688057423, 0.48997870832681656, 0.7854188643395901, 0.14301882404834032, 0.2946389252319932, 0.7892415830865502, 0.7922039292752743, 0.392503266222775, 0.5793885868042707, 0.5937053170055151, 0.2501097805798054, 0.8285091752186418, 0.09945700597018003, 0.420531983487308, 0.21779430285096169, 0.016970542259514332])
 
-        # # # # hex       
-        # x = np.array([
-        #             0.0, 0.5, 0.5000, 0.5, 0.5, 
-        #             0.0, 0.5, 0.1667, 0.5, 0.5, 
-        #             0.0, 0.5, 0.8333, 0.5, 0.5,
-        #             0.4, 0.4, 0.4,
-        #             ])
+        # # # hex       
+        x = np.array([
+                    0.0, 0.5, 0.5000, 0.5, 0.5, 
+                    0.0, 0.5, 0.1667, 0.5, 0.5, 
+                    0.0, 0.5, 0.8333, 0.5, 0.5,
+                    0.4, 0.4, 0.4,
+                    ])
         
         # # quad
         # x = np.array([0.0, 0.5, 0.25, 0.5, 0.5, 
@@ -239,11 +235,9 @@ if __name__ == "__main__":
             print("--------------------------")
     else: 
 
-        # file_path = "cache/airframes_animationdata/6127301565905497414_281_3_offsetcone_airframeanimationdata.wb" # most efficient
-        file_path = "cache/airframes_animationdata/2990193481584875358_522_3_offsetcone_airframeanimationdata.wb" # fastest
-
+        file_path = "cache/airframes_animationdata/7345904523235511177_2_42_offsetcone_airframeanimationdata.wb" 
         animation_data  = load_animation_data_and_policy(file_path) # load policy into correct path
         save_robot_pars_to_file(animation_data["pars"])
         plot_airframe_to_file_isaacgym(animation_data["pars"], filepath="test_airframe_render.png")
-        motor_position_enjoy(animation_data["seed_enjoy"], animation_data["waypoint_name"], "save")
+        motor_position_enjoy(animation_data["seed_enjoy"], animation_data["waypoint_name"], "visualize")
 
