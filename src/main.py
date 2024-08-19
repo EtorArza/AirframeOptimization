@@ -97,11 +97,11 @@ if __name__ == "__main__":
         efficiencies = np.zeros((num_combos, num_rpms))
         labels = []
         for i in range(num_combos):
-            c_t = component_data.motor_dict[compatible_motors[i]]["C_T"]
+            force = component_data.motor_dict[compatible_motors[i]]["force"]
             rpms = component_data.motor_dict[compatible_motors[i]]["RPM"]
             currents = component_data.currents[compatible_motors[i], :]
             
-            forces[i, :] = c_t * (rpms / 60.0)**2
+            forces[i, :] = force
             efficiencies[i, :] = forces[i, :] / currents.numpy()
             labels.append(component_data.motor_dict[compatible_motors[i]]["name"])
 
