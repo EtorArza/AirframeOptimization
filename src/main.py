@@ -97,13 +97,18 @@ if __name__ == "__main__":
         efficiencies = np.zeros((num_combos, num_rpms))
         labels = []
         for i in range(num_combos):
-            force = component_data.motor_dict[compatible_motors[i]]["force"]
-            rpms = component_data.motor_dict[compatible_motors[i]]["RPM"]
-            currents = component_data.currents[compatible_motors[i], :]
+            force = component_data.motor_dict[compatible_motors[i]]["force"].numpy()
+            currents = component_data.currents[compatible_motors[i], :].numpy()
             
             forces[i, :] = force
-            efficiencies[i, :] = forces[i, :] / currents.numpy()
+            efficiencies[i, :] = force / currents
             labels.append(component_data.motor_dict[compatible_motors[i]]["name"])
+
+
+        forces = forces[:, ~np.isnan(forces).any(axis=0)]
+        efficiencies = efficiencies[:, ~np.isnan(efficiencies).any(axis=0)]
+
+
 
         plt.figure(figsize=(10, 4))
         sns.heatmap(forces, cmap="viridis", annot=False, fmt=".2f", cbar_kws={'label': 'Force (N)'})
