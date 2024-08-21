@@ -91,7 +91,7 @@ if __name__ == "__main__":
 
 
         num_combos = len(compatible_motors)
-        num_rpms = component_data.rpms.shape[1]
+        num_rpms = component_data.rps.shape[1]
 
         forces = np.zeros((num_combos, num_rpms))
         efficiencies = np.zeros((num_combos, num_rpms))
