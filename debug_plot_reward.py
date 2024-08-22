@@ -2,7 +2,7 @@ import pandas as pd
 import matplotlib.pyplot as plt
 
 # Load the data from the CSV file
-file_path = "rewards_summary.csv"
+file_path = "/home/paran/Documents/debug_rewards_summary.csv"
 df = pd.read_csv(file_path)
 
 # Deduce the column names from the CSV file
@@ -23,13 +23,16 @@ line_alphas = [1,0.5,0.5]
 
 # Plot each parameter
 for i, param in enumerate(parameter_names):
-    for j, stat in enumerate(["mean", "25%", "75%"]):
-        label = param if stat=="mean" else None
-        plt.plot(df[f"{param}_{stat}"].cumsum(), label=label, linestyle=line_styles[j], color=line_colors[i], alpha=line_alphas[j])
+    for j, stat in enumerate(["mean", "min", "max"]):
+        # Reset cumulative sum every 500 time steps
+        reset_cumsum = df[f"{param}_{stat}"].groupby(df.index // 500).cumsum()
+        label = param if stat == "mean" else None
+        plt.plot(reset_cumsum, label=label, linestyle=line_styles[j], color=line_colors[i], alpha=line_alphas[j])
 
 plt.title("Cumulative Rewards Over Time")
 plt.xlabel("Time Step")
 plt.ylabel("Cumulative Mean Reward")
+plt.xticks([65000/8 *i  for i in range(9)], [4000 /8 *i for i in range(9)])
 plt.legend()
 plt.grid(True)
 plt.show()
