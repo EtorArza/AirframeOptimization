@@ -182,7 +182,7 @@ def boxplots_repeatedly_different_train_seed(result_file_path: str, waypoint_nam
 def _read_and_clean_data_every_evaluation_csv(details_every_evaluation_csv):
     df = pd.read_csv(details_every_evaluation_csv, sep=";")
 
-    chosen_rows = (df["n_waypoints_per_reset"] > 5.0) & (df["n_waypoints_reachable_based_on_battery_use"] > 400.0)
+    chosen_rows = (df["n_waypoints_per_reset"] > 0.0) & (df["n_waypoints_reachable_based_on_battery_use"] > 0.0)
     
     perc_rows = (1.0 - np.count_nonzero(chosen_rows) / df.shape[0]) * 100.0
 
