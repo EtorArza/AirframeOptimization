@@ -166,7 +166,7 @@ def boxplots_repeatedly_different_train_seed(result_file_path: str, waypoint_nam
                 label_list.append(label)
             
 
-        plt.figure(figsize=(8,2.5))
+        plt.figure(figsize=(2.0+ len(label_list),2.5))
         boxplot = plt.boxplot(data_list, showmeans=True)
         plt.legend()
         plt.xticks(list(range(1, len(data_list)+1)), label_list)
