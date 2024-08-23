@@ -35,6 +35,7 @@ if __name__ == "__main__":
 
     # Directly solve problem locally, with f function that returns np.nan on infeasible solutions.
     elif sys.argv[1] == "--local-solve":
+        from interfaces import local_solve
         sys.argv.pop()
         seed = 6
         budget = 1200
