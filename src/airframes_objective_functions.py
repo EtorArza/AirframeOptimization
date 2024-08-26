@@ -25,6 +25,39 @@ from datetime import datetime
 import shutil
 import tarfile
 import yaml
+import json
+import re
+
+def update_launch_json(command):
+    # Path to the launch.json file
+    launch_json_path = os.path.join('.vscode', 'launch.json')
+
+    # Read the current content of launch.json
+    with open(launch_json_path, 'r') as file:
+        data = json.load(file)
+
+    # Find the 'pickle' configuration
+    for config in data['configurations']:
+        if config['name'] == 'pickle':
+            # Extract the script name and arguments from the command
+            match = re.search(r'python (.*?) --(.*?) (.*?) (.*?)$', command)
+            if match:
+                script_path, script_name, args_file, return_file = match.groups()
+                
+                # Update the 'args' field
+                config['args'] = [f"--{script_name}", args_file, return_file]
+                
+                # Update the 'program' field with the absolute path
+                config['program'] = os.path.abspath(script_path)
+            
+            break
+
+    # Write the updated content back to launch.json
+    with open(launch_json_path, 'w') as file:
+        json.dump(data, file, indent=4)
+
+    print(f"Updated {launch_json_path}")
+
 
 # This decorator will run the function in a subprocess. It takes the input arguments, serialize them and call this same function. The code in __main__ is also required.
 def run_in_subprocess():
@@ -52,6 +85,8 @@ def run_in_subprocess():
             current_time = datetime.now()
             print(f">> run shell on {current_time.strftime('%Y-%m-%d %H:%M:%S')}\n{command}")
             
+            update_launch_json(command)
+
             # Call the subprocess
             subprocess.run(command, shell=True, check=True, stdout=sys.stdout, stderr=sys.stderr, text=True)
             
@@ -346,6 +381,11 @@ def update_task_config_parameters(seed: int, headless: bool, waypoint_name: str)
     
     with open(file_path, 'w') as file:
         file.writelines(lines)
+
+
+def get_hover_policy(animation_data_path):
+    animation_data = load_animation_data_and_policy(animation_data_path)
+    motor_position_enjoy(animation_data["test_seed"], animation_data["waypoint_name"], animation_data)
 
 @run_in_subprocess()
 def motor_position_enjoy(seed_enjoy, waypoint_name, render):
