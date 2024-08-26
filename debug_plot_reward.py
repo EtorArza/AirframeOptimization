@@ -2,7 +2,7 @@ import pandas as pd
 import matplotlib.pyplot as plt
 
 # Load the data from the CSV file
-file_path = "/home/paran/Documents/debug_rewards_summary.csv"
+file_path = "rewards_summary.csv"
 df = pd.read_csv(file_path)
 
 # Deduce the column names from the CSV file
@@ -32,7 +32,7 @@ for i, param in enumerate(parameter_names):
 plt.title("Cumulative Rewards Over Time")
 plt.xlabel("Time Step")
 plt.ylabel("Cumulative Mean Reward")
-plt.xticks([65000/8 *i  for i in range(9)], [4000 /8 *i for i in range(9)])
+plt.xticks([len(reset_cumsum)/8 *i  for i in range(9)], [1.0 /8 *i for i in range(9)])
 plt.legend()
 plt.grid(True)
 plt.show()
