@@ -204,7 +204,10 @@ if __name__ == "__main__":
             airframe_repeatedly_train_and_enjoy(train_seed_list, enjoy_seed_list, max_epochs, pars, task_info, f"results/data/repeatedly_train_chosen_designs_{task_info['waypoint_name']}.csv")
 
 
-
+    elif sys.argv[1] == "--learn-hover-policy":
+        from airframes_objective_functions import get_hover_policy
+        file_path = "cache/airframes_animationdata/1272882117_215_3_offsetcone_airframeanimationdata.wb" 
+        get_hover_policy(file_path)
 
 
 

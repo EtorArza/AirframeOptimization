@@ -50,6 +50,11 @@ cache/airframes_animationdata/*
 !cache/bokeh_interactive_plot/
 cache/bokeh_interactive_plot/*
 !cache/bokeh_interactive_plot/.gitkeep
+
+!cache/robot_state_tensor/
+cache/robot_state_tensor/*
+!cache/robot_state_tensor/.gitkeep
+
 global_log.txt
 *.log
 debuglog.txt
@@ -85,6 +90,7 @@ gen_ppo.pth
 policy.onnx
 problem_airframes_train_and_enjoy.csv
 best_agility.pth
+best_policy.pth
 best_efficiency.pth
 Untitled.png
 Untitled.xcf

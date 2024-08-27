@@ -32,7 +32,7 @@ for i, param in enumerate(parameter_names):
 plt.title("Cumulative Rewards Over Time")
 plt.xlabel("Time Step")
 plt.ylabel("Cumulative Mean Reward")
-plt.xticks([len(reset_cumsum)/8 *i  for i in range(9)], [1.0 /8 *i for i in range(9)])
+plt.xticks([len(reset_cumsum)/8 *i  for i in range(9)], [df.iloc[int(len(reset_cumsum)/(8.00001) *i)]["epoch"] for i in range(9)])
 plt.legend()
 plt.grid(True)
 plt.show()

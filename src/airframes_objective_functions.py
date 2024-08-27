@@ -385,7 +385,11 @@ def update_task_config_parameters(seed: int, headless: bool, waypoint_name: str)
 
 def get_hover_policy(animation_data_path):
     animation_data = load_animation_data_and_policy(animation_data_path)
-    motor_position_enjoy(animation_data["test_seed"], animation_data["waypoint_name"], animation_data)
+    # motor_position_enjoy(animation_data["seed_test"], animation_data["waypoint_name"], "headless")
+    motor_position_train(9999, 350, "hover", "visualize")
+    # model_to_onnx()
+    # motor_position_enjoy(9999, "hover", "save")
+
 
 @run_in_subprocess()
 def motor_position_enjoy(seed_enjoy, waypoint_name, render):
@@ -512,7 +516,7 @@ def motor_position_train(seed_train, max_epochs, waypoint_name, render):
     if exit_code == SUCCESS_EXIT_CODE:
         dirs = glob.glob(f"{AERIAL_GYM_ROOT_DIR}/aerial_gym_dev/rl_training/rl_games/runs/gen_ppo_*")
         assert len(dirs) == 1, "There should be exactly one directory that contains the policy"
-        subprocess.run(f"cp {os.path.join(dirs[0], 'nn', 'best_agility.pth')} gen_ppo.pth", shell=True)
+        subprocess.run(f"cp {os.path.join(dirs[0], 'nn', 'best_policy.pth')} gen_ppo.pth", shell=True)
         # subprocess.run(f"cp {os.path.join(dirs[0], 'nn', 'best_efficiency.pth')} best_efficiency.pth", shell=True)
         return "success"
     elif exit_code == FAILED_TO_LEAR_HOVER_EXIT_CODE:
