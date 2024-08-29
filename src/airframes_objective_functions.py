@@ -657,13 +657,18 @@ def load_animation_data_and_policy(animationdata_and_policy_file_path):
 
 def log_detailed_evaluation_results(pars, info_dict, seed_train, seed_enjoy, max_epochs, evaluation_time, result_file_path):
     waypoint_name = info_dict["waypoint_name"]
-    header = "hash;max_epochs;evaluation_time;seed_train;seed_enjoy;nWaypointsReached;percentage_of_battery_used_in_total;nResets;n_waypoints_per_reset;n_waypoints_reachable_based_on_battery_use\n"
+    header = "hash;pars_name;max_epochs;evaluation_time;seed_train;seed_enjoy;nWaypointsReached;percentage_of_battery_used_in_total;nResets;n_waypoints_per_reset;n_waypoints_reachable_based_on_battery_use\n"
     import torch
+    if hasattr(pars, "pars_name"):
+        pars_name = pars.pars_name
+    else:
+        pars_name = ""
+
     if not os.path.exists(result_file_path) or os.path.getsize(result_file_path) == 0:
         with open(result_file_path, 'w') as file:
             file.write(header)
     with open(result_file_path, 'a') as file:
-        print(f"{hash(pars)};{max_epochs};{evaluation_time};{seed_train};{seed_enjoy};{info_dict['nWaypointsReached']};{info_dict['percentage_of_battery_used_in_total']};{info_dict['nResets']};{info_dict['n_waypoints_per_reset']};{info_dict['n_waypoints_reachable_based_on_battery_use']}", file=file)
+        print(f"{hash(pars)};{pars_name};{max_epochs};{evaluation_time};{seed_train};{seed_enjoy};{info_dict['nWaypointsReached']};{info_dict['percentage_of_battery_used_in_total']};{info_dict['nResets']};{info_dict['n_waypoints_per_reset']};{info_dict['n_waypoints_reachable_based_on_battery_use']}", file=file)
 
 def motor_rl_objective_function(pars, seed_train, seed_enjoy, max_epochs, waypoint_name, log_detailed_evaluation_results_path, render):
 
