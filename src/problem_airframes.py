@@ -239,5 +239,5 @@ if __name__ == "__main__":
         animation_data  = load_animation_data_and_policy(file_path) # load policy into correct path
         save_robot_pars_to_file(animation_data["pars"])
         plot_airframe_to_file_isaacgym(animation_data["pars"], filepath="test_airframe_render.png")
-        motor_position_enjoy(animation_data["seed_enjoy"], animation_data["waypoint_name"], "visualize")
+        motor_position_enjoy(animation_data["seed_enjoy"], animation_data["waypoint_name"], "position_setpoint_task", "visualize")
 

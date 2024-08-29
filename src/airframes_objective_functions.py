@@ -385,15 +385,16 @@ def update_task_config_parameters(seed: int, headless: bool, waypoint_name: str)
 
 def get_hover_policy(animation_data_path):
     animation_data = load_animation_data_and_policy(animation_data_path)
-    # motor_position_enjoy(animation_data["seed_test"], animation_data["waypoint_name"], "headless")
-    motor_position_train(9999, 350, "hover", "visualize")
-    # model_to_onnx()
-    # motor_position_enjoy(9999, "hover", "save")
+    # motor_position_enjoy(animation_data["seed_test"], animation_data["waypoint_name"], "position_setpoint_task", "headless")
+    motor_position_train(9999, 350, "hover", "hover_task", "visualize")
+    model_to_onnx()
+    motor_position_enjoy(9999, "hover", "hover_task", "visualize")
 
 
 @run_in_subprocess()
-def motor_position_enjoy(seed_enjoy, waypoint_name, render):
+def motor_position_enjoy(seed_enjoy, waypoint_name, task_name, render):
 
+    assert task_name in ("hover_task", "position_setpoint_task")
     assert render in  ("headless", "visualize", "save")
     headless = render not in ("visualize", "save")
     record_video = render == "save"
@@ -425,7 +426,7 @@ def motor_position_enjoy(seed_enjoy, waypoint_name, render):
     num_airframes_parallel = int(2e4 if headless else 1)
     print("Averaging", num_airframes_parallel, "environments.")
     args = vars(get_args())
-    rl_task_env = task_registry.make_task("position_setpoint_task", {
+    rl_task_env = task_registry.make_task(task_name, {
         "headless": headless,
         "num_envs": num_airframes_parallel,
         "is_enjoy": True,
@@ -491,8 +492,9 @@ def motor_position_enjoy(seed_enjoy, waypoint_name, render):
     return info_dict
 
 @run_in_subprocess()
-def motor_position_train(seed_train, max_epochs, waypoint_name, render):
+def motor_position_train(seed_train, max_epochs, waypoint_name, task_name, render):
 
+    assert task_name in ("hover_task", "position_setpoint_task")
     headless = render in ("headless", "save")
 
     update_task_config_parameters(seed_train, headless, waypoint_name)
@@ -504,7 +506,7 @@ def motor_position_train(seed_train, max_epochs, waypoint_name, render):
     subprocess.run(f"rm policy.onnx -f", shell=True)
 
     subprocess.run(f"rm {AERIAL_GYM_ROOT_DIR}/aerial_gym_dev/rl_training/rl_games/runs/* -rf", shell=True)
-    cmd_str = f"wd=`pwd` && cd {AERIAL_GYM_ROOT_DIR}/aerial_gym_dev/rl_training/rl_games && python runner.py --seed={seed_train} --max_epochs={max_epochs}"
+    cmd_str = f"wd=`pwd` && cd {AERIAL_GYM_ROOT_DIR}/aerial_gym_dev/rl_training/rl_games && python runner.py --seed={seed_train} --max_epochs={max_epochs} --task=\"{task_name}\""
     print(f">> run shell on {current_time.strftime('%Y-%m-%d %H:%M:%S')}\n{cmd_str}", file=sys.stderr)
     result = subprocess.run(cmd_str, shell=True, stdout=sys.stdout, stderr=sys.stderr, text=True)
     exit_code =  result.returncode
@@ -679,7 +681,7 @@ def motor_rl_objective_function(pars, seed_train, seed_enjoy, max_epochs, waypoi
     t_start = time.time() 
 
     # exit_flag = "success" 
-    exit_flag = motor_position_train(seed_train, max_epochs, waypoint_name, render)
+    exit_flag = motor_position_train(seed_train, max_epochs, waypoint_name, "position_setpoint_task", render)
 
     if exit_flag == "fail":
         print("Train failed. Skipping evaluation.")
@@ -687,7 +689,7 @@ def motor_rl_objective_function(pars, seed_train, seed_enjoy, max_epochs, waypoi
 
     elif exit_flag == "success":
         model_to_onnx()
-        info_dict = motor_position_enjoy(seed_enjoy, waypoint_name, render)
+        info_dict = motor_position_enjoy(seed_enjoy, waypoint_name, "position_setpoint_task", render)
         log_detailed_evaluation_results(pars, info_dict, seed_train, seed_enjoy, max_epochs, time.time() - t_start, log_detailed_evaluation_results_path)
         dump_animation_data_and_policy(pars, seed_train, seed_enjoy, info_dict)
         return info_dict
