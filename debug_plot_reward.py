@@ -25,14 +25,13 @@ line_alphas = [1,0.5,0.5]
 for i, param in enumerate(parameter_names):
     for j, stat in enumerate(["mean", "min", "max"]):
         # Reset cumulative sum every 500 time steps
-        reset_cumsum = df[f"{param}_{stat}"].groupby(df.index // 500).cumsum()
         label = param if stat == "mean" else None
-        plt.plot(reset_cumsum, label=label, linestyle=line_styles[j], color=line_colors[i], alpha=line_alphas[j])
+        plt.plot(df[f"{param}_{stat}"], label=label, linestyle=line_styles[j], color=line_colors[i], alpha=line_alphas[j])
 
 plt.title("Cumulative Rewards Over Time")
 plt.xlabel("Time Step")
 plt.ylabel("Cumulative Mean Reward")
-plt.xticks([len(reset_cumsum)/8 *i  for i in range(9)], [df.iloc[int(len(reset_cumsum)/(8.00001) *i)]["epoch"] for i in range(9)])
+plt.xticks([df.shape[0]/8 *i  for i in range(9)], [df.iloc[int(df.shape[0]/(8.00001) *i)]["epoch"] for i in range(9)])
 plt.legend()
 plt.grid(True)
 plt.show()
