@@ -17,13 +17,13 @@ parameter_names.sort()
 plt.figure(figsize=(10, 6))
 
 # Define line styles and colors
-line_styles = ['-', '--', "--"]
-line_colors = ['blue', 'orange', 'green', 'red', 'purple', 'brown']
-line_alphas = [1,0.5,0.5]
+line_styles = ['-', '--', "--", ":", ":"]
+line_colors = ['blue', 'orange', 'green', 'red', 'purple', 'brown', "black", "gray", "magenta"]
+line_alphas = [1,0.5,0.5, 0.2, 0.2]
 
 # Plot each parameter
 for i, param in enumerate(parameter_names):
-    for j, stat in enumerate(["mean", "min", "max"]):
+    for j, stat in enumerate(["mean", "25%", "75%", "min", "max"]):
         # Reset cumulative sum every 500 time steps
         label = param if stat == "mean" else None
         plt.plot(df[f"{param}_{stat}"], label=label, linestyle=line_styles[j], color=line_colors[i], alpha=line_alphas[j])
