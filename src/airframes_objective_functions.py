@@ -689,9 +689,20 @@ def motor_rl_objective_function(pars, seed_train, seed_enjoy, max_epochs, waypoi
 
     elif exit_flag == "success":
         model_to_onnx()
-        info_dict = motor_position_enjoy(seed_enjoy, waypoint_name, "position_setpoint_task", render)
+        info_dict = motor_position_enjoy(seed_enjoy, waypoint_name, "position_setpoint_task", "headless")
         log_detailed_evaluation_results(pars, info_dict, seed_train, seed_enjoy, max_epochs, time.time() - t_start, log_detailed_evaluation_results_path)
         dump_animation_data_and_policy(pars, seed_train, seed_enjoy, info_dict)
+        print(f"Objective function (train + enjoy) time: {time.time() - t_start}")
+        print("--------------------------")
+        print("Number of Waypoints Reached:", info_dict['nWaypointsReached'])
+        print("Total battery use:", info_dict['percentage_of_battery_used_in_total'])
+        print("Number of Resets:", info_dict['nResets'])
+        print("f1 (Waypoints per Reset) =", info_dict['n_waypoints_per_reset'])
+        print("f2 (Waypoints reachable based on battery use) =", info_dict['n_waypoints_reachable_based_on_battery_use'])
+        print("--------------------------")
+
+        if render != "headless":
+            info_dict = motor_position_enjoy(seed_enjoy, waypoint_name, "position_setpoint_task", render)
         return info_dict
     else:
         raise ValueError("Exit flag value not recognized.")
