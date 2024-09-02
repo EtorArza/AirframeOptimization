@@ -15,11 +15,8 @@ import torch
 import copy
 
 def evaluate_airframe(x, train_seed, test_seed, task_info):
-    info_dict = problem_airframes.f_symmetric_hexarotor_0_1(x, train_seed, test_seed, task_info)
-    if info_dict is None:
-        f_res = {"n_waypoints_per_reset":0.0, "n_waypoints_reachable_based_on_battery_use": 0.0}
-    else:
-        f_res = {"n_waypoints_per_reset":info_dict['n_waypoints_per_reset'], "n_waypoints_reachable_based_on_battery_use":info_dict['n_waypoints_reachable_based_on_battery_use']}
+    n_waypoints_per_reset, n_waypoints_reachable_based_on_battery_use = problem_airframes.f_symmetric_hexarotor_0_1(x, train_seed, test_seed, task_info)
+    f_res = {"n_waypoints_per_reset":n_waypoints_per_reset, "n_waypoints_reachable_based_on_battery_use":n_waypoints_reachable_based_on_battery_use}
     return f_res
 
 
@@ -207,11 +204,12 @@ def airframe_repeatedly_train_and_enjoy(train_seed_list, enjoy_seed_list, max_ep
         if exit_flag == "success":
             model_to_onnx()
             for seed_enjoy in enjoy_seed_list:
-                info_dict = motor_position_enjoy(seed_enjoy, waypoint_name, "position_setpoint_task", "headless")
-                if evaluation_time is None:
-                    evaluation_time = time.time() - t_start
-                log_detailed_evaluation_results(pars, info_dict, seed_train, seed_enjoy, max_epochs, evaluation_time, result_file_path)
-                dump_animation_data_and_policy(pars, seed_train, seed_enjoy, info_dict)
+                for policy_path in [ "best_speed.onnx", "best_efficiency.onnx"]:
+                    info_dict = motor_position_enjoy(seed_enjoy, policy_path, waypoint_name, "position_setpoint_task", "headless")
+                    if evaluation_time is None:
+                        evaluation_time = time.time() - t_start
+                    log_detailed_evaluation_results(pars, policy_path, info_dict, seed_train, seed_enjoy, max_epochs, evaluation_time, result_file_path)
+                    dump_animation_data_and_policy(pars, seed_train, seed_enjoy, info_dict, policy_path)
 
 class problem_analyzer:
 

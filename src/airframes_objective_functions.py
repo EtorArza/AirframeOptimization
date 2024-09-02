@@ -295,10 +295,16 @@ class ModelWrapper(torch.nn.Module):
         torch.clip(mu, min = -1.0, max = 1.0)
         return mu
 
-@run_in_subprocess()
 def model_to_onnx():
-    if not os.path.exists('gen_ppo.pth'):
-        raise FileNotFoundError("The file 'gen_ppo.pth' does not exist. Cannot proceed with model conversion.")
+    if not os.path.exists('gen_ppo.pth') and not(os.path.exists('best_speed.pth') and os.path.exists('best_efficiency.pth')):
+        raise FileNotFoundError("The file 'gen_ppo.pth' or ('best_speed.pth' and 'best_efficiency.pth) don't not exist. Cannot proceed with model conversion.")
+
+    for f in ['gen_ppo.pth', 'best_speed.pth', 'best_efficiency.pth']:
+        if os.path.exists(f):
+            _model_to_onnx(f)
+
+@run_in_subprocess()
+def _model_to_onnx(model_path):
 
     import yaml
     from rl_games.torch_runner import Runner
@@ -310,7 +316,7 @@ def model_to_onnx():
 
     args.update({
         'task': 'position_setpoint_task',
-        'checkpoint': 'gen_ppo.pth',
+        'checkpoint': model_path,
         'train': False,
         'training': False,
         'seed': 2,
@@ -334,7 +340,7 @@ def model_to_onnx():
         exit(1)
     
     agent = runner.create_player()
-    agent.restore('gen_ppo.pth')
+    agent.restore(model_path)
 
     wrapped_model = ModelWrapper(agent.model)
     dummy_input = torch.randn(1, *agent.obs_shape).to(agent.device)
@@ -343,7 +349,7 @@ def model_to_onnx():
         torch.onnx.export(
             wrapped_model,
             dummy_input,
-            "policy.onnx",
+            str(model_path.split(".pth")[0]) + ".onnx",
             verbose=True,
             input_names=['obs'],
             output_names=['mu'],
@@ -388,11 +394,11 @@ def get_hover_policy(animation_data_path):
     # motor_position_enjoy(animation_data["seed_test"], animation_data["waypoint_name"], "position_setpoint_task", "headless")
     motor_position_train(9999, 350, "hover", "hover_task", "visualize")
     model_to_onnx()
-    motor_position_enjoy(9999, "hover", "hover_task", "visualize")
+    motor_position_enjoy(9999, "gen_ppo.onnx", "hover", "hover_task", "visualize")
 
 
 @run_in_subprocess()
-def motor_position_enjoy(seed_enjoy, waypoint_name, task_name, render):
+def motor_position_enjoy(seed_enjoy, policy_path, waypoint_name, task_name, render):
 
     assert task_name in ("hover_task", "position_setpoint_task")
     assert render in  ("headless", "visualize", "save")
@@ -439,7 +445,7 @@ def motor_position_enjoy(seed_enjoy, waypoint_name, task_name, render):
 
     sess_options = ort.SessionOptions()
     sess_options.graph_optimization_level = ort.GraphOptimizationLevel.ORT_ENABLE_ALL
-    ort_model_gpu = ort.InferenceSession("policy.onnx", sess_options, providers=['CUDAExecutionProvider'])
+    ort_model_gpu = ort.InferenceSession(policy_path, sess_options, providers=['CUDAExecutionProvider'])
     io_binding = ort_model_gpu.io_binding()
 
     output_shape = (rl_task_env.sim_env.num_envs, rl_task_env.sim_env.num_env_actions + rl_task_env.sim_env.num_robot_actions)
@@ -502,8 +508,8 @@ def motor_position_train(seed_train, max_epochs, waypoint_name, task_name, rende
     current_time = datetime.now()
 
 
-    subprocess.run(f"rm gen_ppo.pth -f", shell=True)
-    subprocess.run(f"rm policy.onnx -f", shell=True)
+    subprocess.run(f"rm *.pth -f", shell=True)
+    subprocess.run(f"rm *.onnx -f", shell=True)
 
     subprocess.run(f"rm {AERIAL_GYM_ROOT_DIR}/aerial_gym_dev/rl_training/rl_games/runs/* -rf", shell=True)
     cmd_str = f"wd=`pwd` && cd {AERIAL_GYM_ROOT_DIR}/aerial_gym_dev/rl_training/rl_games && python runner.py --seed={seed_train} --max_epochs={max_epochs} --task=\"{task_name}\""
@@ -515,11 +521,12 @@ def motor_position_train(seed_train, max_epochs, waypoint_name, task_name, rende
     CRASH_EXIT_CODE = 1
     FAILED_TO_LEAR_HOVER_EXIT_CODE = 3
     
+    
     if exit_code == SUCCESS_EXIT_CODE:
         dirs = glob.glob(f"{AERIAL_GYM_ROOT_DIR}/aerial_gym_dev/rl_training/rl_games/runs/gen_ppo_*")
         assert len(dirs) == 1, "There should be exactly one directory that contains the policy"
-        subprocess.run(f"cp {os.path.join(dirs[0], 'nn', 'best_policy.pth')} gen_ppo.pth", shell=True)
-        # subprocess.run(f"cp {os.path.join(dirs[0], 'nn', 'best_efficiency.pth')} best_efficiency.pth", shell=True)
+        subprocess.run(f"cp {os.path.join(dirs[0], 'nn', 'best_speed.pth')} best_speed.pth", shell=True)
+        subprocess.run(f"cp {os.path.join(dirs[0], 'nn', 'best_efficiency.pth')} best_efficiency.pth", shell=True)
         return "success"
     elif exit_code == FAILED_TO_LEAR_HOVER_EXIT_CODE:
         print("Early stopped, system failed to learn hover in a reasonable time. No policy saved.")
@@ -614,9 +621,7 @@ import shutil
 import io
 import tarfile
 
-def dump_animation_data_and_policy(pars, seed_train, seed_enjoy, info_dict):
-    # Compress folder ./train_dir and dump it together with the rest
-    policy_path = "policy.onnx"
+def dump_animation_data_and_policy(pars, seed_train, seed_enjoy, info_dict, policy_path):
     
     # Create a BytesIO object to hold the compressed data
     compressed_policy_io = io.BytesIO()
@@ -636,7 +641,7 @@ def dump_animation_data_and_policy(pars, seed_train, seed_enjoy, info_dict):
         **info_dict,
     }
     
-    filename = f'cache/airframes_animationdata/{hash(pars)}_{seed_train}_{seed_enjoy}_{info_dict["waypoint_name"]}_airframeanimationdata.wb'
+    filename = f'cache/airframes_animationdata/{hash(pars)}_{seed_train}_{seed_enjoy}_{info_dict["waypoint_name"]}_{policy_path.split(".onnx")[0]}_airframeanimationdata.wb'
     os.makedirs(os.path.dirname(filename), exist_ok=True)
     
     with open(filename, 'wb') as f:
@@ -657,9 +662,9 @@ def load_animation_data_and_policy(animationdata_and_policy_file_path):
     
     return animationdata
 
-def log_detailed_evaluation_results(pars, info_dict, seed_train, seed_enjoy, max_epochs, evaluation_time, result_file_path):
+def log_detailed_evaluation_results(pars, policy_path, info_dict, seed_train, seed_enjoy, max_epochs, evaluation_time, result_file_path):
     waypoint_name = info_dict["waypoint_name"]
-    header = "hash;pars_name;max_epochs;evaluation_time;seed_train;seed_enjoy;nWaypointsReached;percentage_of_battery_used_in_total;nResets;n_waypoints_per_reset;n_waypoints_reachable_based_on_battery_use\n"
+    header = "hash;pars_name;policy_path;max_epochs;evaluation_time;seed_train;seed_enjoy;nWaypointsReached;percentage_of_battery_used_in_total;nResets;n_waypoints_per_reset;n_waypoints_reachable_based_on_battery_use\n"
     import torch
     if hasattr(pars, "pars_name"):
         pars_name = pars.pars_name
@@ -670,7 +675,7 @@ def log_detailed_evaluation_results(pars, info_dict, seed_train, seed_enjoy, max
         with open(result_file_path, 'w') as file:
             file.write(header)
     with open(result_file_path, 'a') as file:
-        print(f"{hash(pars)};{pars_name};{max_epochs};{evaluation_time};{seed_train};{seed_enjoy};{info_dict['nWaypointsReached']};{info_dict['percentage_of_battery_used_in_total']};{info_dict['nResets']};{info_dict['n_waypoints_per_reset']};{info_dict['n_waypoints_reachable_based_on_battery_use']}", file=file)
+        print(f"{hash(pars)};{pars_name};{policy_path};{max_epochs};{evaluation_time};{seed_train};{seed_enjoy};{info_dict['nWaypointsReached']};{info_dict['percentage_of_battery_used_in_total']};{info_dict['nResets']};{info_dict['n_waypoints_per_reset']};{info_dict['n_waypoints_reachable_based_on_battery_use']}", file=file)
 
 def motor_rl_objective_function(pars, seed_train, seed_enjoy, max_epochs, waypoint_name, log_detailed_evaluation_results_path, render):
 
@@ -685,25 +690,30 @@ def motor_rl_objective_function(pars, seed_train, seed_enjoy, max_epochs, waypoi
 
     if exit_flag == "fail":
         print("Train failed. Skipping evaluation.")
-        return None
+        return 0.0, 0.0
 
     elif exit_flag == "success":
         model_to_onnx()
-        info_dict = motor_position_enjoy(seed_enjoy, waypoint_name, "position_setpoint_task", "headless")
-        log_detailed_evaluation_results(pars, info_dict, seed_train, seed_enjoy, max_epochs, time.time() - t_start, log_detailed_evaluation_results_path)
-        dump_animation_data_and_policy(pars, seed_train, seed_enjoy, info_dict)
+        info_dict1 = motor_position_enjoy(seed_enjoy, "best_speed.onnx", waypoint_name, "position_setpoint_task", "headless")
+        info_dict2 = motor_position_enjoy(seed_enjoy, "best_efficiency.onnx", waypoint_name, "position_setpoint_task", "headless")
+
+        log_detailed_evaluation_results(pars, "best_speed.onnx", info_dict1, seed_train, seed_enjoy, max_epochs, time.time() - t_start, log_detailed_evaluation_results_path)
+        log_detailed_evaluation_results(pars, "best_efficiency.onnx", info_dict2, seed_train, seed_enjoy, max_epochs, time.time() - t_start, log_detailed_evaluation_results_path)
+        dump_animation_data_and_policy(pars, seed_train, seed_enjoy, info_dict1, "best_speed.onnx")
+        dump_animation_data_and_policy(pars, seed_train, seed_enjoy, info_dict2, "best_efficiency.onnx")
+
         print(f"Objective function (train + enjoy) time: {time.time() - t_start}")
         print("--------------------------")
-        print("Number of Waypoints Reached:", info_dict['nWaypointsReached'])
-        print("Total battery use:", info_dict['percentage_of_battery_used_in_total'])
-        print("Number of Resets:", info_dict['nResets'])
-        print("f1 (Waypoints per Reset) =", info_dict['n_waypoints_per_reset'])
-        print("f2 (Waypoints reachable based on battery use) =", info_dict['n_waypoints_reachable_based_on_battery_use'])
+        print("Number of Waypoints Reached:", info_dict1['nWaypointsReached'])
+        print("Total battery use:", info_dict2['percentage_of_battery_used_in_total'])
+        print("Number of Resets:", info_dict1['nResets'], info_dict2['nResets'])
+        print("f1 (Waypoints per Reset) =", info_dict1['n_waypoints_per_reset'])
+        print("f2 (Waypoints reachable based on battery use) =", info_dict2['n_waypoints_reachable_based_on_battery_use'])
         print("--------------------------")
 
         if render != "headless":
-            info_dict = motor_position_enjoy(seed_enjoy, waypoint_name, "position_setpoint_task", render)
-        return info_dict
+            motor_position_enjoy(seed_enjoy, "best_speed.onnx", waypoint_name, "position_setpoint_task", render)
+        return info_dict1["n_waypoints_per_reset"], info_dict2["n_waypoints_reachable_based_on_battery_use"]
     else:
         raise ValueError("Exit flag value not recognized.")
 

@@ -154,8 +154,8 @@ def f_symmetric_hexarotor_0_1(x: numpy.typing.NDArray[np.float_], seed_train: in
         raise ValueError("Wrong dimension on x.", f"x = {x}")
 
     pars = from_0_1_to_RobotParameter(x_0_1, motor_idx_0_1)
-    info_dict = motor_rl_objective_function(pars, seed_train, seed_enjoy, 4000, task_info['waypoint_name'], f"results/data/local_solve_{task_info['waypoint_name']}.csv", "headless")
-    return info_dict
+    n_waypoints_per_reset, n_waypoints_reachable_based_on_battery_use = motor_rl_objective_function(pars, seed_train, seed_enjoy, 4000, task_info['waypoint_name'], f"results/data/local_solve_{task_info['waypoint_name']}.csv", "headless")
+    return n_waypoints_per_reset, n_waypoints_reachable_based_on_battery_use
 
 
 
@@ -189,7 +189,7 @@ def get_cached_file(pars):
 
 if __name__ == "__main__":
 
-    train_and_enjoy = False
+    train_and_enjoy = True
     if train_and_enjoy:
 
         # # # # Best solution
@@ -221,23 +221,13 @@ if __name__ == "__main__":
         seed_train = 610
         seed_enjoy = 3
         start = time.time()
-        info_dict = motor_rl_objective_function(pars, seed_train, seed_enjoy, 4000, "offsetcone", "problem_airframes_train_and_enjoy.csv", render="save")
-        if info_dict is None:
-            print("Train and test skipped, design is not valid or could not learn to hover.")
-        else:
-            print(f"objective function (train + enjoy) time: {time.time() - start}")
-            print("--------------------------")
-            print("Number of Waypoints Reached:", info_dict['nWaypointsReached'])
-            print("Total battery use:", info_dict['percentage_of_battery_used_in_total'])
-            print("Number of Resets:", info_dict['nResets'])
-            print("f1 (Waypoints per Reset) =", info_dict['n_waypoints_per_reset'])
-            print("f2 (Waypoints reachable based on battery use) =", info_dict['n_waypoints_reachable_based_on_battery_use'])
-            print("--------------------------")
-    else: 
+        motor_rl_objective_function(pars, seed_train, seed_enjoy, 55, "offsetcone", "problem_airframes_train_and_enjoy.csv", render="headless")
+        exit(0)
 
-        file_path = "cache/airframes_animationdata/7345904523235511177_2_42_offsetcone_airframeanimationdata.wb" 
+    else: 
+        file_path = "cache/airframes_animationdata/3429747264_2_42_offsetcone_airframeanimationdata.wb" 
         animation_data  = load_animation_data_and_policy(file_path) # load policy into correct path
         save_robot_pars_to_file(animation_data["pars"])
         plot_airframe_to_file_isaacgym(animation_data["pars"], filepath="test_airframe_render.png")
-        motor_position_enjoy(animation_data["seed_enjoy"], animation_data["waypoint_name"], "position_setpoint_task", "visualize")
+        motor_position_enjoy(3, "offsetcone", "position_setpoint_task", "headless")
 

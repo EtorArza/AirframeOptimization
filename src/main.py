@@ -190,7 +190,7 @@ if __name__ == "__main__":
         from interfaces import *
         import itertools
 
-        train_seed_list = list(range(2,42))
+        train_seed_list = list(range(1001,1200))
         enjoy_seed_list = list(range(42,44))
         max_epochs = 4000
         
