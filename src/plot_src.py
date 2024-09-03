@@ -147,7 +147,7 @@ def compare_different_constraint_methods(problem, algorithm, constraint_method_l
     plt.tight_layout()
 
 from typing import Iterable
-def boxplots_repeatedly_different_train_seed(result_file_path: str, waypoint_name:str):
+def boxplots_repeatedly_different_train_seed(result_file_path: str):
     import pandas as pd
 
     df = _read_and_clean_data_every_evaluation_csv(result_file_path)
@@ -156,25 +156,24 @@ def boxplots_repeatedly_different_train_seed(result_file_path: str, waypoint_nam
         data_list = []
         label_list = []
         max_epoch_list = sorted(df["max_epochs"].unique().tolist())
-        hash_list = df["hash"].unique().tolist()
+        pars_name_list = df["pars_name"].unique().tolist()
 
         for max_epoch in max_epoch_list:
-            for pars_hash in hash_list:
-                pars_hash_str = f"'{pars_hash}'" if isinstance(pars_hash, str) else str(pars_hash)
-                data_list.append(df.query(f"max_epochs == {max_epoch} & hash == {pars_hash_str}")[column_name])    
-                label = (str(pars_hash) if len(max_epoch_list)==1 else "") + (str(max_epoch) if len(max_epoch_list)>1 else "")
+            for pars_name in pars_name_list:
+                data_list.append(df.query(f"max_epochs == {max_epoch} & pars_name == '{pars_name}'")[column_name])    
+                label = pars_name
                 label_list.append(label)
             
 
-        plt.figure(figsize=(2.0+ len(label_list),2.5))
+        plt.figure(figsize=(2.0+ 0.6*len(label_list),2.5))
         boxplot = plt.boxplot(data_list, showmeans=True)
         plt.legend()
         plt.xticks(list(range(1, len(data_list)+1)), label_list)
         plt.xlabel("")
-        plt.ylabel(column_name)
-        plt.title("Hex different train seeds")
+        plt.ylabel("")
+        plt.title(column_name.replace('_',' '))
         plt.tight_layout()
-        plt.savefig(f"results/figures/repeatedly_different_train_seed/hex_repeatedly_{column_name.replace('/','-')}_boxplots_{waypoint_name}.pdf")
+        plt.savefig(f"results/figures/repeatedly_different_train_seed/hex_repeatedly_{column_name.replace('/','-')}_boxplots.pdf")
         plt.close()
 
 
@@ -190,7 +189,7 @@ def _read_and_clean_data_every_evaluation_csv(details_every_evaluation_csv):
 
     df = df[chosen_rows]
 
-    df = df.groupby(['hash', 'seed_train', "max_epochs"]).agg({
+    df = df.groupby(['hash', 'pars_name', 'seed_train', "max_epochs"]).agg({
         'seed_enjoy': lambda x: x.iloc[0] if len(x) > 1 else x.iloc[0],
         'n_waypoints_per_reset': 'mean',
         'n_waypoints_reachable_based_on_battery_use': 'mean',
