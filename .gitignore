@@ -90,8 +90,10 @@ gen_ppo.pth
 policy.onnx
 problem_airframes_train_and_enjoy.csv
 best_agility.pth
-best_policy.pth
+best_hover.pth
 best_efficiency.pth
 Untitled.png
 Untitled.xcf
 rewards_summary.csv
+best_efficiency.onnx
+best_speed.onnx

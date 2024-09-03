@@ -296,11 +296,19 @@ class ModelWrapper(torch.nn.Module):
         return mu
 
 def model_to_onnx():
-    if not os.path.exists('gen_ppo.pth') and not(os.path.exists('best_speed.pth') and os.path.exists('best_efficiency.pth')):
-        raise FileNotFoundError("The file 'gen_ppo.pth' or ('best_speed.pth' and 'best_efficiency.pth) don't not exist. Cannot proceed with model conversion.")
+    dirs = glob.glob(f"{AERIAL_GYM_ROOT_DIR}/aerial_gym_dev/rl_training/rl_games/runs/gen_ppo_*")
+    assert len(dirs) == 1, "There should be exactly one directory that contains the policy"
+    path_speed = os.path.join(dirs[0], 'nn', 'best_speed.pth')
+    path_efficiency = os.path.join(dirs[0], 'nn', 'best_efficiency.pth')
+    path_hover = os.path.join(dirs[0], 'nn', 'best_hover.pth')
 
-    for f in ['gen_ppo.pth', 'best_speed.pth', 'best_efficiency.pth']:
+
+
+    if not os.path.exists(path_hover) and not(os.path.exists(path_speed) and os.path.exists(path_efficiency)):
+        raise FileNotFoundError("The file 'best_hover.pth' or ('best_speed.pth' and 'best_efficiency.pth) don't not exist. Cannot proceed with model conversion.")
+    for f in [path_speed, path_efficiency, path_hover]:
         if os.path.exists(f):
+            print("converting model", f,"to .onnx")
             _model_to_onnx(f)
 
 @run_in_subprocess()
@@ -344,12 +352,14 @@ def _model_to_onnx(model_path):
 
     wrapped_model = ModelWrapper(agent.model)
     dummy_input = torch.randn(1, *agent.obs_shape).to(agent.device)
-
+    onnx_model_path = model_path.split("/")[-1].split(".pth")[0] + ".onnx"
+    
+    print(f"saving {onnx_model_path}")
     with torch.no_grad():
         torch.onnx.export(
             wrapped_model,
             dummy_input,
-            str(model_path.split(".pth")[0]) + ".onnx",
+            onnx_model_path,
             verbose=True,
             input_names=['obs'],
             output_names=['mu'],
@@ -364,37 +374,42 @@ def update_task_config_parameters(seed: int, headless: bool, waypoint_name: str)
 
     print("updating", seed, headless, waypoint_name)
 
-    file_path = f"{AERIAL_GYM_ROOT_DIR}/aerial_gym_dev/config/task_config/position_setpoint_with_attitude_control.py"
+    file_path_list = [
+        f"{AERIAL_GYM_ROOT_DIR}/aerial_gym_dev/config/task_config/position_setpoint_with_attitude_control.py",
+        f"{AERIAL_GYM_ROOT_DIR}/aerial_gym_dev/config/task_config/hover_task.py",
+        ]
     
-    with open(file_path, 'r') as file:
-        lines = file.readlines()
-    
-    seed_count = headless_count = waypoint_count = 0
-    
-    for i, line in enumerate(lines):
-        if line.strip().startswith("seed ="):
-            lines[i] = f"    seed = {seed}\n"
-            seed_count += 1
-        elif line.strip().startswith("headless ="):
-            lines[i] = f"    headless = {headless}\n"
-            headless_count += 1
-        elif line.strip().startswith("waypoint_name ="):
-            lines[i] = f'    waypoint_name = "{waypoint_name}"\n'
-            waypoint_count += 1
-    assert seed_count == 1, "Expected exactly one 'seed' field in the file"
-    assert headless_count == 1, "Expected exactly one 'headless' field in the file"
-    assert waypoint_count == 1, "Expected exactly one 'waypoint_name' field in the file"
-    
-    with open(file_path, 'w') as file:
-        file.writelines(lines)
+    for file_path in file_path_list:
+        with open(file_path, 'r') as file:
+            lines = file.readlines()
+        
+        seed_count = headless_count = waypoint_count = 0
+        
+        for i, line in enumerate(lines):
+            if line.strip().startswith("seed ="):
+                lines[i] = f"    seed = {seed}\n"
+                seed_count += 1
+            elif line.strip().startswith("headless ="):
+                lines[i] = f"    headless = {headless}\n"
+                headless_count += 1
+            elif line.strip().startswith("waypoint_name ="):
+                lines[i] = f'    waypoint_name = "{waypoint_name}"\n'
+                waypoint_count += 1
+        assert seed_count == 1, "Expected exactly one 'seed' field in the file"
+        assert headless_count == 1, "Expected exactly one 'headless' field in the file"
+        assert waypoint_count == 1, "Expected exactly one 'waypoint_name' field in the file"
+        
+        with open(file_path, 'w') as file:
+            file.writelines(lines)
 
 
 def get_hover_policy(animation_data_path):
-    animation_data = load_animation_data_and_policy(animation_data_path)
-    # motor_position_enjoy(animation_data["seed_test"], animation_data["waypoint_name"], "position_setpoint_task", "headless")
-    motor_position_train(9999, 350, "hover", "hover_task", "visualize")
-    model_to_onnx()
-    motor_position_enjoy(9999, "gen_ppo.onnx", "hover", "hover_task", "visualize")
+    # animation_data = load_animation_data_and_policy(animation_data_path)
+    # motor_position_enjoy(928378, "best_speed.onnx", animation_data["waypoint_name"], "position_setpoint_task", "headless")
+    # save_robot_pars_to_file(animation_data["pars"])
+    motor_position_train(9999, 600, "hover", "hover_task", "visualize")
+    # model_to_onnx()
+    # motor_position_enjoy(9998, "best_hover.onnx", "hover", "hover_task", "save")
 
 
 @run_in_subprocess()
@@ -508,7 +523,6 @@ def motor_position_train(seed_train, max_epochs, waypoint_name, task_name, rende
     current_time = datetime.now()
 
 
-    subprocess.run(f"rm *.pth -f", shell=True)
     subprocess.run(f"rm *.onnx -f", shell=True)
 
     subprocess.run(f"rm {AERIAL_GYM_ROOT_DIR}/aerial_gym_dev/rl_training/rl_games/runs/* -rf", shell=True)
@@ -523,10 +537,6 @@ def motor_position_train(seed_train, max_epochs, waypoint_name, task_name, rende
     
     
     if exit_code == SUCCESS_EXIT_CODE:
-        dirs = glob.glob(f"{AERIAL_GYM_ROOT_DIR}/aerial_gym_dev/rl_training/rl_games/runs/gen_ppo_*")
-        assert len(dirs) == 1, "There should be exactly one directory that contains the policy"
-        subprocess.run(f"cp {os.path.join(dirs[0], 'nn', 'best_speed.pth')} best_speed.pth", shell=True)
-        subprocess.run(f"cp {os.path.join(dirs[0], 'nn', 'best_efficiency.pth')} best_efficiency.pth", shell=True)
         return "success"
     elif exit_code == FAILED_TO_LEAR_HOVER_EXIT_CODE:
         print("Early stopped, system failed to learn hover in a reasonable time. No policy saved.")
@@ -653,8 +663,10 @@ def load_animation_data_and_policy(animationdata_and_policy_file_path):
     
     compressed_policy_data = animationdata['policy_data']
     
-    if os.path.exists("policy.onnx"):
-        os.remove("policy.onnx")
+    onnx_files = glob.glob("*.onnx")
+    for file in onnx_files:
+        os.remove(file)
+
     
     # Extract the compressed policy to ./train_dir
     with tarfile.open(fileobj=io.BytesIO(compressed_policy_data), mode="r:gz") as tar:
