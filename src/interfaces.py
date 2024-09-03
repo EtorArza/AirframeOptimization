@@ -14,9 +14,16 @@ import problem_airframes
 import torch
 import copy
 
-def evaluate_airframe(x, train_seed, test_seed, task_info):
-    n_waypoints_per_reset, n_waypoints_reachable_based_on_battery_use = problem_airframes.f_symmetric_hexarotor_0_1(x, train_seed, test_seed, task_info)
-    f_res = {"n_waypoints_per_reset":n_waypoints_per_reset, "n_waypoints_reachable_based_on_battery_use":n_waypoints_reachable_based_on_battery_use}
+def evaluate_airframe(x, train_seed, test_seed, task_info, n_repeated_evaluations):
+    
+    best_n_waypoints_per_reset = -1e8
+    best_n_waypoints_reachable_based_on_battery_use = -1e8
+    for i in range(n_repeated_evaluations):
+        n_waypoints_per_reset, n_waypoints_reachable_based_on_battery_use = problem_airframes.f_symmetric_hexarotor_0_1(x, train_seed+20000*i, test_seed, task_info)
+        best_n_waypoints_per_reset = max(best_n_waypoints_per_reset, n_waypoints_per_reset)
+        best_n_waypoints_reachable_based_on_battery_use = max(best_n_waypoints_reachable_based_on_battery_use, n_waypoints_reachable_based_on_battery_use)
+
+    f_res = {"n_waypoints_per_reset":best_n_waypoints_per_reset, "n_waypoints_reachable_based_on_battery_use":best_n_waypoints_reachable_based_on_battery_use}
     return f_res
 
 
@@ -35,7 +42,7 @@ class optimization_algorithm:
                 steps=[
                     GenerationStep(
                         model=Models.SOBOL,
-                        num_trials=200,
+                        num_trials=40,
                         min_trials_observed=3,
                         max_parallelism=1,
                         model_kwargs={"seed": self.rs.randint(int(1e6))},
@@ -165,7 +172,7 @@ def local_solve(seed, budget, task_info):
 
     for i in range(algo.ax_client.get_trials_data_frame().shape[0], budget):
         x = algo.ask()
-        f = evaluate_airframe(x, i, 3, task_info)
+        f = evaluate_airframe(x, i, 3, task_info, 2)
         algo.tell(f)
         algo.save_optimization_status(ax_status_filepath)
         df = algo.ax_client.get_trials_data_frame()
