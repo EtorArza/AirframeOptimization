@@ -260,11 +260,13 @@ if __name__ == "__main__":
 
     elif sys.argv[1] == "--enjoy-one":
         from problem_airframes import *
-        file_path = "cache/airframes_animationdata/3429747264_2_42_offsetcone_airframeanimationdata.wb" 
+        #cache/airframes_animationdata/2614932373_1015_42_offsetcone_best_speed_airframeanimationdata.wb
+        #cache/airframes_animationdata/2614932373_1015_42_offsetcone_best_efficiency_airframeanimationdata.wb
+        file_path = "cache/airframes_animationdata/2614932373_1015_42_offsetcone_best_efficiency_airframeanimationdata.wb" 
         animation_data  = load_animation_data_and_policy(file_path) # load policy into correct path
         save_robot_pars_to_file(animation_data["pars"])
         plot_airframe_to_file_isaacgym(animation_data["pars"], filepath="test_airframe_render.png")
-        motor_position_enjoy(3, "offsetcone", "position_setpoint_task", "headless")
+        motor_position_enjoy(3, animation_data["policy_path"], "offsetcone", "position_setpoint_task", "save")
 
 
     elif sys.argv[1] == "--ax-get-conclusions-solution-space":

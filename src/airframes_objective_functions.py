@@ -510,8 +510,8 @@ def motor_position_enjoy(seed_enjoy, policy_path, waypoint_name, task_name, rend
             obs = rl_task_env.reset()[0]["observations"].contiguous()
 
     if record_video:
-        cmd1 = "ffmpeg -framerate 100 -pattern_type glob -i 'results/figures/animation_pngs/*.png' -c:v libx264 -pix_fmt yuv420p -vf scale=1920:1080 animation.mp4"
-        cmd2 = "ffmpeg -framerate 25 -pattern_type glob -i 'results/figures/animation_pngs/*.png' -c:v libx264 -pix_fmt yuv420p -vf scale=1920:1080 animation_slowmo_x4.mp4"
+        cmd1 = f"ffmpeg -framerate 100 -pattern_type glob -i 'results/figures/animation_pngs/*.png' -c:v libx264 -pix_fmt yuv420p -vf scale=1920:1080 animation_{policy_path}.mp4"
+        cmd2 = f"ffmpeg -framerate 25 -pattern_type glob -i 'results/figures/animation_pngs/*.png' -c:v libx264 -pix_fmt yuv420p -vf scale=1920:1080 animation_{policy_path}_slowmo_x4.mp4"
         subprocess.run(cmd1, shell=True, check=True, stdout=sys.stdout, stderr=sys.stderr, text=True)
         subprocess.run(cmd2, shell=True, check=True, stdout=sys.stdout, stderr=sys.stderr, text=True)
 
@@ -677,7 +677,9 @@ def load_animation_data_and_policy(animationdata_and_policy_file_path):
     # Extract the compressed policy to ./train_dir
     with tarfile.open(fileobj=io.BytesIO(compressed_policy_data), mode="r:gz") as tar:
         tar.extractall(path=".")
-    
+    policy_path_list = glob.glob("*.onnx")
+    assert len(policy_path_list) == 1
+    animationdata["policy_path"] = policy_path_list[0]
     return animationdata
 
 def log_detailed_evaluation_results(pars, policy_path, info_dict, seed_train, seed_enjoy, max_epochs, evaluation_time, result_file_path):
