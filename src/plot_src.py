@@ -219,10 +219,10 @@ def _read_and_clean_data_every_evaluation_csv(details_every_evaluation_csv):
 
     df = df[chosen_rows]
 
-    df = df.groupby(['hash', 'pars_name', 'seed_train', "max_epochs"]).agg({
+    df = df.groupby(['hash', 'policy_path', 'pars_name', 'seed_train', "max_epochs"]).agg({
         'seed_enjoy': lambda x: x.iloc[0] if len(x) > 1 else x.iloc[0],
-        'n_waypoints_per_reset': 'mean',
-        'n_waypoints_reachable_based_on_battery_use': 'mean',
+        'n_waypoints_per_reset': 'max',
+        'n_waypoints_reachable_based_on_battery_use': 'max',
         'percentage_of_battery_used_in_total': 'mean'
     }).reset_index()
 
