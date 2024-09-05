@@ -23,7 +23,7 @@ def evaluate_airframe(x, train_seed, test_seed, task_info, n_repeated_evaluation
         best_n_waypoints_per_reset = max(best_n_waypoints_per_reset, n_waypoints_per_reset)
         best_n_waypoints_reachable_based_on_battery_use = max(best_n_waypoints_reachable_based_on_battery_use, n_waypoints_reachable_based_on_battery_use)
 
-    f_res = {"n_waypoints_per_reset":best_n_waypoints_per_reset,} #"n_waypoints_reachable_based_on_battery_use":best_n_waypoints_reachable_based_on_battery_use}
+    f_res = {"n_waypoints_per_reset":best_n_waypoints_per_reset, "n_waypoints_reachable_based_on_battery_use":best_n_waypoints_reachable_based_on_battery_use}
     return f_res
 
 
@@ -160,7 +160,7 @@ def local_solve(seed, budget, task_info):
         current_time = datetime.now()
         return current_time.strftime('%Y-%m-%d %H:%M:%S')
 
-    algo = optimization_algorithm(2, ax_status_filepath, task_info)
+    algo = optimization_algorithm(seed, ax_status_filepath, task_info)
 
     solver_time = 0.0
 
