@@ -6,7 +6,7 @@ import pickle
 import os
 import isaacgym
 from aerial_gym_dev.utils.robot_model import RobotParameter, RobotModel
-from aerial_gym_dev.utils import analyze_robot_config
+from aerial_gym_dev.utils import analyze_robot_config, GESP_early_stop
 import fcl
 from pytorch3d.transforms import euler_angles_to_matrix, quaternion_to_matrix, matrix_to_euler_angles
 from aerial_gym_dev import AERIAL_GYM_ROOT_DIR
@@ -367,40 +367,46 @@ def _model_to_onnx(model_path):
             opset_version=11
         )
 
-def update_task_config_parameters(seed: int, headless: bool, waypoint_name: str):
-    assert isinstance(seed, int), "seed must be an integer"
-    assert isinstance(headless, bool), "headless must be a boolean"
-    assert isinstance(waypoint_name, str), "waypoint_name must be a string"
-
+def update_task_config_parameters(seed: int=None, headless: bool=None, waypoint_name: str=None, gesp_filepath: str = None):
+    assert isinstance(seed, int) or seed is None, "seed must be an integer"
+    assert isinstance(headless, bool) or headless is None, "headless must be a boolean"
+    assert isinstance(waypoint_name, str) or waypoint_name is None, "waypoint_name must be a string"
+    assert isinstance(gesp_filepath, str) or gesp_filepath is None, "gesp_filepath must be a string"
     print("updating", seed, headless, waypoint_name)
-
     file_path_list = [
-        f"{AERIAL_GYM_ROOT_DIR}/aerial_gym_dev/config/task_config/position_setpoint_with_attitude_control.py",
-        f"{AERIAL_GYM_ROOT_DIR}/aerial_gym_dev/config/task_config/hover_task.py",
-        ]
-    
+    f"{AERIAL_GYM_ROOT_DIR}/aerial_gym_dev/config/task_config/position_setpoint_with_attitude_control.py",
+    f"{AERIAL_GYM_ROOT_DIR}/aerial_gym_dev/config/task_config/hover_task.py",
+    ]
     for file_path in file_path_list:
         with open(file_path, 'r') as file:
             lines = file.readlines()
-        
-        seed_count = headless_count = waypoint_count = 0
-        
+        seed_count = headless_count = waypoint_count = gesp_filepath_count = 0
         for i, line in enumerate(lines):
             if line.strip().startswith("seed ="):
-                lines[i] = f"    seed = {seed}\n"
+                if seed is not None:
+                    lines[i] = f"    seed = {seed}\n"
                 seed_count += 1
             elif line.strip().startswith("headless ="):
-                lines[i] = f"    headless = {headless}\n"
+                if headless is not None:
+                    lines[i] = f"    headless = {headless}\n"
                 headless_count += 1
             elif line.strip().startswith("waypoint_name ="):
-                lines[i] = f'    waypoint_name = "{waypoint_name}"\n'
+                if waypoint_name is not None:
+                    lines[i] = f'    waypoint_name = "{waypoint_name}"\n'
                 waypoint_count += 1
+            elif line.strip().startswith("gesp_filepath ="):
+                if gesp_filepath is not None:
+                    lines[i] = f'    gesp_filepath = "{gesp_filepath}"\n'
+                gesp_filepath_count += 1
         assert seed_count == 1, "Expected exactly one 'seed' field in the file"
         assert headless_count == 1, "Expected exactly one 'headless' field in the file"
         assert waypoint_count == 1, "Expected exactly one 'waypoint_name' field in the file"
+        assert gesp_filepath_count == 1, "Expected exactly one 'gesp_filepath' field in the file"
         
         with open(file_path, 'w') as file:
             file.writelines(lines)
+
+
 
 
 def get_hover_policy(animation_data_path):
@@ -425,7 +431,7 @@ def motor_position_enjoy(seed_enjoy, policy_path, waypoint_name, task_name, rend
         subprocess.run("rm ./animation*.mp4 -f", shell=True, check=True, stdout=sys.stdout, stderr=sys.stderr, text=True)
         headless = False
 
-    update_task_config_parameters(seed_enjoy, headless, waypoint_name)
+    update_task_config_parameters(seed=seed_enjoy, headless=headless, waypoint_name=waypoint_name)
 
     import os
     import numpy as np
@@ -512,13 +518,13 @@ def motor_position_enjoy(seed_enjoy, policy_path, waypoint_name, task_name, rend
     info_dict = rl_task_env.get_info()
     return info_dict
 
-@run_in_subprocess()
+# @run_in_subprocess()
 def motor_position_train(seed_train, max_epochs, waypoint_name, task_name, render):
 
     assert task_name in ("hover_task", "position_setpoint_task")
     headless = render in ("headless", "save")
 
-    update_task_config_parameters(seed_train, headless, waypoint_name)
+    update_task_config_parameters(seed=seed_train, headless=headless, waypoint_name=waypoint_name)
     from datetime import datetime
     current_time = datetime.now()
 

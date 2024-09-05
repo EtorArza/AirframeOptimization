@@ -97,3 +97,5 @@ Untitled.xcf
 rewards_summary.csv
 best_efficiency.onnx
 best_speed.onnx
+f_1_observed.txt
+f_2_observed.txt

@@ -35,6 +35,36 @@ def plot_progress_one(path: str):
 
 
 
+def plot_accuracy_loss_vs_training_time(path):
+    import seaborn as sns
+    from matplotlib import pyplot as plt
+    m = pd.read_csv(path, header=None).to_numpy()[:, 1:]
+    m = np.maximum.accumulate(m, axis=1)
+    m = m[np.argsort(m[:,-1]), :]
+    ranks = np.argsort(np.argsort(-m, axis=0), axis=0)
+    ranks = ranks.astype(float)
+    ranks /= ranks.shape[0]
+    ranks = ranks[::-1, :]
+    # rank_error = np.abs(ranks - ranks[:, -1].reshape(-1, 1).repeat(ranks.shape[1], axis=1))
+    
+
+    rank_error = 1.0 - np.logical_xor(ranks < 0.5, np.linspace(0,1, ranks.shape[0]).reshape(-1, 1).repeat(ranks.shape[1], axis=1) > 0.5)
+
+
+    plt.figure(figsize=(10, 8))
+    color = sns.cubehelix_palette(start=2, rot=0, dark=0, light=.95, reverse=False, as_cmap=True)
+    ax = sns.heatmap(rank_error, cmap=color, linewidths=.5, linecolor='lightgray')
+
+    colorbar = ax.collections[0].colorbar
+    colorbar.set_label(r'Normalized distance', fontsize=16)
+
+    plt.xticks(fontsize=12)
+    plt.yticks(fontsize=12)
+
+    plt.xlabel("Episode", fontsize=14)
+    plt.ylabel("Seed rank (lower is better)", fontsize=14)
+
+    plt.show()
 
 
 
