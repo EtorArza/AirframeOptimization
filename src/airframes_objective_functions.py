@@ -6,7 +6,7 @@ import pickle
 import os
 import isaacgym
 from aerial_gym_dev.utils.robot_model import RobotParameter, RobotModel
-from aerial_gym_dev.utils import analyze_robot_config, GESP_early_stop
+from aerial_gym_dev.utils import analyze_robot_config
 import fcl
 from pytorch3d.transforms import euler_angles_to_matrix, quaternion_to_matrix, matrix_to_euler_angles
 from aerial_gym_dev import AERIAL_GYM_ROOT_DIR
@@ -367,11 +367,10 @@ def _model_to_onnx(model_path):
             opset_version=11
         )
 
-def update_task_config_parameters(seed: int=None, headless: bool=None, waypoint_name: str=None, gesp_filepath: str = None):
+def update_task_config_parameters(seed: int=None, headless: bool=None, waypoint_name: str=None):
     assert isinstance(seed, int) or seed is None, "seed must be an integer"
     assert isinstance(headless, bool) or headless is None, "headless must be a boolean"
     assert isinstance(waypoint_name, str) or waypoint_name is None, "waypoint_name must be a string"
-    assert isinstance(gesp_filepath, str) or gesp_filepath is None, "gesp_filepath must be a string"
     print("updating", seed, headless, waypoint_name)
     file_path_list = [
     f"{AERIAL_GYM_ROOT_DIR}/aerial_gym_dev/config/task_config/position_setpoint_with_attitude_control.py",
@@ -380,7 +379,7 @@ def update_task_config_parameters(seed: int=None, headless: bool=None, waypoint_
     for file_path in file_path_list:
         with open(file_path, 'r') as file:
             lines = file.readlines()
-        seed_count = headless_count = waypoint_count = gesp_filepath_count = 0
+        seed_count = headless_count = waypoint_count = 0
         for i, line in enumerate(lines):
             if line.strip().startswith("seed ="):
                 if seed is not None:
@@ -394,14 +393,9 @@ def update_task_config_parameters(seed: int=None, headless: bool=None, waypoint_
                 if waypoint_name is not None:
                     lines[i] = f'    waypoint_name = "{waypoint_name}"\n'
                 waypoint_count += 1
-            elif line.strip().startswith("gesp_filepath ="):
-                if gesp_filepath is not None:
-                    lines[i] = f'    gesp_filepath = "{gesp_filepath}"\n'
-                gesp_filepath_count += 1
         assert seed_count == 1, "Expected exactly one 'seed' field in the file"
         assert headless_count == 1, "Expected exactly one 'headless' field in the file"
         assert waypoint_count == 1, "Expected exactly one 'waypoint_name' field in the file"
-        assert gesp_filepath_count == 1, "Expected exactly one 'gesp_filepath' field in the file"
         
         with open(file_path, 'w') as file:
             file.writelines(lines)

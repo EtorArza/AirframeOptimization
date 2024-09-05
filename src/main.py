@@ -38,7 +38,6 @@ if __name__ == "__main__":
     elif sys.argv[1] == "--local-solve":
         from interfaces import local_solve
         from airframes_objective_functions import update_task_config_parameters
-        update_task_config_parameters(gesp_filepath=task_info["waypoint_name"])
         sys.argv.pop()
         seed = 6
         budget = 1200
@@ -244,7 +243,6 @@ if __name__ == "__main__":
 
         x_0_1 = x[:15]
         motor_idx_0_1 = x[15:18]
-        update_task_config_parameters(gesp_filepath="")
         pars = from_0_1_to_RobotParameter(x_0_1, motor_idx_0_1)
         plot_airframe_to_file_isaacgym(pars, filepath="test_airframe_render.png")
         # plot_admisible_set(pars)
