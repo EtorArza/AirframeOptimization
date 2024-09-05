@@ -23,7 +23,7 @@ def evaluate_airframe(x, train_seed, test_seed, task_info, n_repeated_evaluation
         best_n_waypoints_per_reset = max(best_n_waypoints_per_reset, n_waypoints_per_reset)
         best_n_waypoints_reachable_based_on_battery_use = max(best_n_waypoints_reachable_based_on_battery_use, n_waypoints_reachable_based_on_battery_use)
 
-    f_res = {"n_waypoints_per_reset":best_n_waypoints_per_reset, "n_waypoints_reachable_based_on_battery_use":best_n_waypoints_reachable_based_on_battery_use}
+    f_res = {"n_waypoints_per_reset":best_n_waypoints_per_reset,} #"n_waypoints_reachable_based_on_battery_use":best_n_waypoints_reachable_based_on_battery_use}
     return f_res
 
 
@@ -76,7 +76,7 @@ class optimization_algorithm:
                 ],
                 objectives={
                     "n_waypoints_per_reset": ObjectiveProperties(minimize=False, threshold=task_info["threshold_n_waypoints_per_reset"]),
-                    "n_waypoints_reachable_based_on_battery_use": ObjectiveProperties(minimize=False, threshold=task_info["threshold_n_waypoints_reachable_based_on_battery_use"]),
+                    # "n_waypoints_reachable_based_on_battery_use": ObjectiveProperties(minimize=False, threshold=task_info["threshold_n_waypoints_reachable_based_on_battery_use"]),
                 }
             )
         else:
@@ -88,7 +88,7 @@ class optimization_algorithm:
 
         read_evaluations_from_log = False
         if read_evaluations_from_log:
-            self.read_evaluations_from_log("results/data/offsetcone_6.csv.log")
+            self.read_evaluations_from_log(f"results/data/{task_info['task_name']}_6.csv.log")
 
     def read_evaluations_from_log(self, file_path):
         def read_log_file(file_path):
@@ -113,7 +113,7 @@ class optimization_algorithm:
                             },
                             "objectives": {
                                 "n_waypoints_per_reset": n_waypoints_per_reset,
-                                "n_waypoints_reachable_based_on_battery_use": n_waypoints_reachable_based_on_battery_use
+                                # "n_waypoints_reachable_based_on_battery_use": n_waypoints_reachable_based_on_battery_use
                             }
                         }
                         

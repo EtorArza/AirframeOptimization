@@ -4,7 +4,7 @@ import numpy as np
 
 
 task_info = {
-    "waypoint_name": "offsetcone",
+    "waypoint_name": "circle",
     "threshold_n_waypoints_per_reset": 8.0,
     "threshold_n_waypoints_reachable_based_on_battery_use": 200.0
 }
@@ -207,16 +207,16 @@ if __name__ == "__main__":
 
     elif sys.argv[1] == "--plot-repeatedly-train":
         import plot_src
-        plot_src.boxplots_repeatedly_different_train_seed("results/data/repeatedly_train_chosen_designs_offsetcone.csv")
+        plot_src.boxplots_repeatedly_different_train_seed(f"results/data/repeatedly_train_chosen_designs_{task_info['task_name']}.csv")
         exit(0)
-        plot_src.generate_bokeh_interactive_plot(f"results/data/local_solve_offsetcone.csv", "offsetcone")
+        plot_src.generate_bokeh_interactive_plot(f"results/data/local_solve_{task_info['task_name']}.csv", f"{task_info['task_name']}")
         # plot_src.boxplots_repeatedly_different_train_seed(f"results/data/repeatedly_standard_hex_different_train_seed_{task_info['waypoint_name']}.csv", task_info['waypoint_name'])
         # plot_src.multiobjective_scatter_by_train_time(f"results/data/details_every_evaluation_{waypoint_name}.csv")
         exit(0)
 
     elif sys.argv[1] == "--learn-hover-policy":
         from airframes_objective_functions import get_hover_policy
-        file_path = "cache/airframes_animationdata/1272882117_215_3_offsetcone_airframeanimationdata.wb" 
+        file_path = "cache/airframes_animationdata/1272882117_215_3_circle_airframeanimationdata.wb" 
         get_hover_policy(file_path)
 
     elif sys.argv[1] == "--plot-rank-error":
@@ -253,7 +253,7 @@ if __name__ == "__main__":
         seed_train = 610
         seed_enjoy = 3
         start = time.time()
-        motor_rl_objective_function(pars, seed_train, seed_enjoy, 4000, "offsetcone", "problem_airframes_train_and_enjoy.csv", render="headless")
+        motor_rl_objective_function(pars, seed_train, seed_enjoy, 4000, "circle", "problem_airframes_train_and_enjoy.csv", render="visualize")
         exit(0)
 
     elif sys.argv[1] == "--enjoy-one":
@@ -264,12 +264,12 @@ if __name__ == "__main__":
         animation_data  = load_animation_data_and_policy(file_path) # load policy into correct path
         save_robot_pars_to_file(animation_data["pars"])
         plot_airframe_to_file_isaacgym(animation_data["pars"], filepath="test_airframe_render.png")
-        motor_position_enjoy(3, animation_data["policy_path"], "offsetcone", "position_setpoint_task", "save")
+        motor_position_enjoy(3, animation_data["policy_path"], "circle", "position_setpoint_task", "save")
 
 
     elif sys.argv[1] == "--ax-get-conclusions-solution-space":
         import plot_src
-        pa = problem_analyzer("cache/ax_optimization_status/offsetcone_6.json")
+        pa = problem_analyzer(f"cache/ax_optimization_status/{task_info['task_name']}_6.json")
         interpolated_x, was_evaluated, relative_pos_on_pareto = pa.get_pareto_solutions_with_extra_interpolated_solutions()
         plot_src.animate_solution_interpolation(interpolated_x, was_evaluated, relative_pos_on_pareto)
 
