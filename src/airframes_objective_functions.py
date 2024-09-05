@@ -540,9 +540,12 @@ def motor_position_train(seed_train, max_epochs, waypoint_name, task_name, rende
     SUCCESS_EXIT_CODE = 0
     CRASH_EXIT_CODE = 1
     FAILED_TO_LEAR_HOVER_EXIT_CODE = 3
-    
+    EARLY_STOPPED_TO_SAVE_TIME_EXIT_CODE = 4
     
     if exit_code == SUCCESS_EXIT_CODE:
+        return "success"
+    elif exit_code == EARLY_STOPPED_TO_SAVE_TIME_EXIT_CODE:
+        print("Early stopped to save time.")
         return "success"
     elif exit_code == FAILED_TO_LEAR_HOVER_EXIT_CODE:
         print("Early stopped, system failed to learn hover in a reasonable time. No policy saved.")
