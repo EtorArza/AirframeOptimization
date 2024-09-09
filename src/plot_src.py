@@ -186,7 +186,7 @@ def boxplots_repeatedly_different_train_seed(result_file_path: str):
         data_list = []
         label_list = []
         max_epoch_list = sorted(df["max_epochs"].unique().tolist())
-        pars_name_list = df["pars_name"].unique().tolist()
+        pars_name_list = sorted(df["pars_name"].unique().tolist())
 
         for max_epoch in max_epoch_list:
             for pars_name in pars_name_list:

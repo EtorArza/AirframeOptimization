@@ -207,9 +207,9 @@ if __name__ == "__main__":
 
     elif sys.argv[1] == "--plot-repeatedly-train":
         import plot_src
-        plot_src.boxplots_repeatedly_different_train_seed(f"results/data/repeatedly_train_chosen_designs_{task_info['task_name']}.csv")
+        plot_src.boxplots_repeatedly_different_train_seed(f"results/data/repeatedly_train_chosen_designs_{task_info['waypoint_name']}.csv")
         exit(0)
-        plot_src.generate_bokeh_interactive_plot(f"results/data/local_solve_{task_info['task_name']}.csv", f"{task_info['task_name']}")
+        plot_src.generate_bokeh_interactive_plot(f"results/data/local_solve_{task_info['waypoint_name']}.csv", f"{task_info['waypoint_name']}")
         # plot_src.boxplots_repeatedly_different_train_seed(f"results/data/repeatedly_standard_hex_different_train_seed_{task_info['waypoint_name']}.csv", task_info['waypoint_name'])
         # plot_src.multiobjective_scatter_by_train_time(f"results/data/details_every_evaluation_{waypoint_name}.csv")
         exit(0)
