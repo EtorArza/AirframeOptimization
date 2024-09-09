@@ -221,15 +221,24 @@ def airframe_repeatedly_train_and_enjoy(train_seed_list, enjoy_seed_list, max_ep
 class problem_analyzer:
 
     def __init__(self, ax_json_status_path):
-        self.ax_client = AxClient.load_from_json_file(ax_json_status_path)
-        self.pareto_optimal_solutions = self.get_pareto_optimal_solutions_from_ax_client()
-        self.pareto_optimal_solutions.sort(key=lambda el: (el[1]["n_waypoints_per_reset"],el[1]["n_waypoints_reachable_based_on_battery_use"]))
+        self.ax_client = AxClient.load_from_json_file(ax_json_status_path, verbose_logging=False)
+        if len(self.ax_client.objective_names) == 1:
+            solution_predicted_f = self.ax_client.get_best_parameters(use_model_predictions=True)
+            x_predicted = [el[1] for el in sorted(solution_predicted_f[0].items())]
+            print("\n---------\nBest solution GP posterior:\n", x_predicted, sep="")
+
+            solution_observed_f = self.ax_client.get_best_parameters(use_model_predictions=False)
+            x_observed = [el[1] for el in sorted(solution_observed_f[0].items())]
+            print("--\nBest solution observed:\n", x_observed, sep="")
+        else:
+            self.pareto_optimal_solutions = self.get_pareto_optimal_solutions_from_ax_client()
+            self.pareto_optimal_solutions.sort(key=lambda el: (el[1]["n_waypoints_per_reset"],el[1]["n_waypoints_reachable_based_on_battery_use"]))
 
     def get_pareto_optimal_solutions_from_ax_client(self):
         processed_pars = []
         for solution_observed_f, solution_predicted_f in zip(self.ax_client.get_pareto_optimal_parameters(use_model_predictions=True).values(), self.ax_client.get_pareto_optimal_parameters(use_model_predictions=False).values()):
             x_observed = np.array([el[1] for el in sorted(solution_observed_f[0].items())])
-            x_predicted = np.array([el[1] for el in sorted(solution_observed_f[0].items())])
+            x_predicted = np.array([el[1] for el in sorted(solution_predicted_f[0].items())])
             assert sum(abs(x_observed-x_predicted)) < 1e-6
             processed_pars.append([
                 x_observed,
