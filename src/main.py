@@ -4,8 +4,8 @@ import numpy as np
 
 
 task_info = {
-    "waypoint_name": "circle",
-    "threshold_n_waypoints_per_reset": 8.0,
+    "waypoint_name": "leftright",
+    "threshold_n_waypoints_per_reset": 4.0,
     "threshold_n_waypoints_reachable_based_on_battery_use": 200.0
 }
 
@@ -254,7 +254,7 @@ if __name__ == "__main__":
         seed_train = 610
         seed_enjoy = 3
         start = time.time()
-        motor_rl_objective_function(pars, seed_train, seed_enjoy, 4000, "circle", "problem_airframes_train_and_enjoy.csv", render="visualize")
+        motor_rl_objective_function(pars, seed_train, seed_enjoy, 4000, task_info["waypoint_name"], "problem_airframes_train_and_enjoy.csv", render="visualize")
         exit(0)
 
     elif sys.argv[1] == "--enjoy-one":
@@ -265,7 +265,7 @@ if __name__ == "__main__":
         animation_data  = load_animation_data_and_policy(file_path) # load policy into correct path
         save_robot_pars_to_file(animation_data["pars"])
         plot_airframe_to_file_isaacgym(animation_data["pars"], filepath="test_airframe_render.png")
-        motor_position_enjoy(3, animation_data["policy_path"], "circle", "position_setpoint_task", "visualize")
+        motor_position_enjoy(3, animation_data["policy_path"], task_info["waypoint_name"], "position_setpoint_task", "visualize")
 
 
     elif sys.argv[1] == "--ax-get-conclusions-solution-space":
