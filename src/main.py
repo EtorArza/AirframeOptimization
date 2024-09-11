@@ -244,6 +244,7 @@ if __name__ == "__main__":
         x_0_1 = x[:15]
         motor_idx_0_1 = x[15:18]
         pars = from_0_1_to_RobotParameter(x_0_1, motor_idx_0_1)
+        save_robot_pars_to_file(pars)
         plot_airframe_to_file_isaacgym(pars, filepath="test_airframe_render.png")
         # plot_admisible_set(pars)
 
@@ -260,11 +261,11 @@ if __name__ == "__main__":
         from problem_airframes import *
         #cache/airframes_animationdata/2614932373_1015_42_offsetcone_best_speed_airframeanimationdata.wb
         #cache/airframes_animationdata/2614932373_1015_42_offsetcone_best_efficiency_airframeanimationdata.wb
-        file_path = "cache/airframes_animationdata/2614932373_1015_42_offsetcone_best_efficiency_airframeanimationdata.wb" 
+        file_path = "cache/airframes_animationdata/1978095366_1012_42_circle_best_speed_airframeanimationdata.wb" 
         animation_data  = load_animation_data_and_policy(file_path) # load policy into correct path
         save_robot_pars_to_file(animation_data["pars"])
         plot_airframe_to_file_isaacgym(animation_data["pars"], filepath="test_airframe_render.png")
-        motor_position_enjoy(3, animation_data["policy_path"], "circle", "position_setpoint_task", "save")
+        motor_position_enjoy(3, animation_data["policy_path"], "circle", "position_setpoint_task", "visualize")
 
 
     elif sys.argv[1] == "--ax-get-conclusions-solution-space":

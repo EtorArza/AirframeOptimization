@@ -103,33 +103,32 @@ def from_0_1_to_RobotParameter(x_0_1: numpy.typing.NDArray[np.float_],  motor_id
 
     from aerial_gym_dev.utils.battery_rotor_dynamics import BatteryRotorDynamics
     compatible_motors, compatible_batteries = BatteryRotorDynamics.get_compatible_battery_and_motors_indices(battery_S)
-    n_compatible_motors, n_compatible_batteries = len(compatible_motors), len(compatible_batteries)
+    n_compatible_motors, _ = len(compatible_motors), len(compatible_batteries)
 
     pars.motor_idx_list = [compatible_motors[int(el*(n_compatible_motors-1e-8))]  for el in motor_idx_0_1]
     pars.motor_idx_list = [*pars.motor_idx_list, *pars.motor_idx_list] # Same motors on the other side to keep simmetry
     pars.prop_diameters = []
     pars.battery_idx = 3 #compatible_batteries[int(battery_idx_0_1*(n_compatible_batteries-1e-8))]
 
-                     # core mass       # electronics mass
-    pars.core_mass = 0.090       +     0.031
-    guard_and_arm_mass = 0.008
+
 
 
     motor_only_masses, pars.battery_mass, prop_diameters_list = BatteryRotorDynamics.get_motor_and_battery_mass(pars.motor_idx_list, pars.battery_idx)
 
 
-    # For Inertia only these two below are taken into account
+    guard_and_arm_mass = 0.008
     pars.motor_masses = [mtr_mass + guard_and_arm_mass for mtr_mass in motor_only_masses] # actually arms mass
-    pars.frame_mass = pars.core_mass + pars.battery_mass
+
+    pars.base_mass = 0.3
+    pars.base_inertia_matrix = np.array([
+      [	 6.831e-04,  -1.000e-07, -2.100e-06],
+      [ -1.000e-07,   7.673e-04, -3.700e-06],
+      [ -2.100e-06,  -3.700e-06,  6.401e-04],
+    ]) 
     pars.prop_diameters = prop_diameters_list[:]
 
-    pars.total_mass = sum(pars.motor_masses) + pars.frame_mass
-    print("------")
-    print("motor_indexes = ", pars.motor_idx_list)
-    print("motor_masses =", pars.motor_masses)
-    print("frame_mass =", pars.frame_mass)
-    print("total_mass =",pars.total_mass)
-    print("------")
+    pars.total_mass = sum(pars.motor_masses) + pars.base_mass
+
 
 
 
