@@ -172,7 +172,7 @@ def local_solve(seed, budget, task_info):
 
     for i in range(algo.ax_client.get_trials_data_frame().shape[0], budget):
         x = algo.ask()
-        f = evaluate_airframe(x, i, 3, task_info, 2)
+        f = evaluate_airframe(x, i, 3, task_info, 1)
         algo.tell(f)
         algo.save_optimization_status(ax_status_filepath)
         df = algo.ax_client.get_trials_data_frame()
