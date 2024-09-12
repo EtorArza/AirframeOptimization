@@ -42,9 +42,9 @@ class optimization_algorithm:
                 steps=[
                     GenerationStep(
                         model=Models.SOBOL,
-                        num_trials=40,
-                        min_trials_observed=3,
+                        num_trials=200,
                         max_parallelism=1,
+                        enforce_num_trials=True,
                         model_kwargs={"seed": self.rs.randint(int(1e6))},
                         model_gen_kwargs={},
                     ),
@@ -56,7 +56,7 @@ class optimization_algorithm:
                     ),
                 ]
             )
-            self.ax_client = AxClient()
+            self.ax_client = AxClient(generation_strategy=gs)
             self.ax_client.create_experiment(
                 parameters=[
                     {
