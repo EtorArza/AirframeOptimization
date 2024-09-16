@@ -407,9 +407,11 @@ def get_hover_policy(animation_data_path):
     # animation_data = load_animation_data_and_policy(animation_data_path)
     # motor_position_enjoy(928378, "best_speed.onnx", animation_data["waypoint_name"], "position_setpoint_task", "headless")
     # save_robot_pars_to_file(animation_data["pars"])
-    motor_position_train(9999, 600, "hover", "hover_task", "visualize")
-    # model_to_onnx()
-    # motor_position_enjoy(9998, "best_hover.onnx", "hover", "hover_task", "save")
+    motor_position_train(9999, 4000, "hover", "hover_task", "headless")
+    model_to_onnx()
+    info_dict = motor_position_enjoy(9998, "best_hover.onnx", "hover", "hover_task", "headless")
+    print("Hover success rate: ", info_dict["nSuccess"]  / info_dict["nTrials"])
+    info_dict = motor_position_enjoy(9998, "best_hover.onnx", "hover", "hover_task", "save")
 
 
 @run_in_subprocess()
