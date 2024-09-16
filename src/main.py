@@ -14,8 +14,9 @@ selected_designs = {
     "s_111":[0.0, 0.5, 0.5000, 0.5, 0.5, 0.0, 0.5, 0.1667, 0.5, 0.5, 0.0, 0.5, 0.8333, 0.5, 0.5, 0.25, 0.25, 0.25],
     "s_222":[0.0, 0.5, 0.5000, 0.5, 0.5, 0.0, 0.5, 0.1667, 0.5, 0.5, 0.0, 0.5, 0.8333, 0.5, 0.5, 0.50, 0.50, 0.50],
     "s_333":[0.0, 0.5, 0.5000, 0.5, 0.5, 0.0, 0.5, 0.1667, 0.5, 0.5, 0.0, 0.5, 0.8333, 0.5, 0.5, 0.70, 0.70, 0.70],
-    "best_observed":[0.028446687650210897, 0.2524035927519064, 0.254165546000238, 1.0, 0.9558981301812443, 0.27273014885581986, 0.6220492900301845, 0.8910544129978384, 0.5125720648338308, 0.948286671368632, 0.7487484405394067, 0.6654756349251802, 0.24475658565415942, 0.0, 0.35953246565880087, 0.09515288759613828, 0.6333966919634638, 0.6652886245906603],
-    "best_GP_posterior":[0.0, 0.22866268504650217, 0.25536810175970565, 1.0, 0.9956485526782684, 0.21323650495472396, 0.53182992745159, 0.8631856188621372, 0.6316025675611324, 1.0, 0.7500653690969006, 0.5714853674056419, 0.3421233215412284, 0.0, 0.35179863097711594, 0.1099251368417103, 0.6465696431830745, 0.7254261187678717],
+    "s_444":[0.0, 0.5, 0.5000, 0.5, 0.5, 0.0, 0.5, 0.1667, 0.5, 0.5, 0.0, 0.5, 0.8333, 0.5, 0.5, 0.99, 0.99, 0.99],
+    "best_observed":[0.4505677118451259, 0.3790109151931583, 0.7553272392295209, 0.0, 0.017070865111953607, 1.0, 0.4826375013108367, 0.4808966415561724, 0.04596926511532326, 0.09570130887176045, 0.3845583658094259, 0.5507515765703298, 0.6896674472409062, 0.44108011522818646, 0.0, 0.12127944102870869, 0.5957224152246153, 0.0],
+    "best_GP_posterior":[0.4282857255088529, 0.39880796315309613, 0.6937309739781954, 0.008488829053584633, 0.09508384018650465, 0.9670329011027277, 0.437842956904712, 0.4518764621966986, 0.11916130476525735, 0.15096813514588164, 0.46188179047937045, 0.574670329634577, 0.719834661429961, 0.4324804192344383, 0.03299854793002318, 0.16416474486632335, 0.5855290084417157, 0.05350289775816097],
 }
 
 
@@ -217,7 +218,7 @@ if __name__ == "__main__":
 
     elif sys.argv[1] == "--learn-hover-policy":
         from airframes_objective_functions import get_hover_policy
-        file_path = "cache/airframes_animationdata/1272882117_215_3_circle_airframeanimationdata.wb" 
+        file_path = "cache/airframes_animationdata/778443724_210_3_leftright_best_speed_airframeanimationdata.wb" 
         get_hover_policy(file_path)
 
     elif sys.argv[1] == "--plot-rank-error":
@@ -226,13 +227,13 @@ if __name__ == "__main__":
 
     elif sys.argv[1] == "--evaluate-one":
         from problem_airframes import *
-        # Best solution
-        x = np.array([
-            0.000, 0.229, 0.255,  1.00, 0.996,
-            0.213, 0.532, 0.863,  0.63, 1.000,
-            0.750, 0.571, 0.342,  0.00, 0.352,
-            0.110, 0.647, 0.725
-        ])
+        # # Best solution
+        # x = np.array([
+        #     0.000, 0.229, 0.255,  1.00, 0.996,
+        #     0.213, 0.532, 0.863,  0.63, 1.000,
+        #     0.750, 0.571, 0.342,  0.00, 0.352,
+        #     0.110, 0.647, 0.725
+        # ])
 
         # # hex       
         # x = np.array([
@@ -267,14 +268,14 @@ if __name__ == "__main__":
         from problem_airframes import *
 
         # Optimized
-        file_path = "/home/paran/Documents/2024_09_12_backup_results/cache/airframes_animationdata/131516059_1003_43_leftright_best_speed_airframeanimationdata.wb" 
+        file_path = "cache/airframes_animationdata/778443724_210_3_leftright_best_speed_airframeanimationdata.wb" 
         # # s_111
         # file_path = "/home/paran/Documents/2024_09_12_backup_results/cache/airframes_animationdata/1890901682_1007_43_leftright_best_speed_airframeanimationdata.wb" 
 
         animation_data  = load_animation_data_and_policy(file_path) # load policy into correct path
         save_robot_pars_to_file(animation_data["pars"])
         plot_airframe_to_file_isaacgym(animation_data["pars"], filepath="test_airframe_render.png")
-        motor_position_enjoy(3, animation_data["policy_path"], task_info["waypoint_name"], "position_setpoint_task", "visualize")
+        motor_position_enjoy(3, animation_data["policy_path"], task_info["waypoint_name"], "position_setpoint_task", "save")
 
 
     elif sys.argv[1] == "--ax-get-conclusions-solution-space":
