@@ -52,7 +52,6 @@ class optimization_algorithm:
                         model=Models.BOTORCH_MODULAR,
                         num_trials=-1,
                         max_parallelism=1,
-                        model_kwargs={"seed": self.rs.randint(int(1e6))},
                     ),
                 ]
             )
