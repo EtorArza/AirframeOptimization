@@ -555,6 +555,7 @@ def motor_position_train(seed_train, max_epochs, waypoint_name, task_name, rende
 @run_in_subprocess()
 def plot_airframe_to_file_isaacgym(pars: RobotParameter, filepath: str):
 
+    from scipy.spatial.transform import Rotation
     from isaacgym import gymapi, gymtorch
     import time
 
@@ -592,7 +593,7 @@ def plot_airframe_to_file_isaacgym(pars: RobotParameter, filepath: str):
     robot_handle = gym.create_actor(env, robot_asset, pose, "robot", 0, 1)
 
     # Adjust camera position and zoom out
-    cam_pos = gymapi.Vec3(0.25, 0.25, 1.2)  # Move the camera further out
+    cam_pos = gymapi.Vec3(-0.45, 0.15, 1.2)  # Move the camera further out
     cam_target = gymapi.Vec3(0.0, 0.0, 0.5)  # Target the origin
     gym.viewer_camera_look_at(viewer, None, cam_pos, cam_target)
 
@@ -613,7 +614,24 @@ def plot_airframe_to_file_isaacgym(pars: RobotParameter, filepath: str):
     z_colors = np.array([[0, 0, 1], [0, 0, 1]]+ax_center, dtype=np.float32)
     gym.add_lines(viewer, env, 1, z_points, z_colors)
 
+    # Add motor orientation arrows.
+    orientation_color = np.array([[1, 0.5, 0], [1, 0.5, 0]], dtype=np.float32)
 
+    for position, orientation, in zip(np.array(pars.motor_translations, dtype=np.float32), np.array(pars.motor_orientations, dtype=np.float32),):
+        position += ax_center
+        rotation_matrix = Rotation.from_euler('xyz', orientation, degrees=True).as_matrix()
+        head_width = 0.02
+        arrow_length = 0.1
+        shaft_end = position + rotation_matrix.dot(np.array([0, 0, arrow_length-head_width]))
+        arrow_tip = position + rotation_matrix.dot(np.array([0, 0, arrow_length]))
+        
+        # Arrow shaft
+        gym.add_lines(viewer, env, 1, np.array([position, arrow_tip], dtype=np.float32), orientation_color)
+        
+        # Arrow head
+        for dx, dy in [(-head_width, 0), (head_width, 0), (0, -head_width), (0, head_width)]:
+            head_base = shaft_end + rotation_matrix.dot(np.array([dx, dy, 0]))
+            gym.add_lines(viewer, env, 1, np.array([head_base, arrow_tip], dtype=np.float32), orientation_color)
 
     # Add a delay to ensure the viewer has time to render
     for _ in range(10):
