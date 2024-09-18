@@ -367,11 +367,12 @@ def _model_to_onnx(model_path):
             opset_version=11
         )
 
-def update_task_config_parameters(seed: int=None, headless: bool=None, waypoint_name: str=None):
+def update_task_config_parameters(seed: int=None, headless: bool=None, waypoint_name: str=None, save_states_during_enjoy: bool=None):
     assert isinstance(seed, int) or seed is None, "seed must be an integer"
     assert isinstance(headless, bool) or headless is None, "headless must be a boolean"
     assert isinstance(waypoint_name, str) or waypoint_name is None, "waypoint_name must be a string"
-    print("updating", seed, headless, waypoint_name)
+    assert isinstance(save_states_during_enjoy, bool) or save_states_during_enjoy is None, "save_states_during_enjoy must be a boolean"
+    print("updating", seed, headless, waypoint_name, save_states_during_enjoy)
     file_path_list = [
     f"{AERIAL_GYM_ROOT_DIR}/aerial_gym_dev/config/task_config/position_setpoint_with_attitude_control.py",
     f"{AERIAL_GYM_ROOT_DIR}/aerial_gym_dev/config/task_config/hover_task.py",
@@ -379,7 +380,7 @@ def update_task_config_parameters(seed: int=None, headless: bool=None, waypoint_
     for file_path in file_path_list:
         with open(file_path, 'r') as file:
             lines = file.readlines()
-        seed_count = headless_count = waypoint_count = 0
+        seed_count = headless_count = waypoint_count = save_states_count = 0
         for i, line in enumerate(lines):
             if line.strip().startswith("seed ="):
                 if seed is not None:
@@ -393,25 +394,35 @@ def update_task_config_parameters(seed: int=None, headless: bool=None, waypoint_
                 if waypoint_name is not None:
                     lines[i] = f'    waypoint_name = "{waypoint_name}"\n'
                 waypoint_count += 1
-        assert seed_count == 1, "Expected exactly one 'seed' field in the file"
-        assert headless_count == 1, "Expected exactly one 'headless' field in the file"
-        assert waypoint_count == 1, "Expected exactly one 'waypoint_name' field in the file"
-        
+            elif line.strip().startswith("save_states_during_enjoy ="):
+                if save_states_during_enjoy is not None:
+                    lines[i] = f"    save_states_during_enjoy = {save_states_during_enjoy}\n"
+                save_states_count += 1
+        assert seed_count == 1, f"Expected exactly one 'seed' field in the file {file_path}"
+        assert headless_count == 1, f"Expected exactly one 'headless' field in the file {file_path}"
+        assert waypoint_count == 1, f"Expected exactly one 'waypoint_name' field in the file {file_path}"
+        assert save_states_count == 1, f"Expected exactly one 'save_states_during_enjoy' field in the file {file_path}"
         with open(file_path, 'w') as file:
             file.writelines(lines)
 
 
 
 
-def get_hover_policy(animation_data_path):
-    # animation_data = load_animation_data_and_policy(animation_data_path)
-    # motor_position_enjoy(928378, "best_speed.onnx", animation_data["waypoint_name"], "position_setpoint_task", "headless")
-    # save_robot_pars_to_file(animation_data["pars"])
-    motor_position_train(9999, 4000, "hover", "hover_task", "headless")
+def get_hover_policy(animation_data_path, seed_train, render):
+    update_task_config_parameters(save_states_during_enjoy=True)
+    animation_data = load_animation_data_and_policy(animation_data_path)
+    save_robot_pars_to_file(animation_data["pars"])
+    update_task_config_parameters(save_states_during_enjoy=True)
+    motor_position_enjoy(928378, "best_speed.onnx", animation_data["waypoint_name"], "position_setpoint_task", "headless")
+    update_task_config_parameters(save_states_during_enjoy=False)
+    assert render in ("visualize", "headless", "save")
+    motor_position_train(seed_train, 4000, "hover", "hover_task", "headless" if render=="save" else render)
     model_to_onnx()
     info_dict = motor_position_enjoy(9998, "best_hover.onnx", "hover", "hover_task", "headless")
     print("Hover success rate: ", info_dict["nSuccess"]  / info_dict["nTrials"])
-    info_dict = motor_position_enjoy(9998, "best_hover.onnx", "hover", "hover_task", "save")
+    if render!="headless":
+        motor_position_enjoy(9998, "best_hover.onnx", "hover", "hover_task", render)
+
 
 
 @run_in_subprocess()

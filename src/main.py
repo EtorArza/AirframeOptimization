@@ -195,7 +195,7 @@ if __name__ == "__main__":
         enjoy_seed_list = list(range(42,44))
         max_epochs = 4000
         
-        update_task_config_parameters(0,False, task_info["waypoint_name"])
+        update_task_config_parameters(0,False, task_info["waypoint_name"], False)
         for train_seed_sublist in [[s] for s in train_seed_list]:
             for pars_name, x  in selected_designs.items():
                 x = np.array(x)
@@ -219,7 +219,7 @@ if __name__ == "__main__":
     elif sys.argv[1] == "--learn-hover-policy":
         from airframes_objective_functions import get_hover_policy
         file_path = "cache/airframes_animationdata/778443724_210_3_leftright_best_speed_airframeanimationdata.wb" 
-        get_hover_policy(file_path)
+        get_hover_policy(file_path, 6, "visualize")
 
     elif sys.argv[1] == "--plot-rank-error":
         from plot_src import *
