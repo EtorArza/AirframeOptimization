@@ -4,18 +4,20 @@ import iqmotion as iq
 import time
 import numpy as np
 from matplotlib import pyplot as plt
+from tqdm import tqdm as tqdm
 
+time.sleep(2)
 
-time.sleep(5)
-
-freq = 500
+freq = 100
 dt = 1.0 / freq
 propeller_idx = 0
-n_repeat_experiment = 1
+n_repeat_experiment = 10
 
+# FF1 Velocity -> 0,0044   V/(rad/s)
+# FF2 Velocity -> 0,000000199   V/(rad/s^2)
 
 vertiq_w = np.array([
-[0,    2105,  4244,  6378,  8466, 10495, 12461, 14376, 16195, 17970, 19672, 21211],
+[0,    2105,  4244,  6378,  8466, 10495, 12461, 14376, 16195, 17970, 19672, 21211], # APC5x4R
 [0,    2109,  4263,  6421,  8549, 10663, 12713, 14702, 16633, 18525, 20290, 21961, 23596, 25105, 26619],
 [0,    2091,  4212,  6340,  8396, 10421, 12333, 14215, 15989, 17644, 19229],
 [0,    2103,  4239,  6340,  8425, 10464, 12426, 14333, 16183, 17966, 19674, 21276, 22852],
@@ -24,12 +26,14 @@ vertiq_w = np.array([
 
 
 w_00 = vertiq_w[1]
+w_15 = w_00 + int(0.15 * (vertiq_w[-1] - w_00))
 w_25 = w_00 + int(0.25 * (vertiq_w[-1] - w_00))
+w_35 = w_00 + int(0.35 * (vertiq_w[-1] - w_00))
 w_50 = w_00 + int(0.50 * (vertiq_w[-1] - w_00))
 w_75 = w_00 + int(0.75 * (vertiq_w[-1] - w_00))
 w_max = vertiq_w[-1]
 
-w_discrete = [w_00, w_25, w_50, w_75, w_max]
+w_discrete = [w_00, w_15, w_25, w_35, w_50, w_75, w_max]
 
 
 target_w_list = []
@@ -37,7 +41,6 @@ target_w_list = []
 # Go over all values
 for target_w in vertiq_w:
     target_w_list += (2*freq) * [target_w.item()]
-
 
 # Go from min to every value & from max to every value.
 target_w_list += (freq // 2) * [w_discrete[0]]
@@ -57,9 +60,7 @@ target_w_list += (freq // 2) * [w_discrete[0]]
 
 com = iq.SerialCommunicator("/dev/ttyUSB0")
 module = iq.SpeedModule(com)
-module.set("propeller_motor_control", "timeout", 0.05)
-
-
+module.set("propeller_motor_control", "timeout", 0.5)
 
 target_w_list *= n_repeat_experiment
 
@@ -71,7 +72,7 @@ observed_w_get_request_time = np.array([0]*len(target_w_list))
 waiting_w_read = False
 last_read = -1
 start = time.time()
-for i, target_w in enumerate(target_w_list):
+for i, target_w in enumerate(tqdm(target_w_list)):
     p = i / len(target_w_list)
 
     if not waiting_w_read:

@@ -1,5 +1,5 @@
 from matplotlib import pyplot as plt
-
+import numpy as np
 freq = 500
 dt = 1.0 / freq
 propeller_idx = 0
@@ -10,10 +10,10 @@ def load_data(propeller_idx, freq):
     filename = f"results/data/vertiq_w_propidx={propeller_idx}_freq={freq}_nreps={n_repeat_experiment}.txt"
     
     with open(filename, "r") as f:
-        observed_times = eval(f.readline().strip())
-        target_w_list = eval(f.readline().strip())
-        observed_w_read_time = eval(f.readline().strip())
-        observed_w_get_request_time = eval(f.readline().strip())
+        observed_times = np.array(eval(f.readline().strip()))
+        target_w_list = np.array(eval(f.readline().strip()))
+        observed_w_read_time = np.array(eval(f.readline().strip()))
+        observed_w_get_request_time = np.array(eval(f.readline().strip()))
     return observed_times,target_w_list,observed_w_read_time,observed_w_get_request_time   
 
 
