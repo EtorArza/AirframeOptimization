@@ -8,7 +8,7 @@ from tqdm import tqdm as tqdm
 
 time.sleep(2)
 
-freq = 100
+freq = 500
 dt = 1.0 / freq
 propeller_idx = 0
 n_repeat_experiment = 10
@@ -56,64 +56,61 @@ target_w_list += (freq // 2) * [w_discrete[-1]]
 target_w_list += (freq // 2) * [w_discrete[0]]
 
 
+if __name__ == "__main__":
 
+    com = iq.SerialCommunicator("/dev/ttyUSB0")
+    module = iq.SpeedModule(com)
+    module.set("propeller_motor_control", "timeout", 0.5)
 
-com = iq.SerialCommunicator("/dev/ttyUSB0")
-module = iq.SpeedModule(com)
-module.set("propeller_motor_control", "timeout", 0.5)
+    target_w_list *= n_repeat_experiment
 
-target_w_list *= n_repeat_experiment
+    prev_it = 0
+    observed_times = [0]*len(target_w_list)
+    observed_w_read_time = np.array([0]*len(target_w_list))
+    observed_w_get_request_time = np.array([0]*len(target_w_list))
 
-prev_it = 0
-observed_times = [0]*len(target_w_list)
-observed_w_read_time = np.array([0]*len(target_w_list))
-observed_w_get_request_time = np.array([0]*len(target_w_list))
+    waiting_w_read = False
+    last_read = -1
+    start = time.time()
+    for i, target_w in enumerate(tqdm(target_w_list)):
+        p = i / len(target_w_list)
 
-waiting_w_read = False
-last_read = -1
-start = time.time()
-for i, target_w in enumerate(tqdm(target_w_list)):
-    p = i / len(target_w_list)
-
-    if not waiting_w_read:
-        module.get_async("brushless_drive", "obs_velocity")
-        module.update_replies()
-        waiting_w_read = True
-
-    module.set("propeller_motor_control", "ctrl_velocity", target_w)
-
-    time_next_step = (i+1)/freq
-    observed_times[i] = time.time() - start
-    observed_w_read_time[i] = observed_w_read_time[max(0,i-1)] # gets updated if read is successsful
-    observed_w_get_request_time[i] = observed_w_get_request_time[max(0,i-1)] # gets updated if read is successsful
-    while observed_times[i] < time_next_step:
-        observed_times[i] = time.time() - start
-        if waiting_w_read:
+        if not waiting_w_read:
+            module.get_async("brushless_drive", "obs_velocity")
             module.update_replies()
-            if module.is_fresh("brushless_drive", "obs_velocity"):
-                reply = module.get_reply("brushless_drive", "obs_velocity")
-                observed_w_read_time[i] = reply
-                observed_w_get_request_time[(last_read+1):(i+1)] = reply
-                waiting_w_read = False
-                last_read = i
-        time.sleep(1e-5)
+            waiting_w_read = True
+
+        module.set("propeller_motor_control", "ctrl_velocity", target_w)
+
+        time_next_step = (i+1)/freq
+        observed_times[i] = time.time() - start
+        observed_w_read_time[i] = observed_w_read_time[max(0,i-1)] # gets updated if read is successsful
+        observed_w_get_request_time[i] = observed_w_get_request_time[max(0,i-1)] # gets updated if read is successsful
+        while observed_times[i] < time_next_step:
+            observed_times[i] = time.time() - start
+            if waiting_w_read:
+                module.update_replies()
+                if module.is_fresh("brushless_drive", "obs_velocity"):
+                    reply = module.get_reply("brushless_drive", "obs_velocity")
+                    observed_w_read_time[i] = reply
+                    observed_w_get_request_time[(last_read+1):(i+1)] = reply
+                    waiting_w_read = False
+                    last_read = i
+            time.sleep(1e-5)
 
 
-print("Time:",start  - time.time(), "s")
+    print("Time:",start  - time.time(), "s")
 
-#Set the module to coast, then wait 2 seconds
-module.set("propeller_motor_control", "ctrl_coast")
-time.sleep(0.2)
+    #Set the module to coast, then wait 2 seconds
+    module.set("propeller_motor_control", "ctrl_coast")
+    time.sleep(0.2)
 
-with open(f"results/data/vertiq_w_propidx={propeller_idx}_freq={freq}_nreps={n_repeat_experiment}.txt", "w") as f:
-    print(observed_times, file=f)
-    print(target_w_list, file=f)
-    print(observed_w_read_time.tolist(), file=f)
-    print(observed_w_get_request_time.tolist(), file=f)
+    with open(f"results/data/vertiq_w_propidx={propeller_idx}_freq={freq}_nreps={n_repeat_experiment}.txt", "w") as f:
+        print(observed_times, file=f)
+        print(target_w_list, file=f)
+        print(observed_w_read_time.tolist(), file=f)
+        print(observed_w_get_request_time.tolist(), file=f)
 
 
 
-print("done", propeller_idx, freq)
-
-# plt.plot(observed_times, target_w_list)
-# plt.show()
+    print("done", propeller_idx, freq)
