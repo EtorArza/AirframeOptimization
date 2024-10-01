@@ -100,3 +100,8 @@ best_speed.onnx
 f_1_observed.txt
 f_2_observed.txt
 boxplots.pdf
+
+
+scripts/vertiq_motor_modeling/run_results/*
+!scripts/vertiq_motor_modeling/run_results/.gitkeep
+desired_w_rl_agent.txt
