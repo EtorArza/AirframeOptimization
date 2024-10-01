@@ -4,7 +4,7 @@ import numpy as np
 
 
 task_info = {
-    "waypoint_name": "leftright",
+    "waypoint_name": "lrcontinuous",
     "threshold_n_waypoints_per_reset": 4.0,
     "threshold_n_waypoints_reachable_based_on_battery_use": 200.0
 }
@@ -15,8 +15,8 @@ selected_designs = {
     "s_222":[0.0, 0.5, 0.5000, 0.5, 0.5, 0.0, 0.5, 0.1667, 0.5, 0.5, 0.0, 0.5, 0.8333, 0.5, 0.5, 0.50, 0.50, 0.50],
     "s_333":[0.0, 0.5, 0.5000, 0.5, 0.5, 0.0, 0.5, 0.1667, 0.5, 0.5, 0.0, 0.5, 0.8333, 0.5, 0.5, 0.70, 0.70, 0.70],
     "s_444":[0.0, 0.5, 0.5000, 0.5, 0.5, 0.0, 0.5, 0.1667, 0.5, 0.5, 0.0, 0.5, 0.8333, 0.5, 0.5, 0.99, 0.99, 0.99],
-    "best_observed":[0.4505677118451259, 0.3790109151931583, 0.7553272392295209, 0.0, 0.017070865111953607, 1.0, 0.4826375013108367, 0.4808966415561724, 0.04596926511532326, 0.09570130887176045, 0.3845583658094259, 0.5507515765703298, 0.6896674472409062, 0.44108011522818646, 0.0, 0.12127944102870869, 0.5957224152246153, 0.0],
-    "best_GP_posterior":[0.4282857255088529, 0.39880796315309613, 0.6937309739781954, 0.008488829053584633, 0.09508384018650465, 0.9670329011027277, 0.437842956904712, 0.4518764621966986, 0.11916130476525735, 0.15096813514588164, 0.46188179047937045, 0.574670329634577, 0.719834661429961, 0.4324804192344383, 0.03299854793002318, 0.16416474486632335, 0.5855290084417157, 0.05350289775816097],
+    "GP_posterior":[0.0, 0.42335352141207966, 0.4412499403717871, 1.0, 0.25947356154327933, 0.4122988001891047, 0.5814174731889221, 0.27038851248100043, 0.655373970654569, 0.10915401142834615, 0.16081482051639673, 0.6025436654695269, 0.8707279852493297, 0.6162662254436971, 0.7930472489877861, 0.2979701844186879, 0.46131302767998633, 0.4595460628161921],
+    "observed":[0.0, 0.4546179012055345, 0.43336229440185176, 1.0, 0.09095459403859071, 0.40196376344042195, 0.5792803462063196, 0.2990637845402627, 0.656236183203457, 0.10150161933277721, 0.004472994781259263, 0.612007834024074, 0.8586475028922177, 0.6005588620661254, 0.7924056990140599, 0.2701273765396683, 0.5718815532877707, 0.3881165320219997],
 }
 
 
@@ -191,13 +191,16 @@ if __name__ == "__main__":
         import itertools
         
 
-        train_seed_list = list(range(1001,1200))
+        train_seed_list = list(range(1001,1020))
         enjoy_seed_list = list(range(42,44))
         max_epochs = 4000
         
         update_task_config_parameters(0,False, task_info["waypoint_name"], False)
         for train_seed_sublist in [[s] for s in train_seed_list]:
             for pars_name, x  in selected_designs.items():
+                if pars_name in ("s_000","s_111","s_222","s_333","s_444") and train_seed_sublist[0] <= 1009:
+                    continue
+
                 x = np.array(x)
                 x_0_1 = x[:15]
                 motor_idx_0_1 = x[15:18]
@@ -229,19 +232,19 @@ if __name__ == "__main__":
         from problem_airframes import *
         # # Best solution
         # x = np.array([
-        #     0.000, 0.229, 0.255,  1.00, 0.996,
-        #     0.213, 0.532, 0.863,  0.63, 1.000,
-        #     0.750, 0.571, 0.342,  0.00, 0.352,
-        #     0.110, 0.647, 0.725
+        #     0.4505677118451259, 0.3790109151931583, 0.7553272392295209, 0.0, 0.017070865111953607,
+        #     1.0, 0.4826375013108367, 0.4808966415561724, 0.04596926511532326, 0.09570130887176045, 
+        #     0.3845583658094259, 0.5507515765703298, 0.6896674472409062, 0.44108011522818646, 0.0, 
+        #     0.12127944102870869, 0.5957224152246153, 0.0
         # ])
 
-        # # hex       
-        # x = np.array([
-        #             0.0, 0.5, 0.5000, 0.5, 0.5, 
-        #             0.0, 0.5, 0.1667, 0.5, 0.5, 
-        #             0.0, 0.5, 0.8333, 0.5, 0.5,
-        #             0.4, 0.4, 0.4,
-        #             ])
+        # hex       
+        x = np.array([
+                    0.0, 0.5, 0.5000, 0.5, 0.5, 
+                    0.0, 0.5, 0.1667, 0.5, 0.5, 
+                    0.0, 0.5, 0.8333, 0.5, 0.5,
+                    0.0, 0.0, 0.0,
+                    ])
         
         # # quad
         # x = np.array([0.0, 0.5, 0.25, 0.5, 0.5, 
@@ -261,21 +264,21 @@ if __name__ == "__main__":
         seed_train = 610
         seed_enjoy = 3
         start = time.time()
-        motor_rl_objective_function(pars, seed_train, seed_enjoy, 4000, task_info["waypoint_name"], "problem_airframes_train_and_enjoy.csv", render="visualize")
+        motor_rl_objective_function(pars, seed_train, seed_enjoy, 2000, task_info["waypoint_name"], "problem_airframes_train_and_enjoy.csv", render="headless")
         exit(0)
 
     elif sys.argv[1] == "--enjoy-one":
         from problem_airframes import *
 
-        # Optimized
-        file_path = "cache/airframes_animationdata/778443724_210_3_leftright_best_speed_airframeanimationdata.wb" 
-        # # s_111
-        # file_path = "/home/paran/Documents/2024_09_12_backup_results/cache/airframes_animationdata/1890901682_1007_43_leftright_best_speed_airframeanimationdata.wb" 
+        # # Optimized
+        # file_path = "cache/airframes_animationdata/3709956583_1009_42_lrcontinuous_best_speed_airframeanimationdata.wb" 
+        # s_111
+        file_path = "cache/airframes_animationdata/4134737168_610_3_lrcontinuous_best_speed_airframeanimationdata.wb" 
 
         animation_data  = load_animation_data_and_policy(file_path) # load policy into correct path
         save_robot_pars_to_file(animation_data["pars"])
         plot_airframe_to_file_isaacgym(animation_data["pars"], filepath="test_airframe_render.png")
-        motor_position_enjoy(3, animation_data["policy_path"], task_info["waypoint_name"], "position_setpoint_task", "save")
+        motor_position_enjoy(3, animation_data["policy_path"], task_info["waypoint_name"], "position_setpoint_task", "headless")
 
 
     elif sys.argv[1] == "--ax-get-conclusions-solution-space":

@@ -1,10 +1,8 @@
 import sys
 import numpy as np
-freq = 100
-save_cycle_max_offset = 10
-dt = 1.0 / freq
+exec(open("/home/paran/Dropbox/NTNU/aerial_gym_dev/aerial_gym_dev/utils/battery_rotor_dynamics.py").read())
+
 propeller_idx = 0
-n_repeat_experiment = 40
 test_exp = False
 
 vertiq_w = np.array([
@@ -15,6 +13,83 @@ vertiq_w = np.array([
 [0,    2083,  4170,  6248,  8212, 10147, 11958, 13732, 15395],
 ][propeller_idx], dtype=np.float64) * np.pi / 30
 
+
+
+
+def run_in_real_motor(target_w_list, freq, save_cycle_max_offset, n_repeat_experiment, resfile_prefix):
+    dt = 1.0 / freq
+    com = iq.SerialCommunicator("/dev/ttyUSB0", baudrate=921600)
+    module = iq.Vertiq2306(com, firmware="speed")
+    module.set("propeller_motor_control", "timeout", 0.5)
+    module.set("propeller_motor_control", "ctrl_coast")
+    for key, value in vertiq_tune_pars.items():
+        module.set("propeller_motor_control", key, value)
+
+    time_set_list = []
+    set_w_list = []
+    time_request_list = []
+    observed_w_list = []
+    for k in tqdm(range(n_repeat_experiment)):
+        waiting_w_read = False
+        time_set_list.append([])
+        set_w_list.append([])
+        time_request_list.append([])
+        observed_w_list.append([])
+        start = time.time()
+        time_request = time.time()
+        save_reminder = int((k/n_repeat_experiment)*save_cycle_max_offset) # 0 1 2 ... 11
+        for i, target_w in enumerate(target_w_list):
+            if not waiting_w_read and i%save_cycle_max_offset==save_reminder:
+                module.get_async("brushless_drive", "obs_velocity")
+                time_request = time.time() - start
+                waiting_w_read = True
+
+            while time.time() - start < i/freq:
+                continue
+
+            module.set("propeller_motor_control", "ctrl_velocity", target_w)
+            time_set_list[-1].append(time.time()-start)
+            set_w_list[-1].append(target_w)
+
+            while time.time() - start < (i+1)/freq:
+                if waiting_w_read:
+                    module.update_replies()
+                    if module.is_fresh("brushless_drive", "obs_velocity"):
+                        reply = module.get_reply("brushless_drive", "obs_velocity")
+                        time_request_list[-1].append(time_request)
+                        observed_w_list[-1].append(reply)
+                        waiting_w_read = False
+                else:
+                    time.sleep(1e-5)
+        while waiting_w_read:
+            module.update_replies()
+            if module.is_fresh("brushless_drive", "obs_velocity"):
+                reply = module.get_reply("brushless_drive", "obs_velocity")
+                time_request_list[-1].append(time_request)
+                observed_w_list[-1].append(reply)
+                waiting_w_read = False
+        module.set("propeller_motor_control", "ctrl_coast")
+        with open(f"scripts/vertiq_motor_modeling/run_results/calibration_propidx={propeller_idx}_freq={freq}_nreps={n_repeat_experiment}.txt", "w") as f:
+            print(time_set_list, file=f)
+            print(set_w_list, file=f)
+            print(time_request_list, file=f)
+            print(observed_w_list, file=f)
+        print("Cooling pause...")
+        time.sleep(60)
+
+
+
+    print("Time:",time.time() - start, "s")
+
+    #Set the module to coast, then wait 2 seconds
+    module.set("propeller_motor_control", "ctrl_coast")
+    time.sleep(0.2)
+
+
+    print("done", propeller_idx, freq)
+
+
+
 if __name__ == "__main__":
 
     # Run calibration procedure on real hardware
@@ -24,8 +99,7 @@ if __name__ == "__main__":
         from matplotlib import pyplot as plt
         from tqdm import tqdm as tqdm
         import random
-
-
+        freq = 500
         time.sleep(2)
 
 
@@ -65,103 +139,19 @@ if __name__ == "__main__":
                 target_w_list += (freq // 2) * [target_w]
             target_w_list += (freq // 2) * [w_discrete[0]]
 
-            # target_w_list += (freq // 2) * [w_discrete[-1]]
-            # for target_w in w_discrete[:-1]:
-            #     target_w_list += (freq // 2) * [w_discrete[-1]]
-            #     target_w_list += (freq // 2) * [target_w]
-            # target_w_list += (freq // 2) * [w_discrete[-1]]
-            # target_w_list += (freq // 2) * [w_discrete[0]]
-
-
-
-        com = iq.SerialCommunicator("/dev/ttyUSB0", baudrate=921600)
-        module = iq.Vertiq2306(com, firmware="speed")
-        module.set("propeller_motor_control", "timeout", 0.5)
-        module.set("propeller_motor_control", "ctrl_coast")
-        for key, value in vertiq_tune_pars.items():
-            module.set("propeller_motor_control", key, value)
-
-        time_set_list = []
-        set_w_list = []
-        time_request_list = []
-        observed_w_list = []
-        for k in tqdm(range(n_repeat_experiment)):
-            waiting_w_read = False
-            time_set_list.append([])
-            set_w_list.append([])
-            time_request_list.append([])
-            observed_w_list.append([])
-            start = time.time()
-            time_request = time.time()
-            save_reminder = int((k/n_repeat_experiment)*save_cycle_max_offset) # 0 1 2 ... 11
-            for i, target_w in enumerate(target_w_list):
-                if not waiting_w_read and i%save_cycle_max_offset==save_reminder:
-                    module.get_async("brushless_drive", "obs_velocity")
-                    time_request = time.time() - start
-                    waiting_w_read = True
-
-                while time.time() - start < i/freq:
-                    continue
-
-                module.set("propeller_motor_control", "ctrl_velocity", target_w)
-                time_set_list[-1].append(time.time()-start)
-                set_w_list[-1].append(target_w)
-
-                while time.time() - start < (i+1)/freq:
-                    if waiting_w_read:
-                        module.update_replies()
-                        if module.is_fresh("brushless_drive", "obs_velocity"):
-                            reply = module.get_reply("brushless_drive", "obs_velocity")
-                            time_request_list[-1].append(time_request)
-                            observed_w_list[-1].append(reply)
-                            waiting_w_read = False
-                    else:
-                        time.sleep(1e-5)
-            while waiting_w_read:
-                module.update_replies()
-                if module.is_fresh("brushless_drive", "obs_velocity"):
-                    reply = module.get_reply("brushless_drive", "obs_velocity")
-                    time_request_list[-1].append(time_request)
-                    observed_w_list[-1].append(reply)
-                    waiting_w_read = False
-            module.set("propeller_motor_control", "ctrl_coast")
-            with open(f"results/data/vertiq_w_propidx={propeller_idx}_freq={freq}_nreps={n_repeat_experiment}.txt", "w") as f:
-                print(time_set_list, file=f)
-                print(set_w_list, file=f)
-                print(time_request_list, file=f)
-                print(observed_w_list, file=f)
-            print("Cooling pause...")
-            time.sleep(60)
-
-
-
-        print("Time:",time.time() - start, "s")
-
-        #Set the module to coast, then wait 2 seconds
-        module.set("propeller_motor_control", "ctrl_coast")
-        time.sleep(0.2)
-
-
-        print("done", propeller_idx, freq)
+        run_in_real_motor(target_w, freq, save_cycle_max_offset=10, n_repeat_experiment=40, resfile_prefix="calibration")
 
     if sys.argv[1] == "--plot-calibration":
         from matplotlib import pyplot as plt
-        import test_vertiq_motor
-        import torch
         from tqdm import tqdm as tqdm
-        exec(open("/home/paran/Dropbox/NTNU/aerial_gym_dev/aerial_gym_dev/utils/battery_rotor_dynamics.py").read())
-
-
-
-        # Load and process experimental data
-
-        freq = test_vertiq_motor.freq
-        dt = test_vertiq_motor.dt
-        propeller_idx = test_vertiq_motor.propeller_idx
-        n_repeat_experiment = test_vertiq_motor.n_repeat_experiment
+        import re
+        filename = f"scripts/vertiq_motor_modeling/run_results/calibration_propidx=0_freq=500_nreps=40.txt"
+        propidx = int(re.search(r'propidx=(\d+)', filename).group(1))
+        freq = int(re.search(r'freq=(\d+)', filename).group(1))
+        nreps = int(re.search(r'nreps=(\d+)', filename).group(1))
+        dt = 1/freq
 
         def load_data(propeller_idx, freq):
-            filename = f"results/data/vertiq_w_propidx={propeller_idx}_freq={freq}_nreps={n_repeat_experiment}.txt"
             with open(filename, "r") as f:
                 time_set_list = eval(f.readline().strip())
                 set_w_list = eval(f.readline().strip())
@@ -274,12 +264,29 @@ if __name__ == "__main__":
         plt.grid(True)
         plt.show()
 
+    if sys.argv[1] == "--run-rl-agent-commands-in-real-motor":
+        from matplotlib import pyplot as plt
+
+        with open('desired_w_rl_agent.txt', 'r') as f:
+            target_w_list = [float(line.strip()) for line in f]
+        run_in_real_motor(target_w_list, freq=100, save_cycle_max_offset=2, n_repeat_experiment=4, resfile_prefix="rlactions")
+
+
+
     if sys.argv[1] == "--plot-rl-agent-commands":
+        from matplotlib import pyplot as plt
+
+        with open('desired_w_rl_agent.txt', 'r') as f:
+            target_w_list = [float(line.strip()) for line in f]
+
         rotor_dinamycs = BatteryRotorDynamics(1, 1, [propeller_idx], 8, 10.0, dt, 0.1, "cpu")
-        for i in range(1000):
-            rotor_dinamycs.set_desired_rps_and_get_current_rps(0.0, 0.08)
+        for i in range(100):
+            rotor_dinamycs.set_desired_rps_and_get_current_rps(0.0, 0.00001)
 
         modeled_w = []
-        for w in ref_w_list:
-            current_w = rotor_dinamycs.set_desired_rps_and_get_current_rps(w, motor_constant)
+        for w in target_w_list:
+            current_w = rotor_dinamycs.set_desired_rps_and_get_current_rps(w, 0.0186)
             modeled_w.append(current_w)
+
+        plt.plot(np.arange(0,10,dt), target_w_list)
+        plt.show()
