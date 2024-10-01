@@ -1,5 +1,9 @@
 import sys
 import numpy as np
+from tqdm import tqdm as tqdm
+import time
+from matplotlib import pyplot as plt
+
 exec(open("/home/paran/Dropbox/NTNU/aerial_gym_dev/aerial_gym_dev/utils/battery_rotor_dynamics.py").read())
 
 propeller_idx = 0
@@ -13,10 +17,14 @@ vertiq_w = np.array([
 [0,    2083,  4170,  6248,  8212, 10147, 11958, 13732, 15395],
 ][propeller_idx], dtype=np.float64) * np.pi / 30
 
-
+vertiq_tune_pars = [
+    # {"velocity_ff0":0.0, "velocity_ff1": 0.0043, "velocity_ff2": 0.000000484, # manufacturer values
+    {"velocity_ff0":0.0, "velocity_ff1": 0.00433, "velocity_ff2": 2.002e-07, "velocity_Kp":0.035, "velocity_Ki":0.0015, "velocity_Kd":0.0004},
+][propeller_idx]
 
 
 def run_in_real_motor(target_w_list, freq, save_cycle_max_offset, n_repeat_experiment, resfile_prefix):
+    import iqmotion as iq
     dt = 1.0 / freq
     com = iq.SerialCommunicator("/dev/ttyUSB0", baudrate=921600)
     module = iq.Vertiq2306(com, firmware="speed")
@@ -75,7 +83,7 @@ def run_in_real_motor(target_w_list, freq, save_cycle_max_offset, n_repeat_exper
             print(time_request_list, file=f)
             print(observed_w_list, file=f)
         print("Cooling pause...")
-        time.sleep(60)
+        time.sleep(30)
 
 
 
@@ -88,27 +96,52 @@ def run_in_real_motor(target_w_list, freq, save_cycle_max_offset, n_repeat_exper
 
     print("done", propeller_idx, freq)
 
+def read_real_motor_data_into_average(filename):
+    propidx = int(re.search(r'propidx=(\d+)', filename).group(1))
+    freq = int(re.search(r'freq=(\d+)', filename).group(1))
+    nreps = int(re.search(r'nreps=(\d+)', filename).group(1))
+    dt = 1/freq
+    with open(filename, "r") as f:
+            time_set_list = eval(f.readline().strip())
+    _time_arrays = [np.array(time_set) for time_set in time_set_list]
+    _max_time = max(time_array[-1] for time_array in _time_arrays)
+    t_list = np.arange(0, _max_time, dt)
+    
+    with open(filename, "r") as f:
+        time_set_list_of_lists = eval(f.readline().strip())
+        set_w_list_of_lists = eval(f.readline().strip())
+        time_request_list_of_lists = eval(f.readline().strip())
+        observed_w_list_of_lists = eval(f.readline().strip())
+
+    def compute_time_based_average(t_list, observed_t_list_of_lists, w_list_of_lists, dt, max_dt_for_average):
+        time_arrays = [np.array(time_set) for time_set in observed_t_list_of_lists]
+        w_arrays = [np.array(set_w) for set_w in w_list_of_lists]
+        
+        res = np.zeros(len(t_list))
+        for i, t in enumerate(t_list):
+            values = []
+            for time_array, w_array in zip(time_arrays, w_arrays):
+                idx = np.searchsorted(time_array, t)
+                if idx > 0 and (idx == len(time_array) or abs(time_array[idx-1] - t) < abs(time_array[idx] - t)):
+                    idx -= 1
+                if abs(time_array[idx] - t) <= max_dt_for_average:
+                    values.append(w_array[idx])
+            if values:
+                res[i] = np.median(values)
+        return res.tolist()
+
+    w_list_set = compute_time_based_average(t_list, time_set_list_of_lists, set_w_list_of_lists, dt, max_dt_for_average=1/freq)
+    w_list_observed = compute_time_based_average(t_list, time_request_list_of_lists, observed_w_list_of_lists, dt, max_dt_for_average=1/freq)
+    return t_list, w_list_set, w_list_observed
 
 
 if __name__ == "__main__":
 
     # Run calibration procedure on real hardware
     if sys.argv[1] == "--run-calibration":
-        import iqmotion as iq
-        import time
-        from matplotlib import pyplot as plt
-        from tqdm import tqdm as tqdm
         import random
         freq = 500
         time.sleep(2)
-
-
-
-
-        vertiq_tune_pars = [
-            # {"velocity_ff0":0.0, "velocity_ff1": 0.0043, "velocity_ff2": 0.000000484, # manufacturer values
-            {"velocity_ff0":0.0, "velocity_ff1": 0.00433, "velocity_ff2": 2.002e-07, "velocity_Kp":0.035, "velocity_Ki":0.0015, "velocity_Kd":0.0004},
-        ][propeller_idx]
 
         w_00 = vertiq_w[1]
         w_15 = w_00 + int(0.15 * (vertiq_w[-1] - w_00))
@@ -142,8 +175,6 @@ if __name__ == "__main__":
         run_in_real_motor(target_w, freq, save_cycle_max_offset=10, n_repeat_experiment=40, resfile_prefix="calibration")
 
     if sys.argv[1] == "--plot-calibration":
-        from matplotlib import pyplot as plt
-        from tqdm import tqdm as tqdm
         import re
         filename = f"scripts/vertiq_motor_modeling/run_results/calibration_propidx=0_freq=500_nreps=40.txt"
         propidx = int(re.search(r'propidx=(\d+)', filename).group(1))
@@ -151,71 +182,42 @@ if __name__ == "__main__":
         nreps = int(re.search(r'nreps=(\d+)', filename).group(1))
         dt = 1/freq
 
-        def load_data(propeller_idx, freq):
-            with open(filename, "r") as f:
-                time_set_list = eval(f.readline().strip())
-                set_w_list = eval(f.readline().strip())
-                time_request_list = eval(f.readline().strip())
-                observed_w_list = eval(f.readline().strip())
-            return time_set_list, set_w_list, time_request_list, observed_w_list
+        t_list, w_list_set, w_list_observed = read_real_motor_data_into_average(filename)
 
-        time_set_list, set_w_list, time_request_list, observed_w_list = load_data(propeller_idx, freq)
-
-
-        def compute_time_based_average(time_set_list, set_w_list, dt, max_dt_for_average):
-            time_arrays = [np.array(time_set) for time_set in time_set_list]
-            w_arrays = [np.array(set_w) for set_w in set_w_list]
-            max_time = max(time_array[-1] for time_array in time_arrays)
-            time_points = np.arange(0, max_time, dt)
-            res = np.zeros(len(time_points))
-            for i, t in enumerate(time_points):
-                values = []
-                for time_array, w_array in zip(time_arrays, w_arrays):
-                    idx = np.searchsorted(time_array, t)
-                    if idx > 0 and (idx == len(time_array) or abs(time_array[idx-1] - t) < abs(time_array[idx] - t)):
-                        idx -= 1
-                    if abs(time_array[idx] - t) <= max_dt_for_average:
-                        values.append(w_array[idx])
-                if values:
-                    res[i] = np.median(values)
-            return time_points, res.tolist()
-
-
-        def get_error_modeled_vs_observed(observed_w_list, ref_w_list, dt, motor_constant):
+        def get_error_modeled_vs_observed(w_list_observed, w_list_set, dt, motor_constant):
             rotor_dinamycs = BatteryRotorDynamics(1, 1, [propeller_idx], 8, 10.0, dt, 0.1, "cpu")
             for i in range(1000):
                 rotor_dinamycs.set_desired_rps_and_get_current_rps(0.0, 0.08)
 
             modeled_w = []
-            for w in ref_w_list:
+            for w in w_list_set:
                 current_w = rotor_dinamycs.set_desired_rps_and_get_current_rps(w, motor_constant)
                 modeled_w.append(current_w)
-            return np.quantile(np.abs(np.array(observed_w_list)-np.array(modeled_w)), 0.90)
+            return np.quantile(np.abs(np.array(w_list_observed)-np.array(modeled_w)), 0.90)
 
 
-        t_list, w_list = compute_time_based_average(time_request_list, observed_w_list, dt, max_dt_for_average=1/500)
 
         best_error = 1e8
         best_motor_constant = None
         for motor_constant in tqdm(np.linspace(0.001,0.08,500)):
-            error = get_error_modeled_vs_observed(w_list, set_w_list[0], dt, motor_constant)
+            error = get_error_modeled_vs_observed(w_list_observed, w_list_set, dt, motor_constant)
             if error < best_error:
                 best_error = error
                 best_motor_constant = motor_constant
                 print("motor_constant:", motor_constant, ", error:", error)
-
+ 
 
         rotor_dinamycs = BatteryRotorDynamics(1, 1, [propeller_idx], 8, 10.0, dt, 0.1, "cpu")
 
         modeled_w = []
-        for w in set_w_list[0]:
+        for w in w_list_set:
             current_w = rotor_dinamycs.set_desired_rps_and_get_current_rps(w, best_motor_constant)
             modeled_w.append(current_w)
 
         # plt.plot(time_set_list[0], modeled_w, alpha=0.5)
         # plt.plot(time_set_list[0], set_w_list[0], alpha=0.5)
-        plt.plot(time_set_list[0], modeled_w, alpha=0.5, label="modeled")
-        plt.plot(t_list, w_list, linestyle="", marker=".", color="red", alpha=0.5, label="observed")
+        plt.plot(t_list, modeled_w, alpha=0.5, label="modeled")
+        plt.plot(t_list, w_list_observed, linestyle="", marker=".", color="red", alpha=0.5, label="observed")
         plt.legend()
         plt.show()
         exit(0)
@@ -224,58 +226,19 @@ if __name__ == "__main__":
         #     plt.plot(time_request_list[i], observed_w_list[i], linestyle="", marker=".",)
 
 
-
-
-
-
-
-
-        exit(0)
-        avg_target_w = process_data(target_w_list, n_repeat_experiment)
-        avg_w_get_request_time = process_data(observed_w_get_request_time, n_repeat_experiment)
-
-        avg_times = process_time(observed_times, n_repeat_experiment)
-        corrected_target = corrected_target_w(avg_target_w, avg_w_get_request_time)
-
-
-        # Commanded w
-        avg_target_w
-
-        # Target corrected as the vertiq controller does not converge in exactly commanded velocity
-        corrected_target
-
-        # Observed w (averaged over many repetitions)
-        avg_w_get_request_time
-
-        # Difference between target and observed
-        error_wrt_target = np.abs(corrected_target - avg_w_get_request_time)
-        error_wrt_target[error_wrt_target < 2] = 0.0
-
-
-
-        plt.figure(figsize=(10, 6))
-        plt.plot(avg_times, avg_target_w, label="Commanded w")
-        plt.plot(avg_times, avg_w_get_request_time, label="Observed w")
-
-        plt.xlabel("Time (s)")
-        plt.ylabel("w")
-        plt.title(f"Averaged Data over {n_repeat_experiment} Repetitions")
-        plt.legend()
-        plt.grid(True)
-        plt.show()
-
     if sys.argv[1] == "--run-rl-agent-commands-in-real-motor":
         from matplotlib import pyplot as plt
 
         with open('desired_w_rl_agent.txt', 'r') as f:
             target_w_list = [float(line.strip()) for line in f]
+        target_w_list = target_w_list
         run_in_real_motor(target_w_list, freq=100, save_cycle_max_offset=2, n_repeat_experiment=4, resfile_prefix="rlactions")
 
 
 
     if sys.argv[1] == "--plot-rl-agent-commands":
         from matplotlib import pyplot as plt
-
+        dt = 100
         with open('desired_w_rl_agent.txt', 'r') as f:
             target_w_list = [float(line.strip()) for line in f]
 
@@ -288,5 +251,6 @@ if __name__ == "__main__":
             current_w = rotor_dinamycs.set_desired_rps_and_get_current_rps(w, 0.0186)
             modeled_w.append(current_w)
 
+        plt.plot(np.arange(0,10,dt), target_w_list)
         plt.plot(np.arange(0,10,dt), target_w_list)
         plt.show()
