@@ -3,7 +3,7 @@ import numpy as np
 from tqdm import tqdm as tqdm
 import time
 from matplotlib import pyplot as plt
-
+import re
 exec(open("/home/paran/Dropbox/NTNU/aerial_gym_dev/aerial_gym_dev/utils/battery_rotor_dynamics.py").read())
 
 propeller_idx = 0
@@ -97,9 +97,7 @@ def run_in_real_motor(target_w_list, freq, save_cycle_max_offset, n_repeat_exper
     print("done", propeller_idx, freq)
 
 def read_real_motor_data_into_average(filename):
-    propidx = int(re.search(r'propidx=(\d+)', filename).group(1))
     freq = int(re.search(r'freq=(\d+)', filename).group(1))
-    nreps = int(re.search(r'nreps=(\d+)', filename).group(1))
     dt = 1/freq
     with open(filename, "r") as f:
             time_set_list = eval(f.readline().strip())
@@ -238,19 +236,25 @@ if __name__ == "__main__":
 
     if sys.argv[1] == "--plot-rl-agent-commands":
         from matplotlib import pyplot as plt
-        dt = 100
-        with open('desired_w_rl_agent.txt', 'r') as f:
-            target_w_list = [float(line.strip()) for line in f]
+        filename = "scripts/vertiq_motor_modeling/run_results/calibration_propidx=0_freq=100_nreps=4.txt"
+        propidx = int(re.search(r'propidx=(\d+)', filename).group(1))
+        freq = int(re.search(r'freq=(\d+)', filename).group(1))
+        nreps = int(re.search(r'nreps=(\d+)', filename).group(1))
+        dt = 1/freq
+
+        t_list, w_list_set, w_list_observed = read_real_motor_data_into_average(filename)
 
         rotor_dinamycs = BatteryRotorDynamics(1, 1, [propeller_idx], 8, 10.0, dt, 0.1, "cpu")
         for i in range(100):
             rotor_dinamycs.set_desired_rps_and_get_current_rps(0.0, 0.00001)
 
         modeled_w = []
-        for w in target_w_list:
+        for w in w_list_set:
             current_w = rotor_dinamycs.set_desired_rps_and_get_current_rps(w, 0.0186)
             modeled_w.append(current_w)
 
-        plt.plot(np.arange(0,10,dt), target_w_list)
-        plt.plot(np.arange(0,10,dt), target_w_list)
+        plt.plot(t_list, w_list_set, label="rl-commands")
+        plt.plot(t_list, modeled_w, label="model")
+        plt.plot(t_list, w_list_observed, linestyle="", marker=".", color="red", alpha=0.5, label="observed")
+        plt.legend()
         plt.show()
