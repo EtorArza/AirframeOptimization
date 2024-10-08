@@ -87,7 +87,7 @@ def from_0_1_to_RobotParameter(x_0_1: numpy.typing.NDArray[np.float_],  motor_id
 
         motor_orientations[i][0] = scale_from_0_1(x_0_1[i*5+3], -90.0 if i==0 else -60.0, 90.0 if i==0 else 60.0)
         motor_orientations[i][1] = 0.0
-        motor_orientations[i][2] = scale_from_0_1(x_0_1[i*5+3], 0.0, 360.0)
+        motor_orientations[i][2] = scale_from_0_1(x_0_1[i*5+4], 0.0, 360.0)
 
         motor_orientations[i + n_motors//2][0] = -motor_orientations[i][0]
         motor_orientations[i + n_motors//2][1] = 0.0
