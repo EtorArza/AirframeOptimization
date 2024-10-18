@@ -13,17 +13,18 @@ from ax.modelbridge.registry import Models
 import problem_airframes
 import torch
 import copy
+from statistics import median
 
 def evaluate_airframe(x, train_seed, test_seed, task_info, n_repeated_evaluations):
     
-    best_n_waypoints_per_reset = -1e8
-    best_n_waypoints_reachable_based_on_battery_use = -1e8
+    best_n_waypoints_per_reset = []
+    best_n_waypoints_reachable_based_on_battery_use = []
     for i in range(n_repeated_evaluations):
         n_waypoints_per_reset, n_waypoints_reachable_based_on_battery_use = problem_airframes.f_symmetric_hexarotor_0_1(x, train_seed+20000*i, test_seed, task_info)
-        best_n_waypoints_per_reset = max(best_n_waypoints_per_reset, n_waypoints_per_reset)
-        best_n_waypoints_reachable_based_on_battery_use = max(best_n_waypoints_reachable_based_on_battery_use, n_waypoints_reachable_based_on_battery_use)
+        best_n_waypoints_per_reset.append(n_waypoints_per_reset)
+        best_n_waypoints_reachable_based_on_battery_use.append(n_waypoints_reachable_based_on_battery_use)
 
-    f_res = {"n_waypoints_per_reset":best_n_waypoints_per_reset, "n_waypoints_reachable_based_on_battery_use":best_n_waypoints_reachable_based_on_battery_use}
+    f_res = {"n_waypoints_per_reset":median(best_n_waypoints_per_reset), "n_waypoints_reachable_based_on_battery_use":median(best_n_waypoints_reachable_based_on_battery_use)}
     return f_res
 
 
@@ -172,6 +173,11 @@ def local_solve(seed, budget, task_info):
     for i in range(algo.ax_client.get_trials_data_frame().shape[0], budget):
         x = algo.ask()
         f = evaluate_airframe(x, i, 3, task_info, 1)
+
+        if f["n_waypoints_per_reset"] > f_best:
+            f = evaluate_airframe(x, i, 3, task_info, 5)
+
+
         algo.tell(f)
         algo.save_optimization_status(ax_status_filepath)
         df = algo.ax_client.get_trials_data_frame()

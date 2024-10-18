@@ -42,7 +42,7 @@ if __name__ == "__main__":
         from airframes_objective_functions import update_task_config_parameters
         sys.argv.pop()
         seed = 6
-        budget = 1200
+        budget = 600
         local_solve(seed, budget, task_info)
 
     # Directly solve problem locally, with f function that returns np.nan on infeasible solutions.
