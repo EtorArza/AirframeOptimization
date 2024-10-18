@@ -35,6 +35,36 @@ def plot_progress_one(path: str):
 
 
 
+def plot_accuracy_loss_vs_training_time(path):
+    import seaborn as sns
+    from matplotlib import pyplot as plt
+    m = pd.read_csv(path, header=None).to_numpy()[:, 1:]
+    m = np.maximum.accumulate(m, axis=1)
+    m = m[np.argsort(m[:,-1]), :]
+    ranks = np.argsort(np.argsort(-m, axis=0), axis=0)
+    ranks = ranks.astype(float)
+    ranks /= ranks.shape[0]
+    ranks = ranks[::-1, :]
+    # rank_error = np.abs(ranks - ranks[:, -1].reshape(-1, 1).repeat(ranks.shape[1], axis=1))
+    
+
+    rank_error = 1.0 - np.logical_xor(ranks < 0.5, np.linspace(0,1, ranks.shape[0]).reshape(-1, 1).repeat(ranks.shape[1], axis=1) > 0.5)
+
+
+    plt.figure(figsize=(10, 8))
+    color = sns.cubehelix_palette(start=2, rot=0, dark=0, light=.95, reverse=False, as_cmap=True)
+    ax = sns.heatmap(rank_error, cmap=color, linewidths=.5, linecolor='lightgray')
+
+    colorbar = ax.collections[0].colorbar
+    colorbar.set_label(r'Normalized distance', fontsize=16)
+
+    plt.xticks(fontsize=12)
+    plt.yticks(fontsize=12)
+
+    plt.xlabel("Episode", fontsize=14)
+    plt.ylabel("Seed rank (lower is better)", fontsize=14)
+
+    plt.show()
 
 
 
@@ -147,67 +177,41 @@ def compare_different_constraint_methods(problem, algorithm, constraint_method_l
     plt.tight_layout()
 
 from typing import Iterable
-def sidebyside_boxplots(file_list: Iterable[str]):
+def boxplots_repeatedly_different_train_seed(result_file_path: str):
     import pandas as pd
 
-    # Read data
-    df_dict = dict()
-    for file in file_list:
-        key = file.split("/")[-1]
-        key = key.replace("s.csv","")
-        key = key.replace("_f_variance","")
-        key = (key.split("_")[0], int(key.split("_")[1]))
-        df_dict[key] = pd.read_csv(file, sep=";")
+    df = _read_and_clean_data_every_evaluation_csv(result_file_path)
 
+    for column_name in ["n_waypoints_per_reset","n_waypoints_reachable_based_on_battery_use"]:
+        data_list = []
+        label_list = []
+        max_epoch_list = sorted(df["max_epochs"].unique().tolist())
+        pars_name_list = sorted(df["pars_name"].unique().tolist())
 
-    # Plot one boxplot per train seed, to see both the train and test variances together
-    from matplotlib import pyplot as plt
-    for key in [("quad",720), ("hex",360), ("hex", 1440)]:
-        boxplot = plt.boxplot([df_dict[key].query(f"seed_train == {seed}")["f_waypoints_reached_energy_adjusted"] for seed in range(2, 22)], showmeans=True)
-        legend_handles = [boxplot["medians"][0], boxplot["means"][0]]
-        legend_labels = ["Median", "Mean"]
-        plt.legend(legend_handles, legend_labels)
-        plt.title(str(key))
+        for max_epoch in max_epoch_list:
+            for pars_name in pars_name_list:
+                data_list.append(df.query(f"max_epochs == {max_epoch} & pars_name == '{pars_name}'")[column_name])    
+                label = pars_name
+                label_list.append(label)
+            
+
+        plt.figure(figsize=(2.0+ 0.6*len(label_list),2.5))
+        boxplot = plt.boxplot(data_list, showmeans=True)
+        plt.legend()
+        plt.xticks(list(range(1, len(data_list)+1)), label_list)
+        plt.xlabel("")
+        plt.ylabel("")
+        plt.title(column_name.replace('_',' '))
         plt.tight_layout()
-        plt.savefig(f"results/figures/quad_hex_f_variance/train_and_test_variance_{key[0]}_{key[1]}.pdf")
+        plt.savefig(f"results/figures/repeatedly_different_train_seed/hex_repeatedly_{column_name.replace('/','-')}_boxplots.pdf")
         plt.close()
-
-    # Boxplot of variance on hex train
-    f_list = []
-    label_list = []
-    sorted_keys = sorted(df_dict.keys(), key=lambda x: -10000 + x[1] if "quad" in x[0] else x[1])
-    for key in sorted_keys:
-        if "quad" in key:
-            continue
-        f_list.append(df_dict[key].groupby('seed_train')['f'].mean().values)
-        label_list.append(str(key[1]))
-
-    # Print variance
-    for idx, key, f_array in zip(range(10000), sorted_keys, f_list):
-        plt.plot(np.ones_like(f_array)*idx + np.random.random(len(f_array)) / 8, f_array, label=key, linestyle="", marker=".")
-        print(key, " train variance =", np.var(f_array), "| test variance =", np.mean(df_dict[key].groupby('seed_train')['f'].var().values))
-    plt.show()
-    plt.close()
-
-    plt.figure(figsize=(4,2.5))
-    boxplot = plt.boxplot(f_list, showmeans=True)
-    plt.hlines(59.14, *plt.gca().get_xlim(),colors="blue", linestyles="--", label="best retrain 1440s")
-    plt.hlines(55.88, *plt.gca().get_xlim(), colors="red", linestyles="-.", label="best 360s")
-    plt.legend()
-    plt.xticks(list(range(1, len(f_list)+1)), label_list)
-    plt.xlabel("Traininig time (s)")
-    plt.ylabel("Mean reward")
-    plt.title("Hex different train seeds")
-    plt.tight_layout()
-    plt.savefig("results/figures/quad_hex_f_variance/train_variance_hex.pdf")
-    plt.close()
 
 
 
 def _read_and_clean_data_every_evaluation_csv(details_every_evaluation_csv):
     df = pd.read_csv(details_every_evaluation_csv, sep=";")
 
-    chosen_rows = (df["nWaypointsReached/nResets"] > 0.1) & (df["total_energy/nWaypointsReached"] > 0.01) & (df["total_energy/nWaypointsReached"] < 5.0)
+    chosen_rows = (df["n_waypoints_per_reset"] > 0.0) & (df["n_waypoints_reachable_based_on_battery_use"] > 0.0)
     
     perc_rows = (1.0 - np.count_nonzero(chosen_rows) / df.shape[0]) * 100.0
 
@@ -215,12 +219,11 @@ def _read_and_clean_data_every_evaluation_csv(details_every_evaluation_csv):
 
     df = df[chosen_rows]
 
-    df = df.groupby(['hash', 'seed_train', "train_for_seconds"]).agg({
+    df = df.groupby(['hash', 'policy_path', 'pars_name', 'seed_train', "max_epochs"]).agg({
         'seed_enjoy': lambda x: x.iloc[0] if len(x) > 1 else x.iloc[0],
-        'f': 'mean',
-        'nWaypointsReached/nResets': 'mean',
-        'total_energy/nWaypointsReached': 'mean',
-        'total_energy': 'mean'
+        'n_waypoints_per_reset': 'max',
+        'n_waypoints_reachable_based_on_battery_use': 'max',
+        'percentage_of_battery_used_in_total': 'mean'
     }).reset_index()
 
     return df
@@ -230,7 +233,7 @@ def multiobjective_scatter_by_train_time(details_every_evaluation_csv):
 
     df = _read_and_clean_data_every_evaluation_csv(details_every_evaluation_csv)
 
-    unique_train_seconds = df['train_for_seconds'].unique()
+    unique_train_seconds = df['max_epochs'].unique()
     color_map = {value: color for value, color in zip(unique_train_seconds, plt.rcParams['axes.prop_cycle'].by_key()['color'])}
     markers = itertools.cycle(('x', 's', 'v', '^', '<', '>', '8', 'p', '*', 'h', 'H', 'D', 'd'))
 
@@ -241,11 +244,11 @@ def multiobjective_scatter_by_train_time(details_every_evaluation_csv):
 
     plt.figure(figsize=(10, 6))
     for train_value in unique_train_seconds:
-        subset = df[df['train_for_seconds'] == train_value]
+        subset = df[df['max_epochs'] == train_value]
         plt.scatter(
             x=subset['total_energy/nWaypointsReached'],
             y=subset['nWaypointsReached/nResets'],
-            label=labels_map.get(train_value, f'train_for_seconds = {train_value}'),
+            label=labels_map.get(train_value, f'max_epochs = {train_value}'),
             color=color_map[train_value],
             marker=next(markers),
             alpha=0.5
@@ -260,7 +263,7 @@ def multiobjective_scatter_by_train_time(details_every_evaluation_csv):
     return df
 
 
-def generate_bokeh_interactive_plot(details_every_evaluation_csv, task_name):
+def generate_bokeh_interactive_plot(details_every_evaluation_csv, waypoint_name):
 
     from bokeh.plotting import figure, output_file, show, save, ColumnDataSource
     from bokeh.models import HoverTool
@@ -280,7 +283,7 @@ def generate_bokeh_interactive_plot(details_every_evaluation_csv, task_name):
     legend_labels = []
 
     for i in tqdm(range(df.shape[0])):
-        id = str(df["hash"][i])+ "_" + str(df["seed_train"][i])+ "_" + str(df["seed_enjoy"][i]) + "_" + task_name
+        id = str(df["hash"][i])+ "_" + str(df["seed_train"][i])+ "_" + str(df["seed_enjoy"][i]) + "_" + waypoint_name
         pars_hash = df["hash"][i]
         if pars_hash == 7399056118471101504:
             colors.append("orange")
@@ -294,11 +297,11 @@ def generate_bokeh_interactive_plot(details_every_evaluation_csv, task_name):
         data = pickle.load(open(f'cache/airframes_animationdata/{id}_airframeanimationdata.wb', 'rb'))
         pars = data["pars"]
         imagepath = f"cache/bokeh_interactive_plot/{id}.png"
-        plot_airframe_to_file_isaacgym(pars, imagepath)
+        # plot_airframe_to_file_isaacgym(pars, imagepath)
         desc.append(str(id))
         imgs.append(imagepath)
-        x.append(df["total_energy/nWaypointsReached"][i])
-        y.append(df["nWaypointsReached/nResets"][i])
+        x.append(df["n_waypoints_reachable_based_on_battery_use"][i])
+        y.append(df["n_waypoints_per_reset"][i])
 
     output_file("test_bokeh.html")
 
@@ -332,9 +335,9 @@ def generate_bokeh_interactive_plot(details_every_evaluation_csv, task_name):
     p.scatter('x', 'y', size=10, source=source, fill_alpha=0, line_color='colors', marker="markers", legend_field='legend_labels')
 
 
-    p.xaxis.axis_label = 'Energy per waypoint reached'
-    p.yaxis.axis_label = 'Waypoint reached per reset'
-    p.title.text = f'Waypoints reached vs. energy use ({task_name})'
+    p.xaxis.axis_label = 'Number of waypoints reachable on full battery'
+    p.yaxis.axis_label = 'Waypoint reachable in 5 seconds'
+    p.title.text = f'Waypoints reached vs. energy use ({waypoint_name})'
 
 
     # p.legend.title = 'Hexarotor Type'
@@ -377,6 +380,26 @@ def generate_bokeh_interactive_plot(details_every_evaluation_csv, task_name):
 
     with open("test_bokeh.html", "w") as file:
         file.write(new_html)
+
+
+
+
+def animate_solution_interpolation(interpolated_x, was_evaluated, relative_pos_on_pareto):
+    from airframes_objective_functions import plot_airframe_to_file_isaacgym
+    from problem_airframes import from_0_1_to_RobotParameter
+
+    figure_path = "results/figures/interpolate_airframes_animation_figures"
+    pb = tqdm(total=len(interpolated_x))
+    for i, x in enumerate(interpolated_x):
+        x_0_1 = x[:15]
+        motor_idx_0_1 = x[15:18]
+        # battery_idx_0_1 = x[18]
+        pars = from_0_1_to_RobotParameter(x_0_1, motor_idx_0_1)
+        plot_airframe_to_file_isaacgym(pars, figure_path +  f"/{i:03}.png" )
+        pb.update()
+    pb.close()
+
+    
 
 
 

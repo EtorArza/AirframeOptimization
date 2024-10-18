@@ -20,7 +20,44 @@ import sys
 import tempfile
 import pickle
 import os
+import glob
 from datetime import datetime
+import shutil
+import tarfile
+import yaml
+import json
+import re
+
+def update_launch_json(command):
+    # Path to the launch.json file
+    launch_json_path = os.path.join('.vscode', 'launch.json')
+
+    # Read the current content of launch.json
+    with open(launch_json_path, 'r') as file:
+        data = json.load(file)
+
+    # Find the 'pickle' configuration
+    for config in data['configurations']:
+        if config['name'] == 'pickle':
+            # Extract the script name and arguments from the command
+            match = re.search(r'python (.*?) --(.*?) (.*?) (.*?)$', command)
+            if match:
+                script_path, script_name, args_file, return_file = match.groups()
+                
+                # Update the 'args' field
+                config['args'] = [f"--{script_name}", args_file, return_file]
+                
+                # Update the 'program' field with the absolute path
+                config['program'] = os.path.abspath(script_path)
+            
+            break
+
+    # Write the updated content back to launch.json
+    with open(launch_json_path, 'w') as file:
+        json.dump(data, file, indent=4)
+
+    print(f"Updated {launch_json_path}")
+
 
 # This decorator will run the function in a subprocess. It takes the input arguments, serialize them and call this same function. The code in __main__ is also required.
 def run_in_subprocess():
@@ -48,6 +85,8 @@ def run_in_subprocess():
             current_time = datetime.now()
             print(f">> run shell on {current_time.strftime('%Y-%m-%d %H:%M:%S')}\n{command}")
             
+            update_launch_json(command)
+
             # Call the subprocess
             subprocess.run(command, shell=True, check=True, stdout=sys.stdout, stderr=sys.stderr, text=True)
             
@@ -128,7 +167,7 @@ def check_collision_and_repair_isaacgym(pars: RobotParameter):
     robot_model = RobotModel(pars)
     open_visualization = False
 
-    urdf_path = AERIAL_GYM_ROOT_DIR + "/resources/robots/generalized_aerial_robot/generalized_model_constraints.urdf"
+    urdf_path = AERIAL_GYM_ROOT_DIR + "/resources/robots/generalized_model_constraints.urdf"
 
 
     gym = gymapi.acquire_gym()
@@ -162,8 +201,8 @@ def check_collision_and_repair_isaacgym(pars: RobotParameter):
 
 
     handle_list = []
-    for i in range(0,7):
-        create_urdf_model_for_collision(RobotModel(pars), urdf_path, i, 0.045, 0.08)
+    for i in range(0,pars.n_motors+1):
+        create_urdf_model_for_collision(RobotModel(pars), urdf_path, i, 0.02, 0.12)
         if i > 0:
             asset_options.fix_base_link = False
         else:
@@ -234,117 +273,306 @@ def check_collision_and_repair_isaacgym(pars: RobotParameter):
 
 
 def save_robot_pars_to_file(pars):
-    print("save parameters to aerial_gym_dev/envs/base/tmp/config")
-
-    from aerial_gym_dev import AERIAL_GYM_ROOT_DIR
-    with open(AERIAL_GYM_ROOT_DIR + "/aerial_gym_dev/envs/base/tmp/config", "wb") as file:
+    print("save parameters to aerial_gym_dev/envs/base/tmp/generalized_model")
+    with open(AERIAL_GYM_ROOT_DIR + "/aerial_gym_dev/envs/base/tmp/generalized_model", "wb") as file:
         pickle.dump(pars, file)
+    urdf_path = AERIAL_GYM_ROOT_DIR + "/resources/robots/generalized_model.urdf"
+    create_urdf_from_model(RobotModel(pars), urdf_path)
+
+
+
+
+class ModelWrapper(torch.nn.Module):
+    def __init__(self, model):
+        super().__init__()
+        self._model = model
+
+    def forward(self, obs):
+        normalized_obs = self._model.norm_obs(obs)
+        input_dict = {"obs": normalized_obs}
+        actor_output = self._model.a2c_network(input_dict)
+        mu = actor_output[0]
+        torch.clip(mu, min = -1.0, max = 1.0)
+        return mu
+
+def model_to_onnx():
+    dirs = glob.glob(f"{AERIAL_GYM_ROOT_DIR}/aerial_gym_dev/rl_training/rl_games/runs/gen_ppo_*")
+    assert len(dirs) == 1, "There should be exactly one directory that contains the policy"
+    path_speed = os.path.join(dirs[0], 'nn', 'best_speed.pth')
+    path_efficiency = os.path.join(dirs[0], 'nn', 'best_efficiency.pth')
+    path_hover = os.path.join(dirs[0], 'nn', 'best_hover.pth')
+
+
+
+    if not os.path.exists(path_hover) and not(os.path.exists(path_speed) and os.path.exists(path_efficiency)):
+        raise FileNotFoundError("The file 'best_hover.pth' or ('best_speed.pth' and 'best_efficiency.pth) don't not exist. Cannot proceed with model conversion.")
+    for f in [path_speed, path_efficiency, path_hover]:
+        if os.path.exists(f):
+            print("converting model", f,"to .onnx")
+            _model_to_onnx(f)
+
+@run_in_subprocess()
+def _model_to_onnx(model_path):
+
+    import yaml
+    from rl_games.torch_runner import Runner
+    import rl_games.algos_torch.flatten as flatten
+    from aerial_gym_dev.rl_training.rl_games.runner import update_config, get_args
+    
+    args = vars(get_args())
+    args['params'] = {'algo_name': 'a2c_continuous'}
+
+    args.update({
+        'task': 'position_setpoint_task',
+        'checkpoint': model_path,
+        'train': False,
+        'training': False,
+        'seed': 2,
+        'play': True,
+    })
+
+    yaml_config = os.path.join(AERIAL_GYM_ROOT_DIR, "aerial_gym_dev/rl_training/rl_games/ppo_aerial_quad.yaml")
+    with open(yaml_config, "r") as stream:
+        config = yaml.safe_load(stream)
+
+    args["seed"] = 2
+    config = update_config(config, args)
+    config["params"]["load_checkpoint"] = True
+
+    runner = Runner()
+
+    try:
+        runner.load(config)
+    except yaml.YAMLError as exc:
+        print(exc)
+        exit(1)
+    
+    agent = runner.create_player()
+    agent.restore(model_path)
+
+    wrapped_model = ModelWrapper(agent.model)
+    dummy_input = torch.randn(1, *agent.obs_shape).to(agent.device)
+    onnx_model_path = model_path.split("/")[-1].split(".pth")[0] + ".onnx"
+    
+    print(f"saving {onnx_model_path}")
+    with torch.no_grad():
+        torch.onnx.export(
+            wrapped_model,
+            dummy_input,
+            onnx_model_path,
+            verbose=True,
+            input_names=['obs'],
+            output_names=['mu'],
+            dynamic_axes={'obs': {0: 'batch_size'}, 'mu': {0: 'batch_size'}},
+            opset_version=11
+        )
+
+def update_task_config_parameters(seed: int=None, headless: bool=None, waypoint_name: str=None, save_states_during_enjoy: bool=None):
+    assert isinstance(seed, int) or seed is None, "seed must be an integer"
+    assert isinstance(headless, bool) or headless is None, "headless must be a boolean"
+    assert isinstance(waypoint_name, str) or waypoint_name is None, "waypoint_name must be a string"
+    assert isinstance(save_states_during_enjoy, bool) or save_states_during_enjoy is None, "save_states_during_enjoy must be a boolean"
+    print("updating", seed, headless, waypoint_name, save_states_during_enjoy)
+    file_path_list = [
+    f"{AERIAL_GYM_ROOT_DIR}/aerial_gym_dev/config/task_config/position_setpoint_with_attitude_control.py",
+    f"{AERIAL_GYM_ROOT_DIR}/aerial_gym_dev/config/task_config/hover_task.py",
+    ]
+    for file_path in file_path_list:
+        with open(file_path, 'r') as file:
+            lines = file.readlines()
+        seed_count = headless_count = waypoint_count = save_states_count = 0
+        for i, line in enumerate(lines):
+            if line.strip().startswith("seed ="):
+                if seed is not None:
+                    lines[i] = f"    seed = {seed}\n"
+                seed_count += 1
+            elif line.strip().startswith("headless ="):
+                if headless is not None:
+                    lines[i] = f"    headless = {headless}\n"
+                headless_count += 1
+            elif line.strip().startswith("waypoint_name ="):
+                if waypoint_name is not None:
+                    lines[i] = f'    waypoint_name = "{waypoint_name}"\n'
+                waypoint_count += 1
+            elif line.strip().startswith("save_states_during_enjoy ="):
+                if save_states_during_enjoy is not None:
+                    lines[i] = f"    save_states_during_enjoy = {save_states_during_enjoy}\n"
+                save_states_count += 1
+        assert seed_count == 1, f"Expected exactly one 'seed' field in the file {file_path}"
+        assert headless_count == 1, f"Expected exactly one 'headless' field in the file {file_path}"
+        assert waypoint_count == 1, f"Expected exactly one 'waypoint_name' field in the file {file_path}"
+        assert save_states_count == 1, f"Expected exactly one 'save_states_during_enjoy' field in the file {file_path}"
+        with open(file_path, 'w') as file:
+            file.writelines(lines)
+
+
+
+
+def get_hover_policy(animation_data_path, seed_train, render):
+    update_task_config_parameters(save_states_during_enjoy=True)
+    animation_data = load_animation_data_and_policy(animation_data_path)
+    save_robot_pars_to_file(animation_data["pars"])
+    update_task_config_parameters(save_states_during_enjoy=True)
+    motor_position_enjoy(928378, "best_speed.onnx", animation_data["waypoint_name"], "position_setpoint_task", "headless")
+    update_task_config_parameters(save_states_during_enjoy=False)
+    assert render in ("visualize", "headless", "save")
+    motor_position_train(seed_train, 4000, "hover", "hover_task", "headless" if render=="save" else render)
+    model_to_onnx()
+    info_dict = motor_position_enjoy(9998, "best_hover.onnx", "hover", "hover_task", "headless")
+    print("Hover success rate: ", info_dict["nSuccess"]  / info_dict["nTrials"])
+    if render!="headless":
+        motor_position_enjoy(9998, "best_hover.onnx", "hover", "hover_task", render)
 
 
 
 @run_in_subprocess()
-def motor_position_enjoy(seed_enjoy):
-    from aerial_gym_dev import AERIAL_GYM_ROOT_DIR
+def motor_position_enjoy(seed_enjoy, policy_path, waypoint_name, task_name, render):
+
+    assert task_name in ("hover_task", "position_setpoint_task")
+    assert render in  ("headless", "visualize", "save")
+    headless = render not in ("visualize", "save")
+    record_video = render == "save"
+
+    if record_video:
+        subprocess.run("rm results/figures/animation_pngs/* -f", shell=True, check=True, stdout=sys.stdout, stderr=sys.stderr, text=True)
+        subprocess.run("rm ./animation*.mp4 -f", shell=True, check=True, stdout=sys.stdout, stderr=sys.stderr, text=True)
+        headless = False
+
+    update_task_config_parameters(seed=seed_enjoy, headless=headless, waypoint_name=waypoint_name)
+
     import os
-    import isaacgym
-    from aerial_gym_dev.utils import  get_args, task_registry, Logger
     import numpy as np
     import torch
-    from sample_factory.enjoy_ros import NN_Inference_ROS
-    from sf_examples.aerialgym_examples.train_aerialgym import parse_aerialgym_cfg, register_aerialgym_custom_components
+    import onnxruntime as ort
+    from rl_games.common import env_configurations, vecenv
+    from rl_games.torch_runner import Runner
     import time
-    import torch
-    from aerial_gym_dev.envs import base
-    from aerial_gym_dev.envs.base.generalized_aerial_robot_config import GenAerialRobotCfg
-
-    def play(args):
-
-        args.headless = True
-        num_airframes_parallel = int(2e4)
-
-        args.num_envs = num_airframes_parallel
-        cfg = parse_aerialgym_cfg(evaluation=True)
-        cfg.num_agents = num_airframes_parallel
-        cfg.eval_deterministic = True
-        cfg.train_dir = "./train_dir"
-        nn_model = NN_Inference_ROS(cfg)
-        print("CFG is:", cfg)
+    from tqdm import tqdm
+    from aerial_gym_dev.sim.sim_builder import SimBuilder
+    import yaml
+    from aerial_gym_dev.task.task_registry import task_registry
+    from aerial_gym_dev.rl_training.rl_games.runner import get_args
 
 
+    # Ensure CUDA is available for ONNX Runtime
+    assert 'CUDAExecutionProvider' in ort.get_available_providers(), "CUDA is not available for ONNX Runtime"
 
-        env_cfg = task_registry.get_cfgs(name=args.task)
+    num_airframes_parallel = int(2e4 if headless else 1)
+    print("Averaging", num_airframes_parallel, "environments.")
+    args = vars(get_args())
+    rl_task_env = task_registry.make_task(task_name, {
+        "headless": headless,
+        "num_envs": num_airframes_parallel,
+        "is_enjoy": True,
+        "training": False,
+        "train": False,
+        "play": True,
+        "seed": seed_enjoy,
+    })
+    obs = rl_task_env.reset()[0]["observations"].contiguous()
+
+    sess_options = ort.SessionOptions()
+    sess_options.graph_optimization_level = ort.GraphOptimizationLevel.ORT_ENABLE_ALL
+    ort_model_gpu = ort.InferenceSession(policy_path, sess_options, providers=['CUDAExecutionProvider'])
+    io_binding = ort_model_gpu.io_binding()
+
+    output_shape = (rl_task_env.sim_env.num_envs, rl_task_env.sim_env.num_env_actions + rl_task_env.sim_env.num_robot_actions)
+    actions_gpu = torch.empty(output_shape, dtype=torch.float32, device='cuda:0').contiguous()
+    time_last_frame = time.time()
+    for i in tqdm(range(1000 if headless or record_video else int(1e8))):
         
-        env_cfg.control.controller = "no_control"
+        # GPU Inference
+        io_binding.bind_input(
+            name='obs',
+            device_type='cuda',
+            device_id=0,
+            element_type=np.float32,
+            shape=tuple(obs.shape),
+            buffer_ptr=obs.data_ptr()
+        )
+        io_binding.bind_output(
+            name='mu',
+            device_type='cuda',
+            device_id=0,
+            element_type=np.float32,
+            shape=tuple(actions_gpu.shape),
+            buffer_ptr=actions_gpu.data_ptr()
+        )
+        ort_model_gpu.run_with_iobinding(io_binding)
+        obs = rl_task_env.step(actions=actions_gpu)[0]["observations"].contiguous()
 
-        # prepare environment
-        env, _ = task_registry.make_env(name=args.task, args=args, env_cfg=env_cfg)
-        rs = np.random.RandomState(seed_enjoy)
-        counter = 0
-        reset_every = 750
+        if not headless:
+            if record_video and i > 1:
+                rl_task_env.sim_env.IGE_env.gym.step_graphics(rl_task_env.sim_env.IGE_env.sim)
+                rl_task_env.sim_env.IGE_env.gym.draw_viewer(rl_task_env.sim_env.IGE_env.viewer.viewer, rl_task_env.sim_env.IGE_env.sim, False)
+                time.sleep(0.2)
+                rl_task_env.sim_env.IGE_env.gym.write_viewer_image_to_file(rl_task_env.sim_env.IGE_env.viewer.viewer, f"results/figures/animation_pngs/{i:06d}.png")
+            else:            
+                while time.time() - time_last_frame < 0.01:
+                    time.sleep(1.0 / 10000.0)
+        time_last_frame = time.time()
 
-        torch.random.manual_seed(rs.randint(int(1e8)))
-        obs, _ = env.reset()
-        # random_action = torch.asarray(nn_model.action_space.sample(), device=env.device)
-        # obs, _,_,_,_ = env.step(random_action.detach())
+        if (i+1) % 500 == 0:
+            print("i", i)
+            obs = rl_task_env.reset()[0]["observations"].contiguous()
 
-        max_steps = 1*int(env.max_episode_length)
-        env.record_info_during_reward(2, max_steps, env.action_input.shape[1], torch.device(torch.cuda.current_device()))
+    if record_video:
+        cmd1 = f"ffmpeg -framerate 100 -pattern_type glob -i 'results/figures/animation_pngs/*.png' -c:v libx264 -pix_fmt yuv420p -vf scale=1920:1080 animation_{policy_path}.mp4"
+        cmd2 = f"ffmpeg -framerate 25 -pattern_type glob -i 'results/figures/animation_pngs/*.png' -c:v libx264 -pix_fmt yuv420p -vf scale=1920:1080 animation_{policy_path}_slowmo_x4.mp4"
+        subprocess.run(cmd1, shell=True, check=True, stdout=sys.stdout, stderr=sys.stderr, text=True)
+        subprocess.run(cmd2, shell=True, check=True, stdout=sys.stdout, stderr=sys.stderr, text=True)
 
-
-        for i in tqdm(range(max_steps)):
-            if counter == 0:
-                start_time = time.time()
-            counter += 1
-            action = nn_model.get_action(obs)
-            obs, priviliged_obs, rewards, resets, extras = env.step(action)
-            if not args.headless:
-                env.render()
-            if counter % reset_every == 0:
-                torch.random.manual_seed(rs.randint(int(1e8)))
-                obs, _ = env.reset()
-
-        info_dict = env.infoTensordict
-
-        # reward_list = np.array(reward_list).T
-        # pose_list = np.vstack([np.array(pose_list)[:, i, :] for i in range(np.array(pose_list).shape[1])])
-        # target_list = np.vstack([np.array(target_list)[:, i, :] for i in range(np.array(target_list).shape[1])])
-
-        return info_dict
-
-    cmd_str = f"python src/airframes_objective_functions.py --motor_RL_control_enjoy {seed_enjoy}"
-    sys.argv = [sys.argv[0]] + ["--env=gen_aerial_robot"]
-
-    EXPORT_POLICY = True
-    RECORD_FRAMES = False
-    MOVE_CAMERA = False
-    args = get_args()
-    args.task = "gen_aerial_robot"
-    info_dict = play(args)
-    with open("info_dict.pt", "wb") as f:
-        torch.save(info_dict,f) 
-
-    info_dict = torch.load("info_dict.pt")
+    info_dict = rl_task_env.get_info()
     return info_dict
 
-@run_in_subprocess()
-def motor_position_train(seed_train, train_for_seconds):
+# @run_in_subprocess()
+def motor_position_train(seed_train, max_epochs, waypoint_name, task_name, render):
+
+    assert task_name in ("hover_task", "position_setpoint_task")
+    headless = render in ("headless", "save")
+
+    update_task_config_parameters(seed=seed_train, headless=headless, waypoint_name=waypoint_name)
     from datetime import datetime
     current_time = datetime.now()
-    subprocess.run("rm train_dir/ -rf", shell=True)
-    cmd_str = f'python3 ../../sample-factory/sf_examples/gen_aerial_robot_population/train_individual.py --env=gen_aerial_robot --seed={seed_train} --train_for_seconds={train_for_seconds}'
+
+
+    subprocess.run(f"rm *.onnx -f", shell=True)
+
+    subprocess.run(f"rm {AERIAL_GYM_ROOT_DIR}/aerial_gym_dev/rl_training/rl_games/runs/* -rf", shell=True)
+    cmd_str = f"wd=`pwd` && cd {AERIAL_GYM_ROOT_DIR}/aerial_gym_dev/rl_training/rl_games && python runner.py --seed={seed_train} --max_epochs={max_epochs} --task=\"{task_name}\""
     print(f">> run shell on {current_time.strftime('%Y-%m-%d %H:%M:%S')}\n{cmd_str}", file=sys.stderr)
-    subprocess.run(cmd_str, shell=True, stdout=sys.stdout, stderr=sys.stderr, text=True)
+    result = subprocess.run(cmd_str, shell=True, stdout=sys.stdout, stderr=sys.stderr, text=True)
+    exit_code =  result.returncode
+    
+    SUCCESS_EXIT_CODE = 0
+    CRASH_EXIT_CODE = 1
+    FAILED_TO_LEAR_HOVER_EXIT_CODE = 3
+    EARLY_STOPPED_TO_SAVE_TIME_EXIT_CODE = 4
+    
+    if exit_code == SUCCESS_EXIT_CODE:
+        return "success"
+    elif exit_code == EARLY_STOPPED_TO_SAVE_TIME_EXIT_CODE:
+        print("Early stopped to save time.")
+        return "success"
+    elif exit_code == FAILED_TO_LEAR_HOVER_EXIT_CODE:
+        print("Early stopped, system failed to learn hover in a reasonable time. No policy saved.")
+        return "fail"
+    elif exit_code == CRASH_EXIT_CODE:
+        raise ChildProcessError("Training produced an unexpected crash.")
+    else:
+        raise ValueError(f"Exit code {exit_code} not recognized.")
+
 
 @run_in_subprocess()
 def plot_airframe_to_file_isaacgym(pars: RobotParameter, filepath: str):
 
+    from scipy.spatial.transform import Rotation
     from isaacgym import gymapi, gymtorch
     import time
 
     save_robot_pars_to_file(pars)
+    urdf_path = AERIAL_GYM_ROOT_DIR + "/resources/robots/generalized_model.urdf"
 
-    urdf_path = AERIAL_GYM_ROOT_DIR + "/resources/robots/generalized_aerial_robot/generalized_model.urdf"
-    create_urdf_from_model(RobotModel(pars), urdf_path)
 
 
 
@@ -376,7 +604,7 @@ def plot_airframe_to_file_isaacgym(pars: RobotParameter, filepath: str):
     robot_handle = gym.create_actor(env, robot_asset, pose, "robot", 0, 1)
 
     # Adjust camera position and zoom out
-    cam_pos = gymapi.Vec3(0.25, 0.25, 1.2)  # Move the camera further out
+    cam_pos = gymapi.Vec3(-0.45, 0.15, 1.2)  # Move the camera further out
     cam_target = gymapi.Vec3(0.0, 0.0, 0.5)  # Target the origin
     gym.viewer_camera_look_at(viewer, None, cam_pos, cam_target)
 
@@ -397,7 +625,24 @@ def plot_airframe_to_file_isaacgym(pars: RobotParameter, filepath: str):
     z_colors = np.array([[0, 0, 1], [0, 0, 1]]+ax_center, dtype=np.float32)
     gym.add_lines(viewer, env, 1, z_points, z_colors)
 
+    # Add motor orientation arrows.
+    orientation_color = np.array([[1, 0.5, 0], [1, 0.5, 0]], dtype=np.float32)
 
+    for position, orientation, in zip(np.array(pars.motor_translations, dtype=np.float32), np.array(pars.motor_orientations, dtype=np.float32),):
+        position += ax_center
+        rotation_matrix = Rotation.from_euler('xyz', orientation, degrees=True).as_matrix()
+        head_width = 0.02
+        arrow_length = 0.1
+        shaft_end = position + rotation_matrix.dot(np.array([0, 0, arrow_length-head_width]))
+        arrow_tip = position + rotation_matrix.dot(np.array([0, 0, arrow_length]))
+        
+        # Arrow shaft
+        gym.add_lines(viewer, env, 1, np.array([position, arrow_tip], dtype=np.float32), orientation_color)
+        
+        # Arrow head
+        for dx, dy in [(-head_width, 0), (head_width, 0), (0, -head_width), (0, head_width)]:
+            head_base = shaft_end + rotation_matrix.dot(np.array([dx, dy, 0]))
+            gym.add_lines(viewer, env, 1, np.array([head_base, arrow_tip], dtype=np.float32), orientation_color)
 
     # Add a delay to ensure the viewer has time to render
     for _ in range(10):
@@ -413,39 +658,113 @@ def plot_airframe_to_file_isaacgym(pars: RobotParameter, filepath: str):
 
 
 
-def dump_animation_info_dict(pars, seed_train, seed_enjoy, info_dict):
-        with open(f'cache/airframes_animationdata/{hash(pars)}_{seed_train}_{seed_enjoy}_{pars.task_info["task_name"]}_airframeanimationdata.wb', 'wb') as f:
-            res = {"pars":pars,
-                "task_info": pars.task_info,
-                "seed_train":seed_train, 
-                "seed_enjoy": seed_enjoy,
-                **info_dict,
-            }
-            pickle.dump(res, f)
 
-def log_detailed_evaluation_results(pars, info_dict, seed_train, seed_enjoy, train_for_seconds):
-        task_name = pars.task_info["task_name"]
-        logpath = f"results/data/details_every_evaluation_{task_name}.csv"
-        header = "hash;train_for_seconds;seed_train;seed_enjoy;f;nWaypointsReached;nResets;nWaypointsReached/nResets;total_energy/nWaypointsReached;total_energy\n"
-        import torch
-        if not os.path.exists(logpath) or os.path.getsize(logpath) == 0:
-            with open(logpath, 'w') as file:
-                file.write(header)
-        with open(logpath, 'a') as file:
-            print(f"{hash(pars)};{train_for_seconds};{seed_train};{seed_enjoy};{loss_function(info_dict)};{(info_dict['f_nWaypointsReached']).cpu().item()};{(info_dict['f_nResets']).cpu().item()};{(info_dict['f_nWaypointsReached']/info_dict['f_nResets']).cpu().item()};{(info_dict['f_total_energy']/torch.clamp(info_dict['f_nWaypointsReached'], min=1.0)).cpu().item()};{(info_dict['f_total_energy']).cpu().item()}", file=file)
+import pickle
+import os
+import shutil
+import io
+import tarfile
 
-def motor_rl_objective_function(pars, seed_train, seed_enjoy, train_for_seconds):
+def dump_animation_data_and_policy(pars, seed_train, seed_enjoy, info_dict, policy_path):
+    
+    # Create a BytesIO object to hold the compressed data
+    compressed_policy_io = io.BytesIO()
+    
+    with tarfile.open(fileobj=compressed_policy_io, mode="w:gz") as tar:
+        tar.add(policy_path, arcname=os.path.basename(policy_path))
+    
+    # Get the compressed data as bytes
+    compressed_policy_data = compressed_policy_io.getvalue()
+    
+    res = {
+        "pars": pars,
+        "waypoint_name": info_dict["waypoint_name"],
+        "seed_train": seed_train,
+        "seed_enjoy": seed_enjoy,
+        "policy_data": compressed_policy_data,
+        **info_dict,
+    }
+    
+    filename = f'cache/airframes_animationdata/{hash(pars)}_{seed_train}_{seed_enjoy}_{info_dict["waypoint_name"]}_{policy_path.split(".onnx")[0]}_airframeanimationdata.wb'
+    os.makedirs(os.path.dirname(filename), exist_ok=True)
+    
+    with open(filename, 'wb') as f:
+        pickle.dump(res, f)
+
+def load_animation_data_and_policy(animationdata_and_policy_file_path):
+    with open(animationdata_and_policy_file_path, 'rb') as f:
+        animationdata: dict = pickle.load(f)
+    
+    compressed_policy_data = animationdata['policy_data']
+    
+    onnx_files = glob.glob("*.onnx")
+    for file in onnx_files:
+        os.remove(file)
+
+    
+    # Extract the compressed policy to ./train_dir
+    with tarfile.open(fileobj=io.BytesIO(compressed_policy_data), mode="r:gz") as tar:
+        tar.extractall(path=".")
+    policy_path_list = glob.glob("*.onnx")
+    assert len(policy_path_list) == 1
+    animationdata["policy_path"] = policy_path_list[0]
+    return animationdata
+
+def log_detailed_evaluation_results(pars, policy_path, info_dict, seed_train, seed_enjoy, max_epochs, evaluation_time, result_file_path):
+    waypoint_name = info_dict["waypoint_name"]
+    header = "hash;pars_name;policy_path;max_epochs;evaluation_time;seed_train;seed_enjoy;nWaypointsReached;percentage_of_battery_used_in_total;nResets;n_waypoints_per_reset;n_waypoints_reachable_based_on_battery_use\n"
+    import torch
+    if hasattr(pars, "pars_name"):
+        pars_name = pars.pars_name
+    else:
+        pars_name = ""
+
+    if not os.path.exists(result_file_path) or os.path.getsize(result_file_path) == 0:
+        with open(result_file_path, 'w') as file:
+            file.write(header)
+    with open(result_file_path, 'a') as file:
+        print(f"{hash(pars)};{pars_name};{policy_path};{max_epochs};{evaluation_time};{seed_train};{seed_enjoy};{info_dict['nWaypointsReached']};{info_dict['percentage_of_battery_used_in_total']};{info_dict['nResets']};{info_dict['n_waypoints_per_reset']};{info_dict['n_waypoints_reachable_based_on_battery_use']}", file=file)
+
+def motor_rl_objective_function(pars, seed_train, seed_enjoy, max_epochs, waypoint_name, log_detailed_evaluation_results_path, render):
+
+    assert render in  ("headless", "visualize", "save")
+
+
     save_robot_pars_to_file(pars)
-    motor_position_train(seed_train, train_for_seconds)
-    info_dict = motor_position_enjoy(seed_enjoy)
-    log_detailed_evaluation_results(pars, info_dict, seed_train, seed_enjoy, train_for_seconds)
-    dump_animation_info_dict(pars, seed_train, seed_enjoy, info_dict)
-    return info_dict
+    t_start = time.time() 
 
-def loss_function(info_dict):
-    return -(
-        (info_dict["f_waypoints_reached_energy_adjusted"][0]  / info_dict["f_nResets"][0])
-        ).cpu().item()
+    # exit_flag = "success" 
+    exit_flag = motor_position_train(seed_train, max_epochs, waypoint_name, "position_setpoint_task", render)
+
+    if exit_flag == "fail":
+        print("Train failed. Skipping evaluation.")
+        return 0.0, 0.0
+
+    elif exit_flag == "success":
+        model_to_onnx()
+        info_dict1 = motor_position_enjoy(seed_enjoy, "best_speed.onnx", waypoint_name, "position_setpoint_task", "headless")
+        info_dict2 = motor_position_enjoy(seed_enjoy, "best_efficiency.onnx", waypoint_name, "position_setpoint_task", "headless")
+
+        log_detailed_evaluation_results(pars, "best_speed.onnx", info_dict1, seed_train, seed_enjoy, max_epochs, time.time() - t_start, log_detailed_evaluation_results_path)
+        log_detailed_evaluation_results(pars, "best_efficiency.onnx", info_dict2, seed_train, seed_enjoy, max_epochs, time.time() - t_start, log_detailed_evaluation_results_path)
+        dump_animation_data_and_policy(pars, seed_train, seed_enjoy, info_dict1, "best_speed.onnx")
+        dump_animation_data_and_policy(pars, seed_train, seed_enjoy, info_dict2, "best_efficiency.onnx")
+
+        print(f"Objective function (train + enjoy) time: {time.time() - t_start}")
+        print("--------------------------")
+        print("Number of Waypoints Reached:", info_dict1['nWaypointsReached'])
+        print("Total battery use:", info_dict2['percentage_of_battery_used_in_total'])
+        print("Number of Resets:", info_dict1['nResets'], info_dict2['nResets'])
+        print("f1 (Waypoints per Reset) =", info_dict1['n_waypoints_per_reset'])
+        print("f2 (Waypoints reachable based on battery use) =", info_dict2['n_waypoints_reachable_based_on_battery_use'])
+        print("--------------------------")
+
+        if render != "headless":
+            motor_position_enjoy(seed_enjoy, "best_speed.onnx", waypoint_name, "position_setpoint_task", render)
+        return info_dict1["n_waypoints_per_reset"], info_dict2["n_waypoints_reachable_based_on_battery_use"]
+    else:
+        raise ValueError("Exit flag value not recognized.")
+
 
 
 

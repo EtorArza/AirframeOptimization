@@ -12,6 +12,7 @@ case "$1" in
     results)
         find results/data/ -type f ! -regex '.*\('$exclude'\).*' -delete
         find results/figures/ -type f ! -regex '.*\('$exclude'\).*' -delete
+        find . -type f -name '*.mp4' ! -regex '.*\('$exclude'\).*' -delete
         ;;
     solver)
         find cache/ -type f -name '*_f.npy' ! -regex '.*\('$exclude'\).*' -delete
@@ -23,6 +24,7 @@ case "$1" in
     nn)
         find cache/ -type f -name '*.pth' ! -regex '.*\('$exclude'\).*' -delete
         find . -type f -name '*.log' ! -regex '.*\('$exclude'\).*' -delete
+        find . -type f -name '*.onnx' ! -regex '.*\('$exclude'\).*' -delete
         ;;
     all)
         find cache/ -type f ! -regex '.*\('$exclude'\).*' -delete
