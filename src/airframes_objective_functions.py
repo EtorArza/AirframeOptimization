@@ -237,6 +237,9 @@ def check_collision_and_repair_isaacgym(pars: RobotParameter):
     # for handle in handle_list:
     #     print(gym.get_actor_rigid_body_states(env, handle, gymapi.STATE_POS)[0])
 
+    original_object_poses = []
+    for i in range(3):  # Loop over objects [0,1,2]
+        original_object_poses.append(copy.deepcopy(gym.get_actor_rigid_body_states(env, handle_list[i+1], gymapi.STATE_POS)))
 
     for step in range(100):
         gym.simulate(sim)
@@ -251,8 +254,30 @@ def check_collision_and_repair_isaacgym(pars: RobotParameter):
 
             repaired_pars.motor_translations[i], repaired_pars.motor_orientations[i] = repair_position_device(offset_position_tensor, offset_quat_tensor, pars.motor_translations[i], pars.motor_orientations[i])
             total_repair_translation_and_rotation += torch.sum(torch.abs(offset_position_tensor)) + torch.sum(torch.abs(offset_quat_tensor[:3]))
+        # Symmetry enforcement: ensure objects [4,5,6] mirror objects [1,2,3] across the y-plane (object 0 is the electronics cage)
+        # Don't change orientation. We want the motors to stop coliding by moving without changing their orientation.
+        for i in range(3):
+            state_obj_012 = copy.deepcopy(gym.get_actor_rigid_body_states(env, handle_list[i+1], gymapi.STATE_POS))
+            state_obj_012[0][0][1] = original_object_poses[i][0][0][1]
+            gym.set_actor_rigid_body_states(env, handle_list[i+1], state_obj_012, gymapi.STATE_POS)
+
+
+            state_obj_012 = copy.deepcopy(state_obj_012)
+            # position
+            state_obj_012[0][0][0][1] *= -1.0
+
+            # orientation
+            state_obj_012[0][0][1][0] *= -1.0
+            state_obj_012[0][0][1][2] *= -1.0
+            gym.set_actor_rigid_body_states(env, handle_list[i+1+3], state_obj_012, gymapi.STATE_POS)
+
+
         contact_forces = gym.acquire_net_contact_force_tensor(sim)
         total_repair_translation_and_rotation += torch.sum(torch.abs(gymtorch.wrap_tensor(contact_forces)))
+
+    gym.simulate(sim)
+    gym.fetch_results(sim, True)
+    gym.refresh_net_contact_force_tensor(sim)
 
     if open_visualization:
         for k in range(100000):
